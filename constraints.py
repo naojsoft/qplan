@@ -3,33 +3,44 @@
 #
 #  Eric Jeschke (eric@naoj.org)
 #
-import misc
+from datetime import timedelta
 
 class Constraints(object):
     
-    def __init__(self, available_filters=None, start_time=None):
+    def __init__(self, observer=None, available_filters=None):
+        self.obs = observer
         self.available_filters = available_filters
-        self.start_time = start_time
     
-    def cns_correct_filters(self, slot, msb):
+    def cns_correct_filters(self, slot, ob):
         """
-        Make sure there are no filters specified by this program that
+        Make sure there are no filters specified by this OB that
         are not available.
         """
-        return msb.filter in self.available_filters
+        return ob.filter in self.available_filters
 
-    def cns_target_observable(self, slot, msb):
+
+    def cns_target_observable(self, slot, ob):
         """
         Make sure that the target specified is viewable with the
-        program's desired elevation constraints.
+        OB's desired elevation and airmass constraints.
         """
 
-        time1 = slot.start_time
-        time2 = slot.stop_time
-        tgt = msb.target
-        body = tgt.get_body()
-        return misc.observable(body, time1, time2, 15.0, 85.0)
+        s_time = slot.start_time
+        e_time = slot.stop_time
         
-        return True
+        min_el, max_el = ob.get_el_minmax()
+        
+        return self.obs.observable(ob.target, s_time, e_time,
+                                   min_el, max_el,
+                                   airmass=ob.airmass)
 
+
+    def cns_time_enough(self, slot, ob):
+        """
+        Make sure the time taken by the observing block fits the slot.
+        """
+        time_done = slot.start_time + timedelta(0, ob.total_time)
+        return time_done <= slot.stop_time
+
+#END
 
