@@ -30,17 +30,18 @@ class Constraints(object):
         
         min_el, max_el = ob.get_el_minmax()
         
-        return self.obs.observable(ob.target, s_time, e_time,
-                                   min_el, max_el,
-                                   airmass=ob.airmass)
+        (obs_ok, start) = self.obs.observable(ob.target, s_time, e_time,
+                                              min_el, max_el, ob.total_time,
+                                              airmass=ob.airmass)
+        return obs_ok
 
 
-    def cns_time_enough(self, slot, ob):
-        """
-        Make sure the time taken by the observing block fits the slot.
-        """
-        time_done = slot.start_time + timedelta(0, ob.total_time)
-        return time_done <= slot.stop_time
+    ## def cns_time_enough(self, slot, ob):
+    ##     """
+    ##     Make sure the time taken by the observing block fits the slot.
+    ##     """
+    ##     time_done = slot.start_time + timedelta(0, ob.total_time)
+    ##     return time_done <= slot.stop_time
 
 #END
 

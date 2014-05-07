@@ -40,6 +40,9 @@ class Program(object):
     __str__ = __repr__
 
 
+class SlotError(Exception):
+    pass
+
 class Slot(object):
     """
     Slot -- a period of the night that can be scheduled.
@@ -50,9 +53,59 @@ class Slot(object):
         self.start_time = start_time
         self.stop_time = start_time + timedelta(0, slot_len_sec)
 
+    def split(self, start_time, slot_len_sec):
+        """
+        Split a slot into three slots.
+        Parameters
+        ----------
+          start_time : a datetime compatible datetime object
+              The time at which to split the slot
+          slot_len_sec : int
+              The length of the slot being inserted
+
+        Returns
+        -------
+          A list of Slots formed by splitting the current slot.
+          Depending on the overlap, there will be 1, 2 or 3 slots in the
+          return list.
+        """
+        if start_time < self.start_time:
+            raise SlotError("Start time (%d) < slot start time (%d)" % (
+                start_time, self.start_time))
+
+        stop_time = start_time + timedelta(0, slot_len_sec)
+        if stop_time > self.stop_time:
+            raise SlotError("Stop time (%d) > slot stop time (%d)" % (
+                stop_time, self.stop_time))
+
+        # define before slot
+        slot_b = None
+        if start_time > self.start_time:
+            diff_sec = (start_time - self.start_time).total_seconds()
+            slot_b = Slot(self.start_time, diff_sec)
+
+        # define new displacing slot
+        slot_c = Slot(start_time, slot_len_sec)
+
+        # define after slot
+        slot_d = None
+        if stop_time < self.stop_time:
+            diff_sec = (self.stop_time - stop_time).total_seconds()
+            slot_d = Slot(stop_time, diff_sec)
+            
+        return (slot_b, slot_c, slot_d)
+
+    def size(self):
+        """
+        Returns the length of the slot in seconds.
+        """
+        diff_sec = (self.stop_time - self.start_time).total_seconds()
+        return diff_sec
+    
     def __repr__(self):
         #s = self.start_time.strftime("%H:%M:%S")
-        s = self.start_time.strftime("%H:%M")
+        duration = self.size() / 60.0
+        s = self.start_time.strftime("%H:%M") + ("(%.2fm)" % duration)
         return s
 
     __str__ = __repr__
@@ -180,22 +233,30 @@ class Observer(object):
                  date=None, description=None):
         self.name = name
         self.timezone = timezone
+        self.longitude = longitude
+        self.latitude = latitude
+        self.elevation = elevation
+        self.pressure = pressure
+        self.temperature = temperature
+        self.date = date
+        self.horizon = -1 * numpy.sqrt(2 * elevation / ephem.earth_radius)
 
-        self.site = ephem.Observer()
-        self.site.lon = longitude
-        self.site.lat = latitude
-        self.site.elevation = elevation
-        self.site.pressure = pressure
-        self.site.temp = temperature
+        self.site = self.get_site(date=date)
 
-        self.site.epoch = 2000.0
+    def get_site(self, date=None, horizon=None):
+        site = ephem.Observer()
+        site.lon = self.longitude
+        site.lat = self.latitude
+        site.elevation = self.elevation
+        site.pressure = self.pressure
+        site.temp = self.temperature
+        site.horizon = self.horizon
+        site.epoch = 2000.0
         if date == None:
             now = datetime.now()
             date = self.get_date(now.strftime("%Y-%m-%d %H:%M:%S"))
-        self.site.date = ephem.Date(date.astimezone(pytz.timezone('UTC')))
-
-        self.site.horizon = -1 * numpy.sqrt(2 * self.site.elevation /
-                                            ephem.earth_radius)
+        site.date = ephem.Date(date.astimezone(pytz.timezone('UTC')))
+        return site
         
     def set_date(self, date):
         self.site.date = ephem.Date(date.astimezone(pytz.timezone('UTC')))
@@ -222,15 +283,9 @@ class Observer(object):
 
         raise e
 
-    def observable(self, target, time_start, time_stop,
+    def _observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg,
                    airmass=None):
-        """
-        Return True if `target` is observable between `time_start` and
-        `time_stop`, defined by whether it is between elevation `el_min`
-        and `el_max` during that period, and whether it meets the minimum
-        airmass. 
-        """
         c1 = self.calc(target, time_start)
         c2 = self.calc(target, time_stop)
 
@@ -239,6 +294,77 @@ class Observer(object):
                 and
                 ((airmass == None) or ((c1.airmass <= airmass) and
                                        (c2.airmass <= airmass))))
+
+    ## def observable(self, target, time_start, time_stop,
+    ##                el_min_deg, el_max_deg, time_needed,
+    ##                airmass=None):
+    ##     res = self._observable(target, time_start, time_stop,
+    ##                            el_min_deg, el_max_deg,
+    ##                            airmass=airmass)
+    ##     return res
+
+    def observable(self, target, time_start, time_stop,
+                   el_min_deg, el_max_deg, time_needed,
+                   airmass=None):
+        """
+        Return True if `target` is observable between `time_start` and
+        `time_stop`, defined by whether it is between elevation `el_min`
+        and `el_max` during that period (and whether it meets the minimum
+        `airmass`), for the requested amount of `time_needed`.
+        """
+        delta = (time_stop - time_start).total_seconds()
+        if time_needed > delta:
+            return (False, None)
+        
+        time_off = 0.0
+        time_inc = 300.0
+        cnt = 0
+        pos = None
+
+        # TODO: need a much more efficient algorithm than this
+        # should be able to use calculated rise/fall times
+        while time_off < delta:
+            time_s = time_start + timedelta(0, time_off)
+            time_e = time_s + timedelta(0, time_inc)
+            res = self._observable(target, time_s, time_e,
+                                   el_min_deg, el_max_deg,
+                                   airmass=airmass)
+            if res:
+                cnt += 1
+                if pos == None:
+                    pos = time_s
+            time_off += time_inc
+
+        total_visible = cnt * time_inc
+        obs_ok = (time_needed <= total_visible)
+        return (obs_ok, pos)
+
+    def observable2(self, target, time_start, time_stop,
+                   el_min_deg, el_max_deg, time_needed,
+                   airmass=None):
+        """
+        Return True if `target` is observable between `time_start` and
+        `time_stop`, defined by whether it is between elevation `el_min`
+        and `el_max` during that period, and whether it meets the minimum
+        airmass. 
+        """
+        # set observer's horizon to elevation for el_min or to achieve
+        # desired airmass
+        site = self.get_site()
+        time_rise = site.previous_rising(target.body, start=time_start)
+        time_set = site.next_setting(target.body, start=time_start)
+        print time_rise, "|", time_set
+        if time_rise2 > time_start:
+
+            res = self._observable(target, time_s, time_e,
+                                   el_min_deg, el_max_deg,
+                                   airmass=airmass)
+            if res:
+                cnt += 1
+            time_off += time_inc
+
+        total_visible = cnt * time_inc
+        return time_needed <= total_visible
 
     def __repr__(self):
         return self.name

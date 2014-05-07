@@ -12,7 +12,7 @@ import entity
         # RA           DEC          EQ
 vega = ("18:36:56.3", "+38:47:01", "2000")
 
-class TestTask01(unittest.TestCase):
+class TestEntity01(unittest.TestCase):
 
     def setUp(self):
         self.hst = entity.HST()
@@ -42,7 +42,8 @@ class TestTask01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-29 04:00")
         time2 = self.obs.get_date("2014-04-29 05:00")
-        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0)
+        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+                                     60*60)
         self.assert_(is_obs == True)
     
     def test_observable_2(self):
@@ -51,7 +52,18 @@ class TestTask01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0)
+        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+                                     60*15)  # 15 min ok
+        self.assert_(is_obs == False)
+    
+    def test_observable_3(self):
+        # vega should be visible near the end but not in the beginning
+        # during this period
+        tgt = entity.StaticTarget("vega", vega[0], vega[1])
+        time1 = self.obs.get_date("2014-04-28 22:00")
+        time2 = self.obs.get_date("2014-04-28 23:00")
+        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+                                     60*16)  # 16 min NOT ok
         self.assert_(is_obs == False)
     
     def test_airmass(self):
@@ -93,6 +105,14 @@ class TestTask01(unittest.TestCase):
     ##         c1 = self.obs.calc(body, time)
     ##         print "%s  %s  %f" % (c1.lt.strftime("%H:%M"),
     ##                               c1.ut.strftime("%H:%M"), c1.airmass)
+    
+    def test_slot_split(self):
+        time1 = self.obs.get_date("2010-10-18 21:00")
+        time2 = self.obs.get_date("2010-10-18 21:30")
+        # 2 hr slot
+        slot = entity.Slot(time1, 3600.0 * 2)
+        res = slot.split(time2, 3600.0)
+        self.assert_(res[0].stop_time == time2)
     
 
 if __name__ == "__main__":
