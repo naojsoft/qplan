@@ -53,9 +53,9 @@ def parse_proposals(filepath):
         next(reader)
 
         for row in reader:
-            (proposal, propid, origrank, newrank) = row
+            (proposal, propid, rank) = row
             programs[proposal] = entity.Program(proposal, propid=propid,
-                                                rank=float(newrank))
+                                                rank=float(rank))
 
     return programs
 
@@ -74,7 +74,11 @@ def parse_obs(filepath, propdict):
             (proposal, name, ra, dec, eq, filter, exptime, num_exp,
              dither, totaltime, seeing, airmass) = row
             # skip blank lines
-            if len(proposal.strip()) == 0:
+            proposal = proposal.strip()
+            if len(proposal) == 0:
+                continue
+            # skip comments
+            if proposal.lower() == 'comment':
                 continue
             # transform equinox, e.g. "J2000" -> 2000
             if isinstance(eq, str):
@@ -92,12 +96,18 @@ def parse_obs(filepath, propdict):
                 airmass = float(airmass)
             else:
                 airmass = None
+
+            envcfg = entity.EnvironmentConfiguration(seeing=seeing,
+                                                     airmass=airmass)
+            inscfg = entity.SPCAMConfiguration(filter=filter)
+            telcfg = entity.TelescopeConfiguration(focus='P_OPT')
             
             ob = entity.OB(program=propdict[proposal],
                            target=entity.StaticTarget(name, ra, dec, eq),
-                           filter=filter,
-                           total_time=float(totaltime),
-                           seeing=seeing, airmass=airmass)
+                           inscfg=inscfg,
+                           envcfg=envcfg,
+                           telcfg=telcfg,
+                           total_time=float(totaltime))
             obs.append(ob)
 
     return obs

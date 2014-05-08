@@ -49,9 +49,10 @@ class Slot(object):
     Defined by a start time and a duration in seconds.
     """
     
-    def __init__(self, start_time, slot_len_sec):
+    def __init__(self, start_time, slot_len_sec, data=None):
         self.start_time = start_time
         self.stop_time = start_time + timedelta(0, slot_len_sec)
+        self.data = data
 
     def split(self, start_time, slot_len_sec):
         """
@@ -82,16 +83,16 @@ class Slot(object):
         slot_b = None
         if start_time > self.start_time:
             diff_sec = (start_time - self.start_time).total_seconds()
-            slot_b = Slot(self.start_time, diff_sec)
+            slot_b = Slot(self.start_time, diff_sec, data=self.data)
 
         # define new displacing slot
-        slot_c = Slot(start_time, slot_len_sec)
+        slot_c = Slot(start_time, slot_len_sec, data=self.data)
 
         # define after slot
         slot_d = None
         if stop_time < self.stop_time:
             diff_sec = (self.stop_time - stop_time).total_seconds()
-            slot_d = Slot(stop_time, diff_sec)
+            slot_d = Slot(stop_time, diff_sec, data=self.data)
             
         return (slot_b, slot_c, slot_d)
 
@@ -119,25 +120,20 @@ class OB(object):
     """
     count = 1
     
-    def __init__(self, program=None, filter=None, target=None,
-                 airmass=None, seeing=None, total_time=None):
+    def __init__(self, program=None, target=None, telcfg=None,
+                 inscfg=None, envcfg=None, total_time=None):
         self.id = "ob%04d" % (OB.count)
         OB.count += 1
         
         self.program = program
 
         # constraints
-        self.filter = filter
         self.target = target
-        self.min_el = 15.0
-        self.max_el = 89.0
-        self.seeing = seeing
-        self.airmass = airmass
+        self.inscfg = inscfg
+        self.telcfg = telcfg
+        self.envcfg = envcfg
         self.total_time = total_time
 
-    def get_el_minmax(self):
-        return (self.min_el, self.max_el)
-        
     def __repr__(self):
         return self.id
 
@@ -316,8 +312,9 @@ class Observer(object):
         if time_needed > delta:
             return (False, None)
         
-        time_off = 0.0
-        time_inc = 300.0
+        time_off = 0
+        time_inc = 300
+        total_visible = 0
         cnt = 0
         pos = None
 
@@ -325,23 +322,25 @@ class Observer(object):
         # should be able to use calculated rise/fall times
         while time_off < delta:
             time_s = time_start + timedelta(0, time_off)
-            time_e = time_s + timedelta(0, time_inc)
+            time_left = (time_stop - time_s).total_seconds()
+            incr = min(time_inc, time_left)
+            time_e = time_s + timedelta(0, incr)
             res = self._observable(target, time_s, time_e,
                                    el_min_deg, el_max_deg,
                                    airmass=airmass)
             if res:
-                cnt += 1
+                total_visible += incr
                 if pos == None:
                     pos = time_s
-            time_off += time_inc
+            time_off += incr
 
-        total_visible = cnt * time_inc
         if pos == None:
             return (False, None)
+        elif time_needed > total_visible:
+            return (False, pos)
         elif pos + timedelta(0, time_needed) > time_stop:
             return (False, pos)
-        obs_ok = (time_needed <= total_visible)
-        return (obs_ok, pos)
+        return (True, pos)
 
     def observable2(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
@@ -390,5 +389,35 @@ class HST(tzinfo):
     def tzname(self,dt):
          return "HST"
 
+
+class TelescopeConfiguration(object):
+
+    def __init__(self, focus=None):
+        self.focus = focus
+        self.min_el = 15.0
+        self.max_el = 89.0
+    
+    def get_el_minmax(self):
+        return (self.min_el, self.max_el)
+        
+class InstrumentConfiguration(object):
+
+    def __init__(self):
+        pass
+
+class SPCAMConfiguration(InstrumentConfiguration):
+    
+    def __init__(self, filter=None):
+        super(SPCAMConfiguration, self).__init__()
+
+        self.insname = 'SPCAM'
+        self.filter = filter
+    
+class EnvironmentConfiguration(object):
+
+    def __init__(self, seeing=None, airmass=None):
+        self.seeing = seeing
+        self.airmass = airmass
+    
 
 #END
