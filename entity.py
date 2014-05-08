@@ -70,12 +70,12 @@ class Slot(object):
           return list.
         """
         if start_time < self.start_time:
-            raise SlotError("Start time (%d) < slot start time (%d)" % (
+            raise SlotError("Start time (%s) < slot start time (%s)" % (
                 start_time, self.start_time))
 
         stop_time = start_time + timedelta(0, slot_len_sec)
         if stop_time > self.stop_time:
-            raise SlotError("Stop time (%d) > slot stop time (%d)" % (
+            raise SlotError("Stop time (%s) > slot stop time (%s)" % (
                 stop_time, self.stop_time))
 
         # define before slot
@@ -336,6 +336,10 @@ class Observer(object):
             time_off += time_inc
 
         total_visible = cnt * time_inc
+        if pos == None:
+            return (False, None)
+        elif pos + timedelta(0, time_needed) > time_stop:
+            return (False, pos)
         obs_ok = (time_needed <= total_visible)
         return (obs_ok, pos)
 

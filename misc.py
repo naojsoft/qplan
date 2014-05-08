@@ -5,6 +5,7 @@
 #
 from datetime import timedelta
 import csv
+import string
 
 # gen2 imports
 from astro import radec
@@ -100,6 +101,28 @@ def parse_obs(filepath, propdict):
             obs.append(ob)
 
     return obs
+
+def parse_schedule(filepath):
+    """
+    Read the observing schedule from a CSV file.
+    """
+    schedule = []
+    with open(filepath, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+        # skip header
+        next(reader)
+
+        for row in reader:
+            (date, starttime, stoptime, filters) = row
+            # skip blank lines
+            if len(date.strip()) == 0:
+                continue
+
+            filters = map(string.strip, filters.split(','))
+            rec = (date, starttime, stoptime, filters)
+            schedule.append(rec)
+
+    return schedule
 
 
 #END

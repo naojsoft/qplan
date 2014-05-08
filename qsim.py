@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import csv
 
 # 3rd party imports
-from constraint import Problem
+#from constraint import Problem
 
 # Gen2 imports
 import Bunch
@@ -289,33 +289,22 @@ def main(options, args):
                            pressure=615,
                            temperature=0,
                            timezone=HST)
-    
-    # list of all available filters
-    # key: bb == broadband, nb == narrowband
-    if options.filters:
-        spcam_filters = set(options.filters.split())
-    else:
-        spcam_filters = set(["B", "V", "Rc", "Ic", "g'", "r'", "i'", "z'", "Y"])
+
+    # read schedule
+    schedule = misc.parse_schedule("schedule.csv")
 
     # -- Define fillable slots --
-    # when does the night start (hr, min)
-    if options.night_start != None:
-        night_start = site.get_date(options.night_start)
-    else:
-        # default: tonight 7pm
-        now = datetime.now()
-        time_s = now.strftime("%Y-%m-%d 19:00")
-        night_start = site.get_date(time_s)
+    night_slots = []
 
-    # how long is the night (in minutes)
-    night_length_mn = int(options.night_length * 60)
+    for date_s, starttime_s, stoptime_s, filters in schedule:
+        night_start = site.get_date("%s %s" % (date_s, starttime_s))
+        next_day = night_start + timedelta(0, 3600*14)
+        next_day_s = next_day.strftime("%Y-%m-%d")
+        night_stop = site.get_date("%s %s" % (next_day_s, stoptime_s))
 
-    night_slots = [ entity.Slot(night_start, night_length_mn*60) ]
+        duration = int((night_stop - night_start).total_seconds())
+        night_slots.append(entity.Slot(night_start, duration))
 
-    # define constraints 
-    cns = constraints.Constraints(observer=site,
-                                  available_filters=spcam_filters)
-    
     # read proposals
     programs = misc.parse_proposals('programs.csv')
 
@@ -332,18 +321,19 @@ def main(options, args):
     # sort result
     schedule = sorted(schedule, key=lambda tup: tup[0].start_time)
 
-    print "%-5.5s  %-6.6s  %12.12s  %5.5s %-6.6s  %3s  %3.3s  %s" % (
-        'Slot', 'ObsBlk', 'Program', 'Rank', 'Filter', 'Wst',
+    print "%-10.10s %-5.5s  %-6.6s  %12.12s  %5.5s %-6.6s  %3s  %3.3s  %s" % (
+        'Date', 'Slot', 'ObsBlk', 'Program', 'Rank', 'Filter', 'Wst',
         'AM', 'Target')
 
     targets = {}
     total_waste = 0.0
     for slot, ob in schedule:
         if ob != None:
+            date = slot.start_time.strftime("%Y-%m-%d")
             t_prog = slot.start_time + timedelta(0, ob.total_time)
             t_waste = (slot.stop_time - t_prog).total_seconds() // 60
-            print "%-5.5s  %-6.6s  %12.12s  %5.2f %-6.6s  %3d  %3.1f  %s" % (
-                str(slot), str(ob), ob.program, ob.program.rank,
+            print "%-10.10s %-5.5s  %-6.6s  %12.12s  %5.2f %-6.6s  %3d  %3.1f  %s" % (
+                date, str(slot), str(ob), ob.program, ob.program.rank,
                 ob.filter, t_waste, ob.airmass, ob.target.name)
             key = (ob.target.ra, ob.target.dec)
             targets[key] = ob.target

@@ -42,7 +42,7 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-29 04:00")
         time2 = self.obs.get_date("2014-04-29 05:00")
-        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+        is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
                                      60*60)
         self.assert_(is_obs == True)
     
@@ -52,7 +52,7 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+        is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
                                      60*15)  # 15 min ok
         self.assert_(is_obs == False)
     
@@ -62,7 +62,7 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+        is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
                                      60*16)  # 16 min NOT ok
         self.assert_(is_obs == False)
     
