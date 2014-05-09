@@ -54,7 +54,7 @@ class TestEntity01(unittest.TestCase):
         time2 = self.obs.get_date("2014-04-28 23:00")
         is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
                                      60*15)  # 15 min ok
-        self.assert_(is_obs == False)
+        self.assert_(is_obs == True)
     
     def test_observable_3(self):
         # vega should be visible near the end but not in the beginning

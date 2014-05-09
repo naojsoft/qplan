@@ -246,7 +246,10 @@ class Observer(object):
         site.elevation = self.elevation
         site.pressure = self.pressure
         site.temp = self.temperature
-        site.horizon = self.horizon
+        if horizon != None:
+            site.horizon = ephem.degrees(horizon)
+        else:
+            site.horizon = self.horizon
         site.epoch = 2000.0
         if date == None:
             now = datetime.now()
@@ -299,7 +302,7 @@ class Observer(object):
     ##                            airmass=airmass)
     ##     return res
 
-    def observable(self, target, time_start, time_stop,
+    def observable2(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
                    airmass=None):
         """
@@ -338,11 +341,11 @@ class Observer(object):
             return (False, None)
         elif time_needed > total_visible:
             return (False, pos)
-        elif pos + timedelta(0, time_needed) > time_stop:
-            return (False, pos)
-        return (True, pos)
+        elif pos + timedelta(0, time_needed) < time_stop:
+            return (True, pos)
+        return (False, pos)
 
-    def observable2(self, target, time_start, time_stop,
+    def observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
                    airmass=None):
         """
@@ -353,21 +356,45 @@ class Observer(object):
         """
         # set observer's horizon to elevation for el_min or to achieve
         # desired airmass
-        site = self.get_site()
-        time_rise = site.previous_rising(target.body, start=time_start)
-        time_set = site.next_setting(target.body, start=time_start)
-        print time_rise, "|", time_set
-        if time_rise2 > time_start:
+        # TODO: compute desired altitude from airmass
+        min_alt_deg = el_min_deg
+        site = self.get_site(date=time_start, horizon=min_alt_deg)
 
-            res = self._observable(target, time_s, time_e,
-                                   el_min_deg, el_max_deg,
-                                   airmass=airmass)
-            if res:
-                cnt += 1
-            time_off += time_inc
+        d1 = self.calc(target, time_start)
+        #print d1
+        d2 = self.calc(target, time_stop)
+        #print d2
+        #print "---"
 
-        total_visible = cnt * time_inc
-        return time_needed <= total_visible
+        # TODO: worry about el_max_deg
+        
+        if d1.alt_deg >= min_alt_deg:
+            # body is above desired altitude at start of period
+            # so calculate next setting
+            time_rise = ephem.Date(time_start)
+            time_set = site.next_setting(target.body, start=time_rise)
+
+        else:
+            # body is below desired altitude at start of period
+            # so calculate next rising
+            time_rise = site.next_rising(target.body, start=ephem.Date(time_start))
+            time_set = site.next_setting(target.body, start=time_rise)
+
+        # convert all times to pyephem dates so we can compare
+        # last observable time is setting or end of period,
+        # whichever comes first
+        time_end = min(time_set, ephem.Date(time_stop))
+        print time_rise, time_end
+        # calculate duration in seconds (subtracting two pyephem Date
+        # objects seems to give a fraction in days)
+        duration = (time_end - time_rise) * 86400.0
+        print "duration=%f sec" % (duration)
+        # object is observable as long as the duration that it is
+        # up is as long or longer than the time needed
+        can_obs = (duration >= time_needed)
+        # TODO: return time end as well
+        return (can_obs, time_rise)
+
 
     def __repr__(self):
         return self.name
