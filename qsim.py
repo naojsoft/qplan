@@ -7,6 +7,7 @@
 import sys
 from optparse import OptionParser
 from datetime import datetime, timedelta
+import pytz
 import csv
 
 # 3rd party imports
@@ -25,6 +26,9 @@ version = "0.1.20140507"
 # maximum rank for a program
 max_rank = 10.0
 
+# minimum slot size in sec
+minimum_slot_size = 180.0
+#minimum_slot_size = 10.0
 
 def obs_to_slots(slots, constraints, obs):
     # this version assumes fixed slots
@@ -57,9 +61,16 @@ def obs_to_slots(slots, constraints, obs):
 
 def double_check_slot(site, slot, ob):
         
+    # check if filter will be installed
+    if not (ob.inscfg.filter in slot.data.filters):
+        print "Failed: no filter match (%s): %s" % (
+            ob.inscfg.filter, slot.data.filters)
+        return False
+
     # Check whether OB will fit in this slot
     delta = (slot.stop_time - slot.start_time).total_seconds()
     if ob.total_time > delta:
+        print "Failed: slot too short"
         return False
     return True
 
@@ -67,12 +78,12 @@ def check_slot(site, slot, ob):
 
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
-        return (False, None)
+        return False
 
     # Check whether OB will fit in this slot
     ## delta = (slot.stop_time - slot.start_time).total_seconds()
     ## if ob.total_time > delta:
-    ##     return (False, None)
+    ##     return False
 
     min_el, max_el = ob.telcfg.get_el_minmax()
 
@@ -123,6 +134,8 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
     obmap = {}
     for slot in empty_slots:
         obmap[slot] = []
+        if slot.size() < minimum_slot_size:
+            continue
         for ob in oblist:
             # this OB OK for this slot at this site?
             if check_slot(site, slot, ob):
@@ -137,13 +150,13 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
     # fill that slot and assign it to the slot, possibly splitting
     # the slot
     for slot, okobs in obmap.items():
-        print "double-checking objects"
-        for ob in okobs:
-            if not double_check_slot(site, slot, ob):
-                print "%s check FAILED for slot %s" % (ob, slot)
-            else:
-                #print "%s check SUCCEEDED for slot %s" % (ob, slot)
-                pass
+        ## print "double-checking objects"
+        ## for ob in okobs:
+        ##     if not double_check_slot(site, slot, ob):
+        ##         raise Exception("%s check FAILED for slot %s" % (ob, slot))
+        ##     else:
+        ##         #print "%s check SUCCEEDED for slot %s" % (ob, slot)
+        ##         pass
 
         print "considering slot %s" % (slot)
         # remove already assigned OBs
@@ -191,6 +204,7 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
 def main(options, args):
 
     HST = entity.HST()
+    timezone = pytz.timezone('US/Hawaii')
 
     site = entity.Observer('subaru',
                            longitude='-155:28:48.900',
@@ -226,6 +240,7 @@ def main(options, args):
     for propname in programs:
         oblist.extend(misc.parse_obs('%s.csv' % propname, programs))
 
+    unscheduled_obs = list(oblist)
     schedule = []
     
     # optomize and rank schedules
@@ -241,22 +256,26 @@ def main(options, args):
     targets = {}
     total_waste = 0.0
     for slot, ob in schedule:
+        
+        t = slot.start_time.astimezone(timezone)
+        date = t.strftime("%Y-%m-%d %H:%M")
         if ob != None:
-            date = slot.start_time.strftime("%Y-%m-%d")
             t_prog = slot.start_time + timedelta(0, ob.total_time)
             t_waste = (slot.stop_time - t_prog).total_seconds() // 60
-            print "%-10.10s %-5.5s  %-6.6s  %12.12s  %5.2f %-6.6s  %3d  %3.1f  %s" % (
-                date, str(slot), str(ob), ob.program, ob.program.rank,
+            print "%-16.16s  %-6.6s  %12.12s  %5.2f %-6.6s  %3d  %3.1f  %s" % (
+                date, str(ob), ob.program, ob.program.rank,
                 ob.inscfg.filter, t_waste, ob.envcfg.airmass,
                 ob.target.name)
             key = (ob.target.ra, ob.target.dec)
             targets[key] = ob.target
+            unscheduled_obs.remove(ob)
         else:
-            print "%-5.5s  %-6.6s" % (str(slot), str(ob))
+            print "%-16.16s  %-6.6s" % (date, str(ob))
             t_waste = (slot.stop_time - slot.start_time).total_seconds()
             total_waste += t_waste / 60.0
 
-    print "%d targets  unscheduled=%.2f min" % (len(targets), total_waste)
+    print "%d targets  unscheduled: time=%.2f min OBs=%d" % (
+        len(targets), total_waste, len(unscheduled_obs))
 
     import observer
     obs = observer.Observer('subaru')

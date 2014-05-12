@@ -53,12 +53,12 @@ class TestEntity01(unittest.TestCase):
         time1 = self.obs.get_date("2014-04-29 04:00")
         time2 = self.obs.get_date("2014-04-29 05:00")
         is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
-                                     60*60)
+                                     59.9*60)
         self.assert_(is_obs == True)
     
     def test_observable_2(self):
         # vega should be visible near the end but not in the beginning
-        # during this period
+        # during this period (rising)
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
@@ -68,12 +68,42 @@ class TestEntity01(unittest.TestCase):
     
     def test_observable_3(self):
         # vega should be visible near the end but not in the beginning
-        # during this period
+        # during this period (rising)
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
         is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
                                      60*16)  # 16 min NOT ok
+        self.assert_(is_obs == False)
+    
+    def test_observable_4(self):
+        # vega should be visible near the beginning but not near the end
+        # during this period (setting)
+        tgt = entity.StaticTarget("vega", vega[0], vega[1])
+        time1 = self.obs.get_date("2014-04-29 10:00")
+        time2 = self.obs.get_date("2014-04-29 11:00")
+        is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+                                     60*14)  # 14 min ok
+        self.assert_(is_obs == True)
+    
+    def test_observable_5(self):
+        # vega should be visible near the beginning but not near the end
+        # during this period (setting)
+        tgt = entity.StaticTarget("vega", vega[0], vega[1])
+        time1 = self.obs.get_date("2014-04-29 10:00")
+        time2 = self.obs.get_date("2014-04-29 11:00")
+        is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+                                     60*15)  # 15 min NOT ok
+        self.assert_(is_obs == False)
+    
+    def test_observable_6(self):
+        # vega should be visible near the beginning but not near the end
+        # during this period (setting)
+        tgt = entity.StaticTarget("vega", vega[0], vega[1])
+        time1 = self.obs.get_date("2014-04-29 11:00")
+        time2 = self.obs.get_date("2014-04-29 12:00")
+        is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
+                                     60*1)  # 1 min NOT ok
         self.assert_(is_obs == False)
     
     def test_airmass(self):

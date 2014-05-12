@@ -53,7 +53,9 @@ def parse_proposals(filepath):
         next(reader)
 
         for row in reader:
-            (proposal, propid, rank) = row
+            (proposal, propid, rank, skip) = row
+            if skip.strip() != '':
+                continue
             programs[proposal] = entity.Program(proposal, propid=propid,
                                                 rank=float(rank))
 

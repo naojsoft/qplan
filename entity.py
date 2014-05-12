@@ -71,8 +71,12 @@ class Slot(object):
           return list.
         """
         if start_time < self.start_time:
-            raise SlotError("Start time (%s) < slot start time (%s)" % (
-                start_time, self.start_time))
+            diff = (start_time - self.start_time).total_seconds()
+            if math.fabs(diff) < 5.0:
+                start_time = self.start_time
+            else:
+                raise SlotError("Start time (%s) < slot start time (%s) diff=%f" % (
+                    start_time, self.start_time, diff))
 
         stop_time = start_time + timedelta(0, slot_len_sec)
         if stop_time > self.stop_time:
@@ -81,7 +85,9 @@ class Slot(object):
 
         # define before slot
         slot_b = None
-        if start_time > self.start_time:
+        diff = (start_time - self.start_time).total_seconds()
+        # Don't create a slot for less than a minute in length
+        if diff > 1.0:
             diff_sec = (start_time - self.start_time).total_seconds()
             slot_b = Slot(self.start_time, diff_sec, data=self.data)
 
@@ -90,7 +96,9 @@ class Slot(object):
 
         # define after slot
         slot_d = None
-        if stop_time < self.stop_time:
+        diff = (self.stop_time - stop_time).total_seconds()
+        # Don't create a slot for less than a minute in length
+        if diff > 1.0:
             diff_sec = (self.stop_time - stop_time).total_seconds()
             slot_d = Slot(stop_time, diff_sec, data=self.data)
             
@@ -350,9 +358,9 @@ class Observer(object):
             return (True, pos)
         return (False, pos)
 
-    def totz(self, date):
-        local_tz = pytz.timezone('US/Hawaii')
-        return local_tz.localize(date.datetime())
+    ## def totz(self, date):
+    ##     local_tz = pytz.timezone('US/Hawaii')
+    ##     return local_tz.localize(date.datetime())
 
     def observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
@@ -370,38 +378,47 @@ class Observer(object):
         site = self.get_site(date=time_start, horizon_deg=min_alt_deg)
 
         d1 = self.calc(target, time_start)
-        print d1
-        d2 = self.calc(target, time_stop)
-        print d2
-        print "---"
+        #print d1
+        #d2 = self.calc(target, time_stop)
+        #print d2
+        #print "---"
 
         # TODO: worry about el_max_deg
 
         # important: pyephem only deals with UTC!!
         time_start_utc = ephem.Date(time_start.astimezone(self.tz_utc))
         time_stop_utc = ephem.Date(time_stop.astimezone(self.tz_utc))
-        print "period (UT): %s to %s" % (time_start_utc, time_stop_utc)
+        #print "period (UT): %s to %s" % (time_start_utc, time_stop_utc)
         
         if d1.alt_deg >= min_alt_deg:
             # body is above desired altitude at start of period
             # so calculate next setting
             time_rise = time_start_utc
             time_set = site.next_setting(target.body, start=time_start_utc)
-            print "body already up: set=%s" % (time_set)
+            #print "body already up: set=%s" % (time_set)
 
         else:
             # body is below desired altitude at start of period
             time_rise = site.next_rising(target.body, start=time_start_utc)
             time_set = site.next_setting(target.body, start=time_start_utc)
-            if time_set < time_rise:
-                print "body still rising, below threshold"
-                # <-- body is still rising, just not high enough yet
-                # calculate rise time backward from end of period
-                time_rise = site.previous_rising(target.body, start=time_stop_utc)
-            else:
-                # <-- body is setting
-                print "body setting, below threshold"
-            print "body not up: rise=%s set=%s" % (time_rise, time_set)
+            #print "body not up: rise=%s set=%s" % (time_rise, time_set)
+            ## if time_rise < time_set:
+            ##     print "body still rising, below threshold"
+            ##     # <-- body is still rising, just not high enough yet
+            ## else:
+            ##     # <-- body is setting
+            ##     print "body setting, below threshold"
+            ##     # calculate rise time backward from end of period
+            ##     #time_rise = site.previous_rising(target.body, start=time_stop_utc)
+            ##     pass
+
+        if time_rise < time_start_utc:
+            diff = time_rise - time_start_utc
+            ## raise AssertionError("time rise (%s) < time start (%s)" % (
+            ##         time_rise, time_start))
+            print ("WARNING: time rise (%s) < time start (%s)" % (
+                    time_rise, time_start))
+            time_rise = time_start_utc
 
         # last observable time is setting or end of period,
         # whichever comes first
@@ -412,12 +429,15 @@ class Observer(object):
         # object is observable as long as the duration that it is
         # up is as long or longer than the time needed
         diff = duration - float(time_needed)
-        can_obs = diff > -0.001
-        print "can_obs=%s duration=%f needed=%f diff=%f" % (
-            can_obs, duration, time_needed, diff)
+        #can_obs = diff > -0.001
+        can_obs = duration > time_needed
+        #print "can_obs=%s duration=%f needed=%f diff=%f" % (
+        #    can_obs, duration, time_needed, diff)
+
         # TODO: return time end as well
-        
-        return (can_obs, time_rise.datetime())
+        # convert time_rise back to a datetime
+        time_rise = self.tz_utc.localize(time_rise.datetime())
+        return (can_obs, time_rise)
 
 
     def __repr__(self):
