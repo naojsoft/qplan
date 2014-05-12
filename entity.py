@@ -373,8 +373,11 @@ class Observer(object):
         """
         # set observer's horizon to elevation for el_min or to achieve
         # desired airmass
-        # TODO: compute desired altitude from airmass
-        min_alt_deg = el_min_deg
+        if airmass != None:
+            # compute desired altitude from airmass
+            alt_deg = misc.airmass2alt(airmass)
+        min_alt_deg = max(alt_deg, el_min_deg)
+    
         site = self.get_site(date=time_start, horizon_deg=min_alt_deg)
 
         d1 = self.calc(target, time_start)
@@ -399,8 +402,12 @@ class Observer(object):
 
         else:
             # body is below desired altitude at start of period
-            time_rise = site.next_rising(target.body, start=time_start_utc)
-            time_set = site.next_setting(target.body, start=time_start_utc)
+            try:
+                time_rise = site.next_rising(target.body, start=time_start_utc)
+                time_set = site.next_setting(target.body, start=time_start_utc)
+            except ephem.NeverUpError:
+                return (False, None)
+            
             #print "body not up: rise=%s set=%s" % (time_rise, time_set)
             ## if time_rise < time_set:
             ##     print "body still rising, below threshold"

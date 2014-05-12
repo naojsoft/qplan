@@ -6,6 +6,7 @@
 from datetime import timedelta
 import csv
 import string
+import math
 
 # gen2 imports
 from astro import radec
@@ -136,5 +137,21 @@ def parse_schedule(filepath):
 
     return schedule
 
+
+def alt2airmass(alt_deg):
+    xp = 1.0 / math.sin(math.radians(alt_deg + 244.0/(165.0 + 47*alt_deg**1.1)))
+    return xp
+    
+am_inv = []
+for alt in range(0, 91):
+    alt_deg = float(alt)
+    am = alt2airmass(alt_deg)
+    am_inv.append((am, alt_deg))
+
+def airmass2alt(am):
+    for (x, alt_deg) in am_inv:
+        if x <= am:
+            return alt_deg
+    return 90.0
 
 #END

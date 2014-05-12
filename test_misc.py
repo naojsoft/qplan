@@ -37,16 +37,6 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         self.assert_(isinstance(tgt.body, ephem.Body))
     
-    def test_observable_0(self):
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-28 19:00")
-        time2 = self.obs.get_date("2014-04-30 10:00")
-        while time1 < time2:
-            obs = self.obs.get_site(date=time1, horizon_deg=15)
-            c1 = self.obs.calc(tgt, time1)
-            print time1, c1.alt_deg
-            time1 += timedelta(0, 300)
-    
     def test_observable_1(self):
         # vega should be visible during this period
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
@@ -95,7 +85,7 @@ class TestEntity01(unittest.TestCase):
         is_obs, time = self.obs.observable(tgt, time1, time2, 15.0, 85.0,
                                      60*15)  # 15 min NOT ok
         self.assert_(is_obs == False)
-    
+
     def test_observable_6(self):
         # vega should be visible near the beginning but not near the end
         # during this period (setting)

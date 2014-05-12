@@ -9,6 +9,7 @@ from optparse import OptionParser
 from datetime import datetime, timedelta
 import pytz
 import csv
+import logging
 
 # 3rd party imports
 #from constraint import Problem
@@ -22,6 +23,9 @@ import constraints
 import entity
 
 version = "0.1.20140507"
+
+LOG_FORMAT = '%(asctime)s | %(levelname)1.1s | %(filename)s:%(lineno)d | %(message)s'
+
 
 # maximum rank for a program
 max_rank = 10.0
@@ -126,7 +130,7 @@ def reserve_slot(site, slot, ob):
     return slot_c, res
 
 
-def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
+def make_schedule(slot_asns, site, empty_slots, constraints, oblist, logger):
 
     # find OBs that can fill the given (large) slots
     #obmap = obs_to_slots(empty_slots, constraints, oblist)
@@ -158,7 +162,7 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
         ##         #print "%s check SUCCEEDED for slot %s" % (ob, slot)
         ##         pass
 
-        print "considering slot %s" % (slot)
+        logger.debug("considering slot %s" % (slot))
         # remove already assigned OBs
         for ob in assigned:
             if ob in okobs:
@@ -183,12 +187,12 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
         leftover_obs.remove(ob)
 
         dur = ob.total_time / 60.0
-        print "assigning %s(%.2fm) to %s" % (ob, dur, slot)
+        logger.debug("assigning %s(%.2fm) to %s" % (ob, dur, slot))
         # add the new empty slots made by the leftover time
         # of assigning this OB to the slot
         aslot, split_slots = reserve_slot(site, slot, ob)
         slot_asns.append((aslot, ob))
-        print "leaving these=%s" % str(split_slots)
+        logger.debug("leaving these=%s" % str(split_slots))
         new_slots.extend(split_slots)
 
     # recurse with new slots and leftover obs
@@ -198,10 +202,30 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist):
 
     elif len(new_slots) > 0:
         # fill new slots as best possible
-        make_schedule(slot_asns, site, new_slots, constraints, leftover_obs)
+        make_schedule(slot_asns, site, new_slots, constraints, leftover_obs, logger)
 
         
 def main(options, args):
+
+    # Create top level logger.
+    logger = logging.getLogger('datasink')
+    logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter(LOG_FORMAT)
+
+    if options.logfile:
+        fileHdlr  = logging.handlers.RotatingFileHandler(options.logfile,
+                                                         maxBytes=options.loglimit,
+                                                         backupCount=4)
+        fileHdlr.setFormatter(fmt)
+        fileHdlr.setLevel(options.loglevel)
+        logger.addHandler(fileHdlr)
+    # Add output to stderr, if requested
+    if options.logstderr or (not options.logfile):
+        stderrHdlr = logging.StreamHandler()
+        stderrHdlr.setFormatter(fmt)
+        stderrHdlr.setLevel(options.loglevel)
+        logger.addHandler(stderrHdlr)
 
     HST = entity.HST()
     timezone = pytz.timezone('US/Hawaii')
@@ -234,59 +258,124 @@ def main(options, args):
 
     # read proposals
     programs = misc.parse_proposals('programs.csv')
+    # build a lookup table of programs -> OBs
+    props = {}
+    for key in programs:
+        props[key] = Bunch.Bunch(pgm=programs[key], obs=[], obcount=0)
 
     # read observing blocks
     oblist = []
     for propname in programs:
         oblist.extend(misc.parse_obs('%s.csv' % propname, programs))
 
-    unscheduled_obs = list(oblist)
-    schedule = []
-    
-    # optomize and rank schedules
-    make_schedule(schedule, site, night_slots, constraints, oblist)
-
-    # sort result
-    schedule = sorted(schedule, key=lambda tup: tup[0].start_time)
-
-    print "%-10.10s %-5.5s  %-6.6s  %12.12s  %5.5s %-6.6s  %3s  %3.3s  %s" % (
-        'Date', 'Slot', 'ObsBlk', 'Program', 'Rank', 'Filter', 'Wst',
-        'AM', 'Target')
-
-    targets = {}
-    total_waste = 0.0
-    for slot, ob in schedule:
-        
-        t = slot.start_time.astimezone(timezone)
-        date = t.strftime("%Y-%m-%d %H:%M")
-        if ob != None:
-            t_prog = slot.start_time + timedelta(0, ob.total_time)
-            t_waste = (slot.stop_time - t_prog).total_seconds() // 60
-            print "%-16.16s  %-6.6s  %12.12s  %5.2f %-6.6s  %3d  %3.1f  %s" % (
-                date, str(ob), ob.program, ob.program.rank,
-                ob.inscfg.filter, t_waste, ob.envcfg.airmass,
-                ob.target.name)
-            key = (ob.target.ra, ob.target.dec)
-            targets[key] = ob.target
-            unscheduled_obs.remove(ob)
-        else:
-            print "%-16.16s  %-6.6s" % (date, str(ob))
-            t_waste = (slot.stop_time - slot.start_time).total_seconds()
-            total_waste += t_waste / 60.0
-
-    print "%d targets  unscheduled: time=%.2f min OBs=%d" % (
-        len(targets), total_waste, len(unscheduled_obs))
+    for ob in oblist:
+        pgmname = str(ob.program)
+        props[pgmname].obs.append(ob)
+        props[pgmname].obcount += 1
 
     import observer
-    obs = observer.Observer('subaru')
-    tgts = [ obs.target(tgt.name, tgt.ra, tgt.dec)
-             for tgt in targets.values() ]
-    obs.almanac(night_start.strftime('%Y/%m/%d'))
-    #print obs.almanac_data
-    obs.airmass(*tgts)
-    #print obs.airmass_data
-    observer.plots.plot_airmass(obs, 'output.png')
+    unscheduled_obs = list(oblist)
+    total_waste = 0.0
+
+    logger.info("scheduling %d OBs (from %d programs) for %d nights" % (
+        len(unscheduled_obs), len(programs), len(night_slots)))
     
+    for nslot in night_slots:
+
+        slots = [ nslot ]
+        schedule = []
+
+        t = nslot.start_time.astimezone(timezone)
+        ndate = t.strftime("%Y-%m-%d")
+        outfile = ndate + '.txt'
+
+        logger.info("scheduling night %s" % (ndate))
+
+        # optomize and rank schedules
+        make_schedule(schedule, site, slots, constraints, unscheduled_obs, logger)
+
+        # sort result
+        schedule = sorted(schedule, key=lambda tup: tup[0].start_time)
+
+        with open(outfile, 'w') as out_f:
+            out_f.write("--- NIGHT OF %s ---\n" % (ndate))
+            out_f.write("%-16.16s  %-6.6s  %12.12s  %5.5s %7.7s %-6.6s  %3s  %3.3s  %s\n" % (
+                'Date', 'ObsBlk', 'Program', 'Rank', 'Time', 'Filter', 'Wst', 'AM', 'Target'))
+
+            targets = {}
+            waste = 0.0
+            for slot, ob in schedule:
+
+                t = slot.start_time.astimezone(timezone)
+                date = t.strftime("%Y-%m-%d %H:%M")
+                if ob != None:
+                    t_prog = slot.start_time + timedelta(0, ob.total_time)
+                    t_waste = (slot.stop_time - t_prog).total_seconds() // 60
+                    out_f.write("%-16.16s  %-6.6s  %12.12s  %5.2f %7.2f %-6.6s  %3d  %3.1f  %s\n" % (
+                        date, str(ob), ob.program, ob.program.rank,
+                        ob.total_time / 60,
+                        ob.inscfg.filter, t_waste, ob.envcfg.airmass,
+                        ob.target.name))
+                    key = (ob.target.ra, ob.target.dec)
+                    targets[key] = ob.target
+                    unscheduled_obs.remove(ob)
+                    props[str(ob.program)].obs.remove(ob)
+                else:
+                    out_f.write("%-16.16s  %-6.6s\n" % (date, str(ob)))
+                    t_waste = (slot.stop_time - slot.start_time).total_seconds()
+                    waste += t_waste / 60.0
+
+            out_f.write("\n")
+            out_f.write("%d targets  unscheduled: time=%.2f min\n" % (
+                len(targets), waste))
+            out_f.write("\n")
+            total_waste += waste
+
+        obs = observer.Observer('subaru')
+        tgts = [ obs.target(tgt.name, tgt.ra, tgt.dec)
+                 for tgt in targets.values() ]
+        obs.almanac(ndate.replace('-', '/'))
+        #print obs.almanac_data
+        obs.airmass(*tgts)
+        #print obs.airmass_data
+        observer.plots.plot_airmass(obs, 'output-%s.png' % (ndate))
+
+        logger.info("%d unscheduled OBs left" % (len(unscheduled_obs)))
+
+    # print a summary
+    num_obs = len(oblist)
+    pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
+    print "%5.2f %% of OBs scheduled" % (pct*100.0)
+
+    completed, uncompleted = [], []
+    for key in programs:
+        bnch = props[key]
+        if len(bnch.obs) == 0:
+            completed.append(bnch)
+        else:
+            uncompleted.append(bnch)
+            
+    completed = sorted(completed, key=lambda bnch: max_rank - bnch.pgm.rank)
+    uncompleted = sorted(uncompleted, key=lambda bnch: max_rank - bnch.pgm.rank)
+    
+    print "Completed programs"
+    for bnch in completed:
+        print "%-12.12s   %5.2f  %d/%d  100%%" % (str(bnch.pgm), bnch.pgm.rank,
+                                                    bnch.obcount, bnch.obcount)
+    
+    print ""
+
+    print "Uncompleted programs"
+    for bnch in uncompleted:
+        pct = float(bnch.obcount-len(bnch.obs)) / float(bnch.obcount) * 100.0
+        print "%-12.12s   %5.2f  %d/%d  %5.2f%%" % (str(bnch.pgm), bnch.pgm.rank,
+                                                    bnch.obcount-len(bnch.obs),
+                                                    bnch.obcount, pct)
+    print ""
+    print "Total unscheduled time: %8.2f min" % (total_waste)
+    
+            
+        
 
 if __name__ == '__main__':
 
@@ -296,19 +385,17 @@ if __name__ == '__main__':
     optprs.add_option("--debug", dest="debug", default=False,
                       action="store_true",
                       help="Enter the pdb debugger on main()")
-    optprs.add_option("--filters", dest="filters", default=None,
-                      help="Comma-separated list of available filters")
-    optprs.add_option("--night-length", dest="night_length", default=10.5,
-                      type="float", metavar="HOURS",
-                      help="Define the night length in HOURS")
-    optprs.add_option("--night-start", dest="night_start", default=None,
-                      help="Define the start of the night ('YYYY-MM-DD HH:MM')")
+    optprs.add_option("--log", dest="logfile", metavar="FILE",
+                      help="Write logging output to FILE")
+    optprs.add_option("--loglevel", dest="loglevel", metavar="LEVEL",
+                      type="int", default=logging.INFO,
+                      help="Set logging level to LEVEL")
     optprs.add_option("--profile", dest="profile", action="store_true",
                       default=False,
                       help="Run the profiler on main()")
-    optprs.add_option("--slot-length", dest="slot_length", default=30,
-                      type="int", metavar="MINUTES",
-                      help="Define the slot length in MINUTES")
+    optprs.add_option("--stderr", dest="logstderr", default=False,
+                      action="store_true",
+                      help="Copy logging also to stderr")
     (options, args) = optprs.parse_args(sys.argv[1:])
 
     if len(args) != 0:
