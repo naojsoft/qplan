@@ -130,9 +130,31 @@ def reserve_slot(site, slot, ob):
     return slot_c, res
 
 
+def ins_slot_asns(slot_asns, slot, ob):
+    for i in xrange(len(slot_asns)):
+        islot, x = slot_asns[i]
+        if islot.start_time > slot.start_time:
+            slot_asns.insert(i, (slot, ob))
+            return
+    slot_asns.append((slot, ob))
+
+    
+def pick_ob(slot, okobs, slot_asns):
+    # TODO: consider
+    # - proximity to previous target
+    # - change of filter or not
+
+    # sort OBs by rank
+    sorted_obs = sorted(okobs, key=lambda ob: max_rank-ob.program.rank)
+
+    # assign the highest ranked OB to this slot
+    ob = sorted_obs[0]
+    return ob
+
+
 def make_schedule(slot_asns, site, empty_slots, constraints, oblist, logger):
 
-    # find OBs that can fill the given (large) slots
+    # find OBs that can fill the given slots
     #obmap = obs_to_slots(empty_slots, constraints, oblist)
 
     obmap = {}
@@ -170,17 +192,11 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist, logger):
                 
         if len(okobs) == 0:
             # no OB fits this slot
-            slot_asns.append((slot, None))
+            ins_slot_asns(slot_asns, slot, None)
             continue
 
-        # sort possible obs for this slot by rank
-        # TODO: consider
-        # - proximity to previous target
-        # - change of filter or not
-        sorted_obs = sorted(okobs, key=lambda ob: max_rank-ob.program.rank)
-
-        # assign the highest ranked OB to this slot
-        ob = sorted_obs[0]
+        # examine and pick an ob for this slot
+        ob = pick_ob(slot, okobs, slot_asns)
         assigned.append(ob)
 
         # remove OB from the leftover OBs
@@ -191,14 +207,15 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist, logger):
         # add the new empty slots made by the leftover time
         # of assigning this OB to the slot
         aslot, split_slots = reserve_slot(site, slot, ob)
-        slot_asns.append((aslot, ob))
+        ins_slot_asns(slot_asns, aslot, ob)
         logger.debug("leaving these=%s" % str(split_slots))
         new_slots.extend(split_slots)
 
     # recurse with new slots and leftover obs
     if len(leftover_obs) == 0:
         # no OBs left to distribute
-        slot_asns.extend([(slot, None) for slot in new_slots])
+        for slot in new_slots:
+            ins_slot_asns(slot_asns, slot, None)
 
     elif len(new_slots) > 0:
         # fill new slots as best possible
