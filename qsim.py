@@ -13,6 +13,8 @@ import logging
 
 # 3rd party imports
 #from constraint import Problem
+# for printing target trajectory graphs
+import observer
 
 # Gen2 imports
 import Bunch
@@ -248,6 +250,7 @@ def main(options, args):
         stderrHdlr.setLevel(options.loglevel)
         logger.addHandler(stderrHdlr)
 
+    logger.info("initializing")
     HST = entity.HST()
     timezone = pytz.timezone('US/Hawaii')
 
@@ -260,6 +263,7 @@ def main(options, args):
                            timezone=HST)
 
     # read schedule
+    logger.info("reading schedule and defining periods")
     schedule = misc.parse_schedule("schedule.csv")
 
     # -- Define fillable slots --
@@ -278,6 +282,7 @@ def main(options, args):
                                        data=data))
 
     # read proposals
+    logger.info("reading proposals")
     programs = misc.parse_proposals('programs.csv')
     # build a lookup table of programs -> OBs
     props = {}
@@ -285,25 +290,30 @@ def main(options, args):
         props[key] = Bunch.Bunch(pgm=programs[key], obs=[], obcount=0)
 
     # read observing blocks
+    logger.info("reading observing blocks")
     oblist = []
     for propname in programs:
         oblist.extend(misc.parse_obs('%s.csv' % propname, programs))
 
     # check whether there are some OBs that cannot be scheduled
+    logger.info("checking for unschedulable OBs on these nights")
     obmap = obs_to_slots2(night_slots, site, oblist)
     schedulable = set([])
     for obs in obmap.values():
         schedulable = schedulable.union(set(obs))
     unschedulable = set(oblist) - schedulable
     unschedulable = list(unschedulable)
+    logger.info("there are %d unschedulable OBs" % (len(unschedulable)))
+
+    logger.info("preparing to schedule")
     oblist = list(schedulable)
 
+    # count OBs in each program
     for ob in oblist:
         pgmname = str(ob.program)
         props[pgmname].obs.append(ob)
         props[pgmname].obcount += 1
 
-    import observer
     unscheduled_obs = list(oblist)
     total_waste = 0.0
 
@@ -428,6 +438,10 @@ if __name__ == '__main__':
     optprs.add_option("--profile", dest="profile", action="store_true",
                       default=False,
                       help="Run the profiler on main()")
+    optprs.add_option("--slot-start", dest="slot_start", default=None,
+                      help="Define the start of the slot ('YYYY-MM-DD HH:MM')")
+    optprs.add_option("--slot-end", dest="slot_end", default=None,
+                      help="Define the end of the slot ('YYYY-MM-DD HH:MM')")
     optprs.add_option("--stderr", dest="logstderr", default=False,
                       action="store_true",
                       help="Copy logging also to stderr")
