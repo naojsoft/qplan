@@ -63,6 +63,20 @@ def obs_to_slots(slots, constraints, obs):
     return obmap
 
 
+def obs_to_slots2(slots, site, obs):
+    obmap = {}
+    for slot in slots:
+        obmap[slot] = []
+        if slot.size() < minimum_slot_size:
+            continue
+        for ob in obs:
+            # this OB OK for this slot at this site?
+            if check_slot(site, slot, ob):
+                obmap[slot].append(ob)
+    #print obmap
+    return obmap
+
+
 def double_check_slot(site, slot, ob):
         
     # check if filter will be installed
@@ -156,17 +170,7 @@ def make_schedule(slot_asns, site, empty_slots, constraints, oblist, logger):
 
     # find OBs that can fill the given slots
     #obmap = obs_to_slots(empty_slots, constraints, oblist)
-
-    obmap = {}
-    for slot in empty_slots:
-        obmap[slot] = []
-        if slot.size() < minimum_slot_size:
-            continue
-        for ob in oblist:
-            # this OB OK for this slot at this site?
-            if check_slot(site, slot, ob):
-                obmap[slot].append(ob)
-    #print obmap
+    obmap = obs_to_slots2(empty_slots, site, oblist)
 
     new_slots = []
     leftover_obs = list(oblist)
@@ -285,6 +289,15 @@ def main(options, args):
     for propname in programs:
         oblist.extend(misc.parse_obs('%s.csv' % propname, programs))
 
+    # check whether there are some OBs that cannot be scheduled
+    obmap = obs_to_slots2(night_slots, site, oblist)
+    schedulable = set([])
+    for obs in obmap.values():
+        schedulable = schedulable.union(set(obs))
+    unschedulable = set(oblist) - schedulable
+    unschedulable = list(unschedulable)
+    oblist = list(schedulable)
+
     for ob in oblist:
         pgmname = str(ob.program)
         props[pgmname].obs.append(ob)
@@ -364,6 +377,11 @@ def main(options, args):
     pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
     print "%5.2f %% of OBs scheduled" % (pct*100.0)
 
+    if len(unschedulable) > 0:
+        print ""
+        print "%d OBs are not schedulable: %s" % (len(unschedulable), unschedulable)
+        print ""
+    
     completed, uncompleted = [], []
     for key in programs:
         bnch = props[key]
