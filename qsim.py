@@ -148,17 +148,38 @@ def reserve_slot(site, slot, ob):
 
 def ins_slot_asns(slot_asns, slot, ob):
     for i in xrange(len(slot_asns)):
-        islot, x = slot_asns[i]
-        if islot.start_time > slot.start_time:
+        slot_i, x = slot_asns[i]
+        if slot_i.start_time > slot.start_time:
             slot_asns.insert(i, (slot, ob))
             return
     slot_asns.append((slot, ob))
 
     
+def slot_get_previous(slot_asns, slot):
+    for i in xrange(len(slot_asns)):
+        slot_i, ob = slot_asns[i]
+        if slot_i.start_time > slot.start_time:
+            if i == 0:
+                return (None, None)
+            return slot_asns[i-1]
+
+    return (slot_i, ob)
+    
+
+def slot_get_next(slot_asns, slot):
+    for i in xrange(len(slot_asns)):
+        slot_i, ob = slot_asns[i]
+        if slot_i.start_time > slot.start_time:
+            return (slot_i, ob)
+        
+    return (None, None)
+    
+
 def pick_ob(slot, okobs, slot_asns):
     # TODO: consider
     # - proximity to previous target
     # - change of filter or not
+    # - moon illumination
 
     # sort OBs by rank
     sorted_obs = sorted(okobs, key=lambda ob: max_rank-ob.program.rank)
@@ -269,7 +290,9 @@ def main(options, args):
     # -- Define fillable slots --
     night_slots = []
 
-    for date_s, starttime_s, stoptime_s, filters in schedule:
+    for tup in schedule:
+        date_s, starttime_s, stoptime_s, filters, seeing, moon = tup
+        
         night_start = site.get_date("%s %s" % (date_s, starttime_s))
         next_day = night_start + timedelta(0, 3600*14)
         next_day_s = next_day.strftime("%Y-%m-%d")

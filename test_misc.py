@@ -11,6 +11,7 @@ import entity
 
         # RA           DEC          EQ
 vega = ("18:36:56.3", "+38:47:01", "2000")
+altair = ("19:51:29.74", "8:54:23.5", "2000")
 
 class TestEntity01(unittest.TestCase):
 
@@ -143,6 +144,14 @@ class TestEntity01(unittest.TestCase):
         slot = entity.Slot(time1, 3600.0 * 2)
         res = slot.split(time2, 3600.0)
         self.assert_(res[0].stop_time == time2)
+    
+    def test_distance_1(self):
+        tgt1 = entity.StaticTarget("vega", vega[0], vega[1])
+        tgt2 = entity.StaticTarget("altair", altair[0], altair[1])
+        time1 = self.obs.get_date("2010-10-18 22:00")
+        d_alt, d_az = self.obs.distance(tgt1, tgt2, time1)
+        self.assertEquals(int(math.fabs(d_alt)), 11)
+        self.assertEquals(int(math.fabs(d_az)), 38)
     
 
 if __name__ == "__main__":

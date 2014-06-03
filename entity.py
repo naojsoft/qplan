@@ -14,7 +14,8 @@ import pytz
 import numpy
 import math
 
-from ginga.misc import Bunch
+#from ginga.misc import Bunch
+import Bunch
 
 
 class Program(object):
@@ -204,7 +205,13 @@ class StaticTarget(object):
         """Compute Moon altitude"""
         moon = ephem.Moon()
         moon.compute(site)
-        return moon.alt
+        moon_alt = moon.alt
+        # moon.phase is % of moon that is illuminated
+        moon_pct = moon.moon_phase
+        # calculate distance from target
+        moon_sep = ephem.separation(moon, self.body)
+        moon_sep = math.degrees(float(moon_sep))
+        return (moon_alt, moon_pct, moon_sep)
         
     def calc(self, observer, time_start):
         observer.set_date(time_start)
@@ -220,14 +227,15 @@ class StaticTarget(object):
                                      float(observer.site.lat),
                                      az)
         amass = self.calc_airmass(alt)
-        moon_alt = self.calc_moon_alt(observer.site)
+        moon_alt, moon_pct, moon_sep = self.calc_moon_alt(observer.site)
 
         res = Bunch.Bunch(ut=ut, lt=time_start, lst=lst, ha=ha,
                           pang=pang, airmass=amass, moon_alt=moon_alt,
+                          moon_pct=moon_pct, moon_sep=moon_sep,
                           alt=alt, az=az, alt_deg=math.degrees(alt),
                           az_deg=math.degrees(az))
         return res
-    
+
 
 class Observer(object):
     """
@@ -376,7 +384,9 @@ class Observer(object):
         if airmass != None:
             # compute desired altitude from airmass
             alt_deg = misc.airmass2alt(airmass)
-        min_alt_deg = max(alt_deg, el_min_deg)
+            min_alt_deg = max(alt_deg, el_min_deg)
+        else:
+            min_alt_deg = el_min_deg
     
         site = self.get_site(date=time_start, horizon_deg=min_alt_deg)
 
@@ -446,7 +456,15 @@ class Observer(object):
         time_rise = self.tz_utc.localize(time_rise.datetime())
         return (can_obs, time_rise)
 
+    def distance(self, tgt1, tgt2, time_start):
+        c1 = self.calc(tgt1, time_start)
+        c2 = self.calc(tgt2, time_start)
 
+        d_alt = c1.alt_deg - c2.alt_deg
+        d_az = c1.az_deg - c2.az_deg
+        return (d_alt, d_az)
+    
+        
     def __repr__(self):
         return self.name
 

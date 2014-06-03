@@ -75,7 +75,7 @@ def parse_obs(filepath, propdict):
 
         for row in reader:
             (proposal, name, ra, dec, eq, filter, exptime, num_exp,
-             dither, totaltime, seeing, airmass) = row
+             dither, totaltime, priority, seeing, airmass, moon) = row
             # skip blank lines
             proposal = proposal.strip()
             if len(proposal) == 0:
@@ -126,13 +126,13 @@ def parse_schedule(filepath):
         next(reader)
 
         for row in reader:
-            (date, starttime, stoptime, filters) = row
+            (date, starttime, stoptime, filters, seeing, moon) = row
             # skip blank lines
             if len(date.strip()) == 0:
                 continue
 
             filters = map(string.strip, filters.split(','))
-            rec = (date, starttime, stoptime, filters)
+            rec = (date, starttime, stoptime, filters, seeing, moon)
             schedule.append(rec)
 
     return schedule
@@ -153,5 +153,12 @@ def airmass2alt(am):
         if x <= am:
             return alt_deg
     return 90.0
+
+def calc_slew_time(d_alt, d_az, rate_az=0.5, rate_el=0.5):
+    """Calculate slew time given a delta in altitude and azimuth.
+    """
+    time_sec = max(math.fabs(d_alt) * rate_el,
+                   math.fabs(d_az) * rate_az)
+    return time_sec
 
 #END
