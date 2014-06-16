@@ -25,6 +25,8 @@ class Program(object):
     """
     def __init__(self, proposal, rank=1.0, pi=None, observers=None,
                  propid=None, description=None):
+        super(Program, self).__init__()
+        
         self.proposal = proposal
         if propid == None:
             # TODO: supposedly there is an algorithm to turn proposals
@@ -51,9 +53,14 @@ class Slot(object):
     """
     
     def __init__(self, start_time, slot_len_sec, data=None):
+        super(Slot, self).__init__()
         self.start_time = start_time
         self.stop_time = start_time + timedelta(0, slot_len_sec)
         self.data = data
+        self.ob = None
+
+    def set_ob(self, ob):
+        self.ob = ob
 
     def split(self, start_time, slot_len_sec):
         """
@@ -121,6 +128,115 @@ class Slot(object):
     __str__ = __repr__
 
 
+class Schedule(object):
+    """
+    Schedule
+    Defines a series of slots and operations on that series.
+    
+    """
+    def __init__(self, start_time, stop_time, data=None):
+        super(Schedule, self).__init__()
+        self.start_time = start_time
+        self.stop_time = stop_time
+        self.data = data
+
+        diff = (self.stop_time - self.start_time).total_seconds()
+        self.waste = diff
+        self.slots = []
+
+    def num_slots(self):
+        return len(self.slots)
+    
+    def get_free(self):
+        if len(self.slots) == 0:
+            return self.start_time, self.stop_time
+
+        last = self.slots[-1]
+        return last.stop_time, self.stop_time
+
+    def next_free_slot(self):
+        start_time, stop_time = self.get_free()
+        diff = (stop_time - start_time).total_seconds()
+        return Slot(start_time, diff)
+        
+    def _previous(self, slot):
+        if len(self.slots) == 0:
+            return -1, None
+
+        # TODO: in the typical insertion case, would the search
+        # be faster from the rear?
+        for i in xrange(len(self.slots)):
+            slot_i = self.slots[i]
+            if slot_i.start_time > slot.start_time:
+                if i == 0:
+                    return -1, None
+                return i-1, self.slots[i-1]
+
+        return i, slot_i
+
+    def get_previous(self, slot):
+        i, slot_i = self._previous(slot)
+        return slot_i
+
+    def _next(self, slot):
+        for i in xrange(len(self.slots)):
+            slot_i = self.slots[i]
+            if slot_i.start_time > slot.start_time:
+                return i, slot_i
+
+        return len(self.slots), None
+    
+    def get_next(self, slot):
+        i, slot_i = self._next(slot)
+        return slot_i
+    
+    def insert_slot(self, slot):
+        i, prev_slot = self._previous(slot)
+        if prev_slot != None:
+            interval = (slot.start_time - prev_slot.stop_time).total_seconds()
+            assert interval >= 0, \
+                   ValueError("Slot overlaps end of previous slot by %d sec" % (
+                -interval))
+
+        if i+1 < self.num_slots():
+            next_slot = self.slots[i]
+            interval = (next_slot.start_time - slot.stop_time).total_seconds()
+            ## assert interval >= 0, \
+            ##     ValueError("Slot overlaps start of next slot by %d sec" % (
+            ##     -interval))
+
+        self.slots.insert(i+1, slot)
+        self.waste -= slot.size()
+
+    ## def append_slot(self, slot):
+    ##     start_time, stop_time = self.get_free()
+    ##     if slot.start_time > start_time:
+    ##         # there is some gap between our last slot and this one
+    ##         # so insert an empty slot
+    ##         diff = (slot.start_time - start_time).total_seconds()
+    ##         self.slots.append(Slot(start_time, diff))
+
+    ##     self.slots.append(slot)
+    ##     self.waste -= slot.size()
+        
+    def copy(self):
+        newsch = Schedule(self.start_time, self.stop_time)
+        newsch.waste = self.waste
+        newsch.data  = self.data
+        newsch.slots = list(self.slots)
+
+    def get_waste(self):
+        ## start_time, stop_time = self.get_free()
+        ## total = (stop_time - start_time).total_seconds()
+
+        ## for slot in self.slots:
+        ##     if slot.data == None:
+        ##         total += slot.size()
+
+        ## return total
+        return self.waste
+
+
 class OB(object):
     """
     Observing Block
@@ -131,6 +247,7 @@ class OB(object):
     
     def __init__(self, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, total_time=None):
+        super(OB, self).__init__()
         self.id = "ob%04d" % (OB.count)
         OB.count += 1
         
@@ -154,6 +271,7 @@ class BaseTarget(object):
     
 class StaticTarget(object):
     def __init__(self, name, ra, dec, equinox=2000.0):
+        super(StaticTarget, self).__init__()
         self.name = name
         self.ra = ra
         self.dec = dec
@@ -213,6 +331,15 @@ class StaticTarget(object):
         moon_sep = math.degrees(float(moon_sep))
         return (moon_alt, moon_pct, moon_sep)
         
+    def calc_separation_alt_az(self, target):
+        """Compute deltas for azimuth and altitude from another target"""
+        self.body.compute(self.site)
+        target.compute(self.site)
+
+        delta_az = float(self.body.az) - float(target.az)
+        delta_alt = float(self.body.alt) - float(target.alt)
+        return (delta_alt, delta_az)
+        
     def calc(self, observer, time_start):
         observer.set_date(time_start)
         self.body = ephem.readdb(self.xeph_line)
@@ -244,6 +371,7 @@ class Observer(object):
     def __init__(self, name, timezone=None, longitude=None, latitude=None,
                  elevation=None, pressure=None, temperature=None,
                  date=None, description=None):
+        super(Observer, self).__init__()
         self.name = name
         self.timezone = timezone
         self.longitude = longitude
@@ -315,56 +443,57 @@ class Observer(object):
                 ((airmass == None) or ((c1.airmass <= airmass) and
                                        (c2.airmass <= airmass))))
 
-    ## def observable(self, target, time_start, time_stop,
+    def observable_now(self, target, time_start, time_needed,
+                       el_min_deg, el_max_deg, airmass=None):
+
+        time_stop = time_start + timedelta(0, time_needed)
+        res = self._observable(target, time_start, time_stop,
+                               el_min_deg, el_max_deg,
+                               airmass=airmass)
+        return res
+
+    ## def observable2(self, target, time_start, time_stop,
     ##                el_min_deg, el_max_deg, time_needed,
     ##                airmass=None):
-    ##     res = self._observable(target, time_start, time_stop,
-    ##                            el_min_deg, el_max_deg,
-    ##                            airmass=airmass)
-    ##     return res
-
-    def observable2(self, target, time_start, time_stop,
-                   el_min_deg, el_max_deg, time_needed,
-                   airmass=None):
-        """
-        Return True if `target` is observable between `time_start` and
-        `time_stop`, defined by whether it is between elevation `el_min`
-        and `el_max` during that period (and whether it meets the minimum
-        `airmass`), for the requested amount of `time_needed`.
-        """
-        delta = (time_stop - time_start).total_seconds()
-        if time_needed > delta:
-            return (False, None)
+    ##     """
+    ##     Return True if `target` is observable between `time_start` and
+    ##     `time_stop`, defined by whether it is between elevation `el_min`
+    ##     and `el_max` during that period (and whether it meets the minimum
+    ##     `airmass`), for the requested amount of `time_needed`.
+    ##     """
+    ##     delta = (time_stop - time_start).total_seconds()
+    ##     if time_needed > delta:
+    ##         return (False, None)
         
-        time_off = 0
-        time_inc = 300
-        total_visible = 0
-        cnt = 0
-        pos = None
+    ##     time_off = 0
+    ##     time_inc = 300
+    ##     total_visible = 0
+    ##     cnt = 0
+    ##     pos = None
 
-        # TODO: need a much more efficient algorithm than this
-        # should be able to use calculated rise/fall times
-        while time_off < delta:
-            time_s = time_start + timedelta(0, time_off)
-            time_left = (time_stop - time_s).total_seconds()
-            incr = min(time_inc, time_left)
-            time_e = time_s + timedelta(0, incr)
-            res = self._observable(target, time_s, time_e,
-                                   el_min_deg, el_max_deg,
-                                   airmass=airmass)
-            if res:
-                total_visible += incr
-                if pos == None:
-                    pos = time_s
-            time_off += incr
+    ##     # TODO: need a much more efficient algorithm than this
+    ##     # should be able to use calculated rise/fall times
+    ##     while time_off < delta:
+    ##         time_s = time_start + timedelta(0, time_off)
+    ##         time_left = (time_stop - time_s).total_seconds()
+    ##         incr = min(time_inc, time_left)
+    ##         time_e = time_s + timedelta(0, incr)
+    ##         res = self._observable(target, time_s, time_e,
+    ##                                el_min_deg, el_max_deg,
+    ##                                airmass=airmass)
+    ##         if res:
+    ##             total_visible += incr
+    ##             if pos == None:
+    ##                 pos = time_s
+    ##         time_off += incr
 
-        if pos == None:
-            return (False, None)
-        elif time_needed > total_visible:
-            return (False, pos)
-        elif pos + timedelta(0, time_needed) < time_stop:
-            return (True, pos)
-        return (False, pos)
+    ##     if pos == None:
+    ##         return (False, None)
+    ##     elif time_needed > total_visible:
+    ##         return (False, pos)
+    ##     elif pos + timedelta(0, time_needed) < time_stop:
+    ##         return (True, pos)
+    ##     return (False, pos)
 
     ## def totz(self, date):
     ##     local_tz = pytz.timezone('US/Hawaii')
@@ -416,7 +545,7 @@ class Observer(object):
                 time_rise = site.next_rising(target.body, start=time_start_utc)
                 time_set = site.next_setting(target.body, start=time_start_utc)
             except ephem.NeverUpError:
-                return (False, None)
+                return (False, None, None)
             
             #print "body not up: rise=%s set=%s" % (time_rise, time_set)
             ## if time_rise < time_set:
@@ -454,7 +583,7 @@ class Observer(object):
         # TODO: return time end as well
         # convert time_rise back to a datetime
         time_rise = self.tz_utc.localize(time_rise.datetime())
-        return (can_obs, time_rise)
+        return (can_obs, time_rise, time_end)
 
     def distance(self, tgt1, tgt2, time_start):
         c1 = self.calc(tgt1, time_start)
@@ -489,6 +618,7 @@ class HST(tzinfo):
 class TelescopeConfiguration(object):
 
     def __init__(self, focus=None):
+        super(TelescopeConfiguration, self).__init__()
         self.focus = focus
         self.min_el = 15.0
         self.max_el = 89.0
@@ -499,7 +629,7 @@ class TelescopeConfiguration(object):
 class InstrumentConfiguration(object):
 
     def __init__(self):
-        pass
+        super(InstrumentConfiguration, self).__init__()
 
 class SPCAMConfiguration(InstrumentConfiguration):
     
@@ -512,6 +642,7 @@ class SPCAMConfiguration(InstrumentConfiguration):
 class EnvironmentConfiguration(object):
 
     def __init__(self, seeing=None, airmass=None):
+        super(EnvironmentConfiguration, self).__init__()
         self.seeing = seeing
         self.airmass = airmass
     

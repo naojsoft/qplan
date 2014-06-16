@@ -97,7 +97,7 @@ class TestEntity01(unittest.TestCase):
                                      60*1)  # 1 min NOT ok
         self.assert_(is_obs == False)
     
-    def test_airmass(self):
+    def ftest_airmass(self):
         # calculate airmass via "observer" module
         import observer
         obs = observer.Observer('subaru')
