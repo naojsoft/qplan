@@ -4,124 +4,70 @@
 #
 #  Eric Jeschke (eric@naoj.org)
 #
-import sys
-from optparse import OptionParser
-from datetime import datetime, timedelta
-import pytz
-import csv
-import logging
-
-# 3rd party imports
-#from constraint import Problem
-# for printing target trajectory graphs
-#import observer
+from datetime import timedelta
 
 # Gen2 imports
-import Bunch
+from ginga.misc import Bunch
 
 # local imports
 import misc
-import constraints
+#import constraints
 import entity
-
-version = "0.1.20140507"
-
-LOG_FORMAT = '%(asctime)s | %(levelname)1.1s | %(filename)s:%(lineno)d | %(message)s'
 
 
 # maximum rank for a program
 max_rank = 10.0
 
 # minimum slot size in sec
-minimum_slot_size = 180.0
+minimum_slot_size = 60.0
 #minimum_slot_size = 10.0
 
-def schedules_to_slots(slots, constraints, schedules):
-    # define problem
-    problem = Problem()
-    problem.addVariable('slot', slots)
-    problem.addVariable('schedule', schedules)
+# telescope parked position
+parked_az_deg = -90.0
+parked_alt_deg = 90.0
 
-    # add constraints
-    for name in dir(constraints):
-        if name.startswith('cns_'):
-            method = getattr(constraints, name)
-            problem.addConstraint(method)
+# filter change time in sec
+filter_change_time = 15.0 * 60.0
 
-    # get possible solutions
-    solutions = problem.getSolutions()
-    
-    # make inverse mapping of schedules to slots
-    schmap = {}
-    for soln in solutions:
-        slot = soln['slot']
-        if not slot in schmap:
-            schmap[slot] = [ soln['ob'] ]
-        else:
-            schmap[slot].append(soln['ob'])
-
-    return schmap
+# Subaru defines a dark night as one that is 2-3 days before or
+# after a new moon (0%).  Since a half moon (50%)occurs just 7 days
+# prior to a new moon, we can roughly calculate a dark night as
+# being < 25% illumination
+dark_night_moon_pct_limit = 0.25
 
 
-def obs_to_slots(slots, constraints, obs):
-    # this version assumes fixed slots
+def filterchange_ob(ob, total_time):
+    new_ob = entity.OB(program=ob.program, target=ob.target,
+                       telcfg=ob.telcfg,
+                       inscfg=ob.inscfg, envcfg=ob.envcfg,
+                       total_time=total_time)
+    new_ob.comment = "Filter change for %s" % (ob)
+    return new_ob
 
-    # define problem
-    problem = Problem()
-    problem.addVariable('slot', slots)
-    problem.addVariable('ob', obs)
-
-    # add constraints
-    for name in dir(constraints):
-        if name.startswith('cns_'):
-            method = getattr(constraints, name)
-            problem.addConstraint(method)
-
-    # get possible solutions
-    solutions = problem.getSolutions()
-    
-    # make inverse mapping of OBs to slots
-    obmap = {}
-    for soln in solutions:
-        slot = soln['slot']
-        if not slot in obmap:
-            obmap[slot] = [ soln['ob'] ]
-        else:
-            obmap[slot].append(soln['ob'])
-
-    return obmap
-
-
-def obs_to_slots2(slots, site, obs):
-    obmap = {}
-    for slot in slots:
-        obmap[slot] = []
-        if slot.size() < minimum_slot_size:
-            continue
-        for ob in obs:
-            # this OB OK for this slot at this site?
-            if check_slot(site, slot, ob):
-                obmap[slot].append(ob)
-    #print obmap
-    return obmap
-
-
-def double_check_slot(site, slot, ob):
         
-    # check if filter will be installed
-    if not (ob.inscfg.filter in slot.data.filters):
-        print "Failed: no filter match (%s): %s" % (
-            ob.inscfg.filter, slot.data.filters)
-        return False
+def longslew_ob(prev_ob, ob, total_time):
+    if prev_ob == None:
+        inscfg = entity.SPCAMConfiguration(filter=None)
+    else:
+        inscfg = prev_ob.inscfg
+    new_ob = entity.OB(program=ob.program, target=ob.target,
+                       telcfg=ob.telcfg,
+                       inscfg=inscfg, envcfg=ob.envcfg,
+                       total_time=total_time)
+    new_ob.comment = "Long slew for %s" % (ob)
+    return new_ob
 
-    # Check whether OB will fit in this slot
-    delta = (slot.stop_time - slot.start_time).total_seconds()
-    if ob.total_time > delta:
-        print "Failed: slot too short"
-        return False
-    return True
+        
+def delay_ob(ob, total_time):
+    new_ob = entity.OB(program=ob.program, target=ob.target,
+                       telcfg=ob.telcfg,
+                       inscfg=ob.inscfg, envcfg=ob.envcfg,
+                       total_time=total_time)
+    new_ob.comment = "Delay for %s visibility" % (ob)
+    return new_ob
 
-def check_slot(site, slot, ob):
+        
+def precheck_slot(site, slot, ob):
 
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
@@ -142,31 +88,83 @@ def check_slot(site, slot, ob):
                                                 airmass=ob.envcfg.airmass)
     return obs_ok
 
-def check_slot2(site, prev_ob, slot, ob):
+def obs_to_slots(slots, site, obs):
+    obmap = {}
+    for slot in slots:
+        obmap[slot] = []
+        if slot.size() < minimum_slot_size:
+            continue
+        for ob in obs:
+            # this OB OK for this slot at this site?
+            if precheck_slot(site, slot, ob):
+                obmap[slot].append(ob)
+
+    return obmap
+
+
+def check_slot(site, prev_slot, slot, ob):
 
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
-        return (False, 0.0)
+        return Bunch.Bunch(obs_ok=False, reason="Filter not installed")
+
+    # check seeing on the slot is acceptable to this ob
+    if not (ob.envcfg.seeing >= slot.data.seeing):
+        return Bunch.Bunch(obs_ok=False, reason="Seeing not acceptable")
+
+    # check sky condition on the slot is acceptable to this ob
+    if ob.envcfg.sky == 'clear':
+        if slot.data.skycond != 'clear':
+            return Bunch.Bunch(obs_ok=False, reason="Sky condition '%s' not acceptable" % (slot.data.skycond))
+    elif ob.envcfg.sky == 'cirrus':
+        if slot.data.skycond == 'any':
+            return Bunch.Bunch(obs_ok=False, reason="Sky condition '%s' not acceptable" % (slot.data.skycond))
+
+    c1 = ob.target.calc(site, slot.start_time)
+
+    # if observer specified a moon phase, check it now
+    if ob.envcfg.moon == 'dark':
+        ## print "moon pct=%f moon alt=%f moon_sep=%f" % (
+        ##     c1.moon_pct, c1.moon_alt, c1.moon_sep)
+        if c1.moon_pct > dark_night_moon_pct_limit:
+            return Bunch.Bunch(obs_ok=False,
+                               reason="Moon illumination=%f" % (c1.moon_pct))
+
+    # TODO: check moon separation from target here
+    
+    filterchange = False
+    filterchange_sec = 0.0
+    prev_ob = None
 
     # calculate cost of slew to this target
-    prev_tgt = prev_ob.target
-    cur_tgt = ob.target
+    if (prev_slot == None) or (prev_slot.ob == None):
+        # no previous target--calculate cost from telescope parked position
+        delta_alt, delta_az = parked_alt_deg - c1.alt_deg, parked_az_deg - c1.az_deg
 
-    delta_alt, delta_az = prev_tgt.calc_separation_alt_az(cur_tgt)
-    slew_time_sec = misc.calc_slew_time(delta_alt, delta_az)
-    print "slew time for new ob is %f sec" % (slew_time_sec)
+        filterchange = True
+
+    else:
+        c0 = prev_slot.ob.target.calc(site, slot.start_time)
+        delta_alt, delta_az = c0.alt_deg - c1.alt_deg, c0.az_deg - c1.az_deg
+        prev_ob = prev_slot.ob
+        
+    #print "print delta alt,az=%f,%f sec" % (delta_alt, delta_az)
+    slew_sec = misc.calc_slew_time(delta_az, delta_alt)
+    #print "slew time for new ob is %f sec" % (slew_sec)
 
     # calculate cost of filter exchange
-    filter_change_sec = 0.0
-    if prev_ob.inscfg.filter != ob.inscfg.filter:
+    if filterchange or (prev_slot.ob.inscfg.filter != ob.inscfg.filter):
         # filter exchange necessary
-        filter_change_sec = 15.0 * 60.0
-        print "filter change time for new ob is %f sec" % (slew_time_sec)
+        filterchange = True
+        filterchange_sec = filter_change_time
+    #print "filter change time for new ob is %f sec" % (filterchange_sec)
 
-    delay_sec = slew_time_sec + filter_change_sec
-    print "total delay is %f sec" % (slew_time_sec)
-    
-    start_time = slot.start_time + timedelta(0, delay_sec)
+    # add up total preparation time for new OB
+    prep_sec = slew_sec + filterchange_sec
+    #print "total delay is %f sec" % (prep_sec)
+
+    # adjust slot start time
+    start_time = slot.start_time + timedelta(0, prep_sec)
     
     # Check whether OB will fit in this slot
     ## delta = (slot.stop_time - slot.start_time).total_seconds()
@@ -181,382 +179,47 @@ def check_slot2(site, prev_ob, slot, ob):
                                                 start_time, slot.stop_time,
                                                 min_el, max_el, ob.total_time,
                                                 airmass=ob.envcfg.airmass)
-    return obs_ok
 
-def reserve_slot(site, slot, ob):
-        
-    # Check whether OB will fit in this slot
-    delta = (slot.stop_time - slot.start_time).total_seconds()
-    if ob.total_time > delta:
-        print "HELLO!!!"
-        
-    min_el, max_el = ob.telcfg.get_el_minmax()
+    if not obs_ok:
+        return Bunch.Bunch(obs_ok=False,
+                           reason="Time or visibility of target")
 
-    # find the time that this object begins to be visible
-    # TODO: figure out the best place to split the slot
-    (obs_ok, t_start, t_stop) = site.observable(ob.target,
-                                                slot.start_time, slot.stop_time,
-                                                min_el, max_el, ob.total_time,
-                                                airmass=ob.envcfg.airmass)
-    assert obs_ok == True, \
-           Exception("slot should have been observable!")
+    # calculate delay until we could actually start observing the object
+    # in this slot
+    delay_sec = (t_start - start_time).total_seconds()
 
-    (slot_b, slot_c, slot_d) = slot.split(t_start, ob.total_time)
-
-    # Return any leftover slots from splitting this slot
-    # by the OB
-    res = []
-    if slot_b != None:
-        res.append(slot_b)
-    if slot_d != None:
-        res.append(slot_d)
-
-    slot_c.set_ob(ob)
-    return slot_c, res
-
-
-def pick_ob(slot, okobs):
-    # TODO: consider
-    # - proximity to previous target
-    # - change of filter or not
-    # - moon illumination
-
-    # sort OBs by rank
-    sorted_obs = sorted(okobs, key=lambda ob: max_rank-ob.program.rank)
-
-    # assign the highest ranked OB to this slot
-    ob = sorted_obs[0]
-    return ob
-
-
-def make_schedule(schedule, site, empty_slots, constraints, oblist, logger):
-
-    # find OBs that can fill the given slots
-    #obmap = obs_to_slots(empty_slots, constraints, oblist)
-    obmap = obs_to_slots2(empty_slots, site, oblist)
-
-    new_slots = []
-    assigned = []
-
-    # for each large slot, find the highest ranked OB that can
-    # fill that slot and assign it to the slot, possibly splitting
-    # the slot
-    for slot, okobs in obmap.items():
-        ## print "double-checking objects"
-        ## for ob in okobs:
-        ##     if not double_check_slot(site, slot, ob):
-        ##         raise Exception("%s check FAILED for slot %s" % (ob, slot))
-        ##     else:
-        ##         #print "%s check SUCCEEDED for slot %s" % (ob, slot)
-        ##         pass
-
-        logger.debug("considering slot %s" % (slot))
-        # remove already assigned OBs
-        for ob in assigned:
-            if ob in okobs:
-                okobs.remove(ob)
-                
-        if len(okobs) == 0:
-            # no OB fits this slot
-            schedule.insert_slot(slot)
-            continue
-
-        # examine and pick an ob for this slot
-        ob = pick_ob(slot, okobs)
-        assigned.append(ob)
-
-        # remove OB from the leftover OBs
-        oblist.remove(ob)
-
-        dur = ob.total_time / 60.0
-        logger.debug("assigning %s(%.2fm) to %s" % (ob, dur, slot))
-        # add the new empty slots made by the leftover time
-        # of assigning this OB to the slot
-        aslot, split_slots = reserve_slot(site, slot, ob)
-        schedule.insert_slot(aslot)
-        logger.debug("leaving these=%s" % str(split_slots))
-        new_slots.extend(split_slots)
-
-    # recurse with new slots and leftover obs
-    if len(oblist) == 0:
-        # no OBs left to distribute
-        for slot in new_slots:
-            schedule.insert_slot(slot)
-
-    elif len(new_slots) > 0:
-        # fill new slots as best possible
-        make_schedule(schedule, site, new_slots, constraints, oblist, logger)
+    stop_time = t_start + timedelta(0, ob.total_time)
+    res = Bunch.Bunch(obs_ok=obs_ok, ob=ob, prev_ob=prev_ob,
+                      prep_sec=prep_sec, slew_sec=slew_sec,
+                      delta_az=delta_az, delta_alt=delta_alt,
+                      filterchange=filterchange,
+                      filterchange_sec=filterchange_sec,
+                      start_time=t_start, stop_time=stop_time,
+                      delay_sec=delay_sec)
+    return res
 
 
 def eval_schedule(schedule):
 
     current_filter = None
     num_filter_exchanges = 0
+    time_waste_sec = 0.0
     
     for slot in schedule.slots:
         ob = slot.ob
-        if ob == None:
+        # TODO: fix up a more solid check for delays
+        if (ob == None) or ob.comment.startswith('Delay'):
+            delta = (slot.stop_time - slot.start_time).total_seconds()
+            time_waste_sec += delta
             continue
 
         if ob.inscfg.filter != current_filter:
             num_filter_exchanges += 1
             current_filter = ob.inscfg.filter
 
-    res = Bunch.Bunch(num_filter_exchanges=num_filter_exchanges)
+    res = Bunch.Bunch(num_filter_exchanges=num_filter_exchanges,
+                      time_waste_sec=time_waste_sec)
     return res
-
             
-def main(options, args):
-
-    # Create top level logger.
-    logger = logging.getLogger('datasink')
-    logger.setLevel(logging.DEBUG)
-
-    fmt = logging.Formatter(LOG_FORMAT)
-
-    if options.logfile:
-        fileHdlr  = logging.handlers.RotatingFileHandler(options.logfile,
-                                                         maxBytes=options.loglimit,
-                                                         backupCount=4)
-        fileHdlr.setFormatter(fmt)
-        fileHdlr.setLevel(options.loglevel)
-        logger.addHandler(fileHdlr)
-    # Add output to stderr, if requested
-    if options.logstderr or (not options.logfile):
-        stderrHdlr = logging.StreamHandler()
-        stderrHdlr.setFormatter(fmt)
-        stderrHdlr.setLevel(options.loglevel)
-        logger.addHandler(stderrHdlr)
-
-    logger.info("initializing")
-    HST = entity.HST()
-    timezone = pytz.timezone('US/Hawaii')
-
-    site = entity.Observer('subaru',
-                           longitude='-155:28:48.900',
-                           latitude='+19:49:42.600',
-                           elevation=4163,
-                           pressure=615,
-                           temperature=0,
-                           timezone=HST)
-
-    # read schedule
-    logger.info("reading schedule and defining periods")
-    schedule = misc.parse_schedule("schedule.csv")
-
-    # -- Define fillable slots --
-    schedules = []
-    night_slots = []
-
-    for tup in schedule:
-        date_s, starttime_s, stoptime_s, filters, seeing, moon = tup
-        
-        night_start = site.get_date("%s %s" % (date_s, starttime_s))
-        next_day = night_start + timedelta(0, 3600*14)
-        next_day_s = next_day.strftime("%Y-%m-%d")
-        night_stop = site.get_date("%s %s" % (next_day_s, stoptime_s))
-
-        # associate available filters with this schedule
-        data = Bunch.Bunch(filters=filters)
-        schedules.append(entity.Schedule(night_start, night_stop,
-                                         data=data))
-        delta = (night_stop - night_start).total_seconds()
-        night_slots.append(entity.Slot(night_start, delta,
-                                       data=data))
-
-    # read proposals
-    logger.info("reading proposals")
-    programs = misc.parse_proposals('programs.csv')
-    # build a lookup table of programs -> OBs
-    props = {}
-    for key in programs:
-        props[key] = Bunch.Bunch(pgm=programs[key], obs=[], obcount=0)
-
-    # read observing blocks
-    logger.info("reading observing blocks")
-    oblist = []
-    for propname in programs:
-        oblist.extend(misc.parse_obs('%s.csv' % propname, programs))
-
-    # check whether there are some OBs that cannot be scheduled
-    logger.info("checking for unschedulable OBs on these nights")
-    obmap = obs_to_slots2(night_slots, site, oblist)
-    schedulable = set([])
-    for obs in obmap.values():
-        schedulable = schedulable.union(set(obs))
-    unschedulable = set(oblist) - schedulable
-    unschedulable = list(unschedulable)
-    logger.info("there are %d unschedulable OBs" % (len(unschedulable)))
-
-    logger.info("preparing to schedule")
-    oblist = list(schedulable)
-
-    # count OBs in each program
-    for ob in oblist:
-        pgmname = str(ob.program)
-        props[pgmname].obs.append(ob)
-        props[pgmname].obcount += 1
-
-    unscheduled_obs = list(oblist)
-    total_waste = 0.0
-
-    logger.info("scheduling %d OBs (from %d programs) for %d nights" % (
-        len(unscheduled_obs), len(programs), len(schedules)))
-    
-    for schedule in schedules:
-
-        start_time = schedule.start_time
-        stop_time  = schedule.stop_time
-        delta = (stop_time - start_time).total_seconds()
-        
-        nslot = entity.Slot(start_time, delta, data=schedule.data)
-        slots = [ nslot ]
-
-        t = start_time.astimezone(timezone)
-        ndate = t.strftime("%Y-%m-%d")
-        outfile = ndate + '.txt'
-
-        logger.info("scheduling night %s" % (ndate))
-
-        obmap = obs_to_slots2(slots, site, unscheduled_obs)
-        this_nights_obs = obmap[nslot]
-        logger.info("%d OBs can be executed this night" % (
-            len(this_nights_obs)))
-
-        # optomize and rank schedules
-        make_schedule(schedule, site, slots, constraints, this_nights_obs,
-                      logger)
-
-        res = eval_schedule(schedule)
-        logger.info("flt exch=%d" % (res.num_filter_exchanges))
-
-        with open(outfile, 'w') as out_f:
-            out_f.write("--- NIGHT OF %s ---\n" % (ndate))
-            out_f.write("%-16.16s  %-6.6s  %12.12s  %5.5s %7.7s %-6.6s  %3.3s  %s\n" % (
-                'Date', 'ObsBlk', 'Program', 'Rank', 'Time', 'Filter', 'AM', 'Target'))
-
-            targets = {}
-            for slot in schedule.slots:
-
-                t = slot.start_time.astimezone(timezone)
-                date = t.strftime("%Y-%m-%d %H:%M")
-                ob = slot.ob
-                if ob != None:
-                    t_prog = slot.start_time + timedelta(0, ob.total_time)
-                    out_f.write("%-16.16s  %-6.6s  %12.12s  %5.2f %7.2f %-6.6s  %3.1f  %s\n" % (
-                        date, str(ob), ob.program, ob.program.rank,
-                        ob.total_time / 60,
-                        ob.inscfg.filter, ob.envcfg.airmass,
-                        ob.target.name))
-                    key = (ob.target.ra, ob.target.dec)
-                    targets[key] = ob.target
-                    unscheduled_obs.remove(ob)
-                    props[str(ob.program)].obs.remove(ob)
-                else:
-                    out_f.write("%-16.16s  %-6.6s\n" % (date, str(ob)))
-
-            out_f.write("\n")
-            waste = schedule.get_waste() / 60.0
-            out_f.write("%d targets  unscheduled: time=%.2f min\n" % (
-                len(targets), waste))
-            out_f.write("\n")
-            total_waste += waste
-
-        # obs = observer.Observer('subaru')
-        # tgts = [ obs.target(tgt.name, tgt.ra, tgt.dec)
-        #          for tgt in targets.values() ]
-        # obs.almanac(ndate.replace('-', '/'))
-        # #print obs.almanac_data
-        # obs.airmass(*tgts)
-        # #print obs.airmass_data
-        # observer.plots.plot_airmass(obs, 'output-%s.png' % (ndate))
-
-        logger.info("%d unscheduled OBs left" % (len(unscheduled_obs)))
-
-    # print a summary
-    num_obs = len(oblist)
-    pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
-    print "%5.2f %% of OBs scheduled" % (pct*100.0)
-
-    if len(unschedulable) > 0:
-        print ""
-        print "%d OBs are not schedulable: %s" % (len(unschedulable), unschedulable)
-        print ""
-    
-    completed, uncompleted = [], []
-    for key in programs:
-        bnch = props[key]
-        if len(bnch.obs) == 0:
-            completed.append(bnch)
-        else:
-            uncompleted.append(bnch)
-            
-    completed = sorted(completed, key=lambda bnch: max_rank - bnch.pgm.rank)
-    uncompleted = sorted(uncompleted, key=lambda bnch: max_rank - bnch.pgm.rank)
-    
-    print "Completed programs"
-    for bnch in completed:
-        print "%-12.12s   %5.2f  %d/%d  100%%" % (str(bnch.pgm), bnch.pgm.rank,
-                                                    bnch.obcount, bnch.obcount)
-    
-    print ""
-
-    print "Uncompleted programs"
-    for bnch in uncompleted:
-        pct = float(bnch.obcount-len(bnch.obs)) / float(bnch.obcount) * 100.0
-        print "%-12.12s   %5.2f  %d/%d  %5.2f%%" % (str(bnch.pgm), bnch.pgm.rank,
-                                                    bnch.obcount-len(bnch.obs),
-                                                    bnch.obcount, pct)
-    print ""
-    print "Total unscheduled time: %8.2f min" % (total_waste)
-    
-            
-        
-
-if __name__ == '__main__':
-
-    usage = "usage: %prog [options]"
-    optprs = OptionParser(usage=usage, version=('%%prog %s' % version))
-    
-    optprs.add_option("--debug", dest="debug", default=False,
-                      action="store_true",
-                      help="Enter the pdb debugger on main()")
-    optprs.add_option("--log", dest="logfile", metavar="FILE",
-                      help="Write logging output to FILE")
-    optprs.add_option("--loglevel", dest="loglevel", metavar="LEVEL",
-                      type="int", default=logging.INFO,
-                      help="Set logging level to LEVEL")
-    optprs.add_option("--profile", dest="profile", action="store_true",
-                      default=False,
-                      help="Run the profiler on main()")
-    optprs.add_option("--slot-start", dest="slot_start", default=None,
-                      help="Define the start of the slot ('YYYY-MM-DD HH:MM')")
-    optprs.add_option("--slot-end", dest="slot_end", default=None,
-                      help="Define the end of the slot ('YYYY-MM-DD HH:MM')")
-    optprs.add_option("--stderr", dest="logstderr", default=False,
-                      action="store_true",
-                      help="Copy logging also to stderr")
-    (options, args) = optprs.parse_args(sys.argv[1:])
-
-    if len(args) != 0:
-        optprs.error("incorrect number of arguments")
-
-
-    # Are we debugging this?
-    if options.debug:
-        import pdb
-
-        pdb.run('main(options, args)')
-
-    # Are we profiling this?
-    elif options.profile:
-        import profile
-
-        print "%s profile:" % sys.argv[0]
-        profile.run('main(options, args)')
-
-    else:
-        main(options, args)
-
 
 # END

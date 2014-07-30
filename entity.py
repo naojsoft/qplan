@@ -24,7 +24,8 @@ class Program(object):
     Defines a program that has been accepted for observation.
     """
     def __init__(self, proposal, rank=1.0, pi=None, observers=None,
-                 propid=None, description=None):
+                 propid=None, band=None, partner=None, hours=None,
+                 description=None):
         super(Program, self).__init__()
         
         self.proposal = proposal
@@ -34,6 +35,9 @@ class Program(object):
             propid = proposal
         self.propid = propid
         self.rank = rank
+        self.band = band
+        self.partner = partner
+        self.hours = hours
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
         
@@ -157,6 +161,8 @@ class Schedule(object):
     def next_free_slot(self):
         start_time, stop_time = self.get_free()
         diff = (stop_time - start_time).total_seconds()
+        if diff <= 0.0:
+            return None
         return Slot(start_time, diff)
         
     def _previous(self, slot):
@@ -236,6 +242,12 @@ class Schedule(object):
         ## return total
         return self.waste
 
+    def __repr__(self):
+        s = self.start_time.strftime("%Y:%m:%d %H:%M")
+        return s
+
+    __str__ = __repr__
+
 
 class OB(object):
     """
@@ -246,12 +258,17 @@ class OB(object):
     count = 1
     
     def __init__(self, program=None, target=None, telcfg=None,
-                 inscfg=None, envcfg=None, total_time=None):
+                 inscfg=None, envcfg=None, total_time=None,
+                 priority=1.0, name=None):
         super(OB, self).__init__()
         self.id = "ob%04d" % (OB.count)
         OB.count += 1
         
         self.program = program
+        self.priority = priority
+        if name == None:
+            name = self.id
+        self.name = name
 
         # constraints
         self.target = target
@@ -259,6 +276,8 @@ class OB(object):
         self.telcfg = telcfg
         self.envcfg = envcfg
         self.total_time = total_time
+
+        self.comment = ''
 
     def __repr__(self):
         return self.id
@@ -323,7 +342,7 @@ class StaticTarget(object):
         """Compute Moon altitude"""
         moon = ephem.Moon()
         moon.compute(site)
-        moon_alt = moon.alt
+        moon_alt = math.degrees(float(moon.alt))
         # moon.phase is % of moon that is illuminated
         moon_pct = moon.moon_phase
         # calculate distance from target
@@ -641,10 +660,15 @@ class SPCAMConfiguration(InstrumentConfiguration):
     
 class EnvironmentConfiguration(object):
 
-    def __init__(self, seeing=None, airmass=None):
+    def __init__(self, seeing=None, airmass=None, moon='any', sky='any'):
         super(EnvironmentConfiguration, self).__init__()
         self.seeing = seeing
         self.airmass = airmass
-    
+        if (moon == None) or (len(moon) == 0):
+            moon = 'any'
+        self.moon = moon.lower()
+        if (sky == None) or (len(sky) == 0):
+            sky = 'any'
+        self.sky = sky.lower()
 
 #END

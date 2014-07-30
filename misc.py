@@ -8,6 +8,9 @@ import csv
 import string
 import math
 
+# 3rd party imports
+import numpy
+
 # gen2 imports
 from astro import radec
 
@@ -54,16 +57,18 @@ def parse_proposals(filepath):
         next(reader)
 
         for row in reader:
-            (proposal, propid, rank, skip) = row
+            (proposal, propid, rank, band, hours, partner, skip) = row
             if skip.strip() != '':
                 continue
             programs[proposal] = entity.Program(proposal, propid=propid,
-                                                rank=float(rank))
+                                                rank=float(rank),
+                                                band=int(band), partner=partner,
+                                                hours=float(hours))
 
     return programs
 
 
-def parse_obs(filepath, propdict):
+def parse_obs(filepath, proposal, propdict):
     """
     Read all observing blocks from a CSV file.
     """
@@ -74,14 +79,14 @@ def parse_obs(filepath, propdict):
         next(reader)
 
         for row in reader:
-            (proposal, name, ra, dec, eq, filter, exptime, num_exp,
-             dither, totaltime, priority, seeing, airmass, moon) = row
+            (obname, name, ra, dec, eq, filter, exptime, num_exp,
+             dither, totaltime, priority, seeing, airmass, moon, sky) = row
             # skip blank lines
-            proposal = proposal.strip()
-            if len(proposal) == 0:
+            obname = obname.strip()
+            if len(obname) == 0:
                 continue
             # skip comments
-            if proposal.lower() == 'comment':
+            if obname.lower() == 'comment':
                 continue
             # transform equinox, e.g. "J2000" -> 2000
             if isinstance(eq, str):
@@ -100,8 +105,14 @@ def parse_obs(filepath, propdict):
             else:
                 airmass = None
 
+            if len(priority.strip()) != 0:
+                priority = float(priority)
+            else:
+                priority = 1.0
+
             envcfg = entity.EnvironmentConfiguration(seeing=seeing,
-                                                     airmass=airmass)
+                                                     airmass=airmass,
+                                                     moon=moon, sky=sky)
             inscfg = entity.SPCAMConfiguration(filter=filter)
             telcfg = entity.TelescopeConfiguration(focus='P_OPT')
             
@@ -110,6 +121,8 @@ def parse_obs(filepath, propdict):
                            inscfg=inscfg,
                            envcfg=envcfg,
                            telcfg=telcfg,
+                           priority=priority,
+                           name=obname,
                            total_time=float(totaltime))
             obs.append(ob)
 
@@ -125,14 +138,24 @@ def parse_schedule(filepath):
         # skip header
         next(reader)
 
+        line = 1
         for row in reader:
-            (date, starttime, stoptime, filters, seeing, moon) = row
+            try:
+                (date, starttime, stoptime, filters, skycond,
+                 seeing, note) = row
+
+            except Exception as e:
+                raise ValueError("Error reading line %d of schedule: %s" % (
+                    line, str(e)))
+
+            line += 1
             # skip blank lines
             if len(date.strip()) == 0:
                 continue
 
             filters = map(string.strip, filters.split(','))
-            rec = (date, starttime, stoptime, filters, seeing, moon)
+            seeing = float(seeing)
+            rec = (date, starttime, stoptime, filters, seeing, skycond)
             schedule.append(rec)
 
     return schedule
@@ -154,11 +177,12 @@ def airmass2alt(am):
             return alt_deg
     return 90.0
 
-def calc_slew_time(d_alt, d_az, rate_az=0.5, rate_el=0.5):
-    """Calculate slew time given a delta in altitude and azimuth.
+def calc_slew_time(d_az, d_el, rate_az=0.5, rate_el=0.5):
+    """Calculate slew time given a delta in azimuth aand elevation.
     """
-    time_sec = max(math.fabs(d_alt) * rate_el,
-                   math.fabs(d_az) * rate_az)
+    time_sec = max(math.fabs(d_el) / rate_el,
+                   math.fabs(d_az) / rate_az)
     return time_sec
+
 
 #END
