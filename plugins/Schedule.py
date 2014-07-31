@@ -123,7 +123,8 @@ class GenericTableModel(QtCore.QAbstractTableModel):
     def headerData(self, col, orientation, role):
         if (orientation == QtCore.Qt.Horizontal) and \
                (role == QtCore.Qt.DisplayRole):
-            return self.columns[col][0]
+            #return self.columns[col][0]
+            return self.columns[col]
         
         # Hack to make the rows in a TableView all have a
         # reasonable height for the data

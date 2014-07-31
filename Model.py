@@ -288,7 +288,7 @@ class QueueModel(Callback.Callbacks):
             self.logger.info("scheduling night %s" % (ndate))
 
             obmap = qsim.obs_to_slots(slots, site, unscheduled_obs)
-            this_nights_obs = obmap[nslot]
+            this_nights_obs = obmap[str(nslot)]
             self.logger.info("%d OBs can be executed this night" % (
                 len(this_nights_obs)))
 

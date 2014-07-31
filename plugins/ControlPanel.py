@@ -89,12 +89,18 @@ class ControlPanel(PlBase.Plugin):
 
         # read schedule
         schedule_file = os.path.join(self.input_dir, "schedule.csv")
+        if not os.path.exists(schedule_file):
+            self.logger.error("File not readable: %s" % (schedule_file))
+            return
         self.logger.info("reading schedule from %s" % (schedule_file))
         schedule_info = misc.parse_schedule(schedule_file)
         self.model.set_schedule_info(schedule_info)
 
         # read proposals
         proposal_file = os.path.join(self.input_dir, "programs.csv")
+        if not os.path.exists(proposal_file):
+            self.logger.error("File not readable: %s" % (proposal_file))
+            return
         self.logger.info("reading proposals from %s" % (proposal_file))
         programs = misc.parse_proposals(proposal_file)
         self.model.set_programs(programs)
@@ -104,8 +110,13 @@ class ControlPanel(PlBase.Plugin):
         oblist = []
         for propname in programs:
             obfile = os.path.join(self.input_dir, propname+".csv")
+            if not os.path.exists(obfile):
+                self.logger.error("File not readable: %s" % (obfile))
+                continue
             oblist.extend(misc.parse_obs(obfile, propname, programs))
         self.model.set_oblist(oblist)
+
+        self.logger.info("model initialized")
 
     def build_schedule_cb(self, widget):
         # validate and make changes to model from gui

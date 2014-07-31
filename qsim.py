@@ -91,13 +91,14 @@ def precheck_slot(site, slot, ob):
 def obs_to_slots(slots, site, obs):
     obmap = {}
     for slot in slots:
-        obmap[slot] = []
+        key = str(slot)
+        obmap[key] = []
         if slot.size() < minimum_slot_size:
             continue
         for ob in obs:
             # this OB OK for this slot at this site?
             if precheck_slot(site, slot, ob):
-                obmap[slot].append(ob)
+                obmap[key].append(ob)
 
     return obmap
 

@@ -14,8 +14,7 @@ import pytz
 import numpy
 import math
 
-#from ginga.misc import Bunch
-import Bunch
+from ginga.misc import Bunch
 
 
 class Program(object):

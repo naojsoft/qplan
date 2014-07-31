@@ -13,7 +13,7 @@ Usage:
 import sys, os
 import threading
 import logging
-import ssdlog
+#import ssdlog
 
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
 sys.path.insert(0, moduleHome)
@@ -22,6 +22,7 @@ sys.path.insert(0, pluginHome)
 
 # Subaru python stdlib imports
 from ginga.misc import ModuleManager, Settings, Task, Bunch
+from ginga.misc import log
 from ginga.Control import GuiLogHandler
 
 # Local application imports
@@ -83,7 +84,7 @@ class QueuePlanner(Controller, Viewer):
 def main(options, args):
     # Create top level logger.
     svcname = options.svcname
-    logger = ssdlog.make_logger(svcname, options)
+    logger = log.get_logger(name='qplan', options=options)
 
     ev_quit = threading.Event()
 
@@ -125,7 +126,7 @@ def main(options, args):
     guiHdlr = GuiLogHandler(qplanner)
     #guiHdlr.setLevel(options.loglevel)
     guiHdlr.setLevel(logging.INFO)
-    fmt = logging.Formatter(ssdlog.STD_FORMAT)
+    fmt = logging.Formatter(log.LOG_FORMAT)
     guiHdlr.setFormatter(fmt)
     logger.addHandler(guiHdlr)
 
@@ -178,6 +179,11 @@ if __name__ == "__main__":
     optprs.add_option("-i", "--input", dest="input_dir", default="input",
                       metavar="DIRECTORY",
                       help="Read input files from DIRECTORY")
+    optprs.add_option("--log", dest="logfile", metavar="FILE",
+                      help="Write logging output to FILE")
+    optprs.add_option("--loglevel", dest="loglevel", metavar="LEVEL",
+                      type='int', default=logging.INFO,
+                      help="Set logging level to LEVEL")
     ## optprs.add_option("--modules", dest="modules", metavar="NAMES",
     ##                   help="Specify additional modules to load")
     ## optprs.add_option("--monitor", dest="monitor", metavar="NAME",
@@ -204,7 +210,9 @@ if __name__ == "__main__":
     optprs.add_option("--svcname", dest="svcname", metavar="NAME",
                       default=defaultServiceName,
                       help="Register using NAME as service name")
-    ssdlog.addlogopts(optprs)
+    optprs.add_option("--stderr", dest="logstderr", default=False,
+                      action="store_true",
+                      help="Copy logging also to stderr")
 
     (options, args) = optprs.parse_args(sys.argv[1:])
 

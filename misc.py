@@ -12,19 +12,19 @@ import math
 import numpy
 
 # gen2 imports
-from astro import radec
+#from astro import radec
 
 # local imports
 import entity
 
 
-def get_body_SOSS(name, ra_funky, dec_funky, equinox=2000):
-    ra_deg = radec.funkyHMStoDeg(ra_funky)
-    dec_deg = radec.funkyDMStoDeg(dec_funky)
-    ra = radec.raDegToString(ra_deg, format='%02d:%02d:%06.3f')
-    dec = radec.decDegToString(dec_deg, format='%s%02d:%02d:%05.2f')
+# def get_body_SOSS(name, ra_funky, dec_funky, equinox=2000):
+#     ra_deg = radec.funkyHMStoDeg(ra_funky)
+#     dec_deg = radec.funkyDMStoDeg(dec_funky)
+#     ra = radec.raDegToString(ra_deg, format='%02d:%02d:%06.3f')
+#     dec = radec.decDegToString(dec_deg, format='%s%02d:%02d:%05.2f')
     
-    return get_body(name, ra, dec, equinox=equinox)
+#     return get_body(name, ra, dec, equinox=equinox)
 
 
 def make_slots(start_time, night_length_mn, min_slot_length_sc):
