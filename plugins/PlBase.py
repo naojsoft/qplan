@@ -22,10 +22,12 @@ class Plugin(object):
         self.logger = logger
 
     def build_gui(self, widget):
-        raise PluginError("Subclass should override this method!")
+        # Subclass can override this method, but doesn't have to
+        pass
 
     def start(self):
-        raise PluginError("Subclass should override this method!")
+        # Subclass can override this method, but doesn't have to
+        pass
         
     def stop(self):
         # Subclass can override this method, but doesn't have to

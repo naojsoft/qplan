@@ -17,16 +17,16 @@ class AZELPlot(object):
         rc('xtick', labelsize=10)
         rc('ytick', labelsize=10)
 
-        # create matplotlib figure
-        self.fig = figure.Figure(figsize=(width, height), dpi=dpi)
-        #self.fig = plt.figure(figsize=(width, height), dpi=dpi)
-        ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8],
-                               projection='polar', axisbg='#d5de9c')
-        self.ax = ax
-
         # altitude increments, by degree
         self.alt_inc_deg = 15
         
+        # create matplotlib figure
+        self.fig = figure.Figure(figsize=(width, height), dpi=dpi)
+
+    def setup(self):
+        ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8],
+                               projection='polar', axisbg='#d5de9c')
+        self.ax = ax
         #ax.set_title("Slew order", fontsize=14)
 
     def get_figure(self):

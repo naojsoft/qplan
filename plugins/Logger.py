@@ -26,7 +26,7 @@ class Logger(PlBase.Plugin):
     def build_gui(self, container):
 
         layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(4)
         container.setLayout(layout)
 

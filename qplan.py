@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# qplan.py -- No good reason why
+# qplan.py -- Queue simulation/scheduler
 #
 # Eric Jeschke (eric@naoj.org)
 #
@@ -13,7 +13,6 @@ Usage:
 import sys, os
 import threading
 import logging
-#import ssdlog
 
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
 sys.path.insert(0, moduleHome)
@@ -30,7 +29,7 @@ from Control import Controller
 from View import Viewer
 from Model import QueueModel
 
-version = "20140630.0"
+version = "20140804.0"
 
 defaultServiceName = 'queueplanner'
 
@@ -136,9 +135,16 @@ def main(options, args):
     if options.geometry:
         qplanner.set_geometry(options.geometry)
 
+    # Raise window
+    w = qplanner.w.root
+    w.show()
+    qplanner.app.setActiveWindow(w)
+    w.raise_()
+    w.activateWindow()
+
     server_started = False
 
-    # Create receiver and start it
+    # Create threadpool and start it
     try:
         # Startup monitor threadpool
         threadPool.startall(wait=True)

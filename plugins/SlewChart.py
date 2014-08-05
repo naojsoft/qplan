@@ -18,13 +18,13 @@ class SlewChartCanvas(FigureCanvas):
         FigureCanvas.__init__(self, figure)
         self.setParent(parent)
 
+        self.w = 500
+        self.h = 500
+        
         FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
                                    QtGui.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
 
-        self.w = 500
-        self.h = 500
-        
     def minimumSizeHint(self):
         return QtCore.QSize(self.w, self.h)
 
@@ -38,26 +38,35 @@ class SlewChart(PlBase.Plugin):
         super(SlewChart, self).__init__(model, view, controller, logger)
 
         self.schedules = {}
+        self.initialized = False
         
         model.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
     def build_gui(self, container):
 
+        print "making figure"
         self.plot = azelplot.AZELPlot(6, 6)
 
+        print "making canvas"
         canvas = SlewChartCanvas(self.plot.get_figure())
 
         layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(4)
         container.setLayout(layout)
 
         layout.addWidget(canvas, stretch=1)
+        print "GUI done"
+
 
     def show_schedule_cb(self, model, schedule):
         try:
             info = self.schedules[schedule]
+
+            if not self.initialized:
+                self.plot.setup()
+                self.initialized = True
             
             # make slew plot
             self.logger.debug("plotting slew map")
@@ -89,4 +98,5 @@ class SlewChart(PlBase.Plugin):
         self.add_schedule(schedule)
         return True
 
+        
 #END
