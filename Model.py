@@ -261,7 +261,7 @@ class QueueModel(Callback.Callbacks):
             props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[], obcount=0)
 
         # count OBs in each program
-        for ob in oblist:
+        for ob in self.oblist:
             pgmname = str(ob.program)
             props[pgmname].obs.append(ob)
             props[pgmname].obcount += 1
@@ -326,7 +326,12 @@ class QueueModel(Callback.Callbacks):
 
         if len(unschedulable) > 0:
             out_f.write("\n")
-            out_f.write("%d OBs are not schedulable: %s\n" % (len(unschedulable), unschedulable))
+            out_f.write("%d OBs are not schedulable:\n" % (len(unschedulable)))
+            ## unschedulable.sort(cmp=lambda ob1, ob2: cmp(ob1.program.proposal,
+            ##                                             ob2.program.proposal))
+            
+            ## for ob in unschedulable:
+            ##     out_f.write("%s (%s)\n" % (ob.name, ob.program.proposal))
             out_f.write("\n")
 
         completed, uncompleted = [], []
@@ -342,17 +347,21 @@ class QueueModel(Callback.Callbacks):
 
         out_f.write("Completed programs\n")
         for bnch in completed:
-            out_f.write("%-12.12s   %5.2f  %d/%d  100%%\n" % (str(bnch.pgm), bnch.pgm.rank,
-                                                        bnch.obcount, bnch.obcount))
+            out_f.write("%-12.12s   %5.2f  %d/%d  100%%\n" % (
+                str(bnch.pgm), bnch.pgm.rank,
+                bnch.obcount, bnch.obcount))
 
         out_f.write("\n")
 
         out_f.write("Uncompleted programs\n")
         for bnch in uncompleted:
             pct = float(bnch.obcount-len(bnch.obs)) / float(bnch.obcount) * 100.0
-            out_f.write("%-12.12s   %5.2f  %d/%d  %5.2f%%\n" % (str(bnch.pgm), bnch.pgm.rank,
-                                                        bnch.obcount-len(bnch.obs),
-                                                        bnch.obcount, pct))
+            uncompleted = ", ".join(map(lambda ob: ob.name, props[str(bnch.pgm)].obs))
+
+            out_f.write("%-12.12s   %5.2f  %d/%d  %5.2f%%  [%s]\n" % (
+                str(bnch.pgm), bnch.pgm.rank,
+                bnch.obcount-len(bnch.obs), bnch.obcount, pct,
+                uncompleted))
         out_f.write("\n")
         out_f.write("Total unscheduled time: %8.2f min\n" % (total_waste))
         self.summary_report = out_f.getvalue()

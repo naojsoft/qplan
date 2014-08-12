@@ -55,15 +55,21 @@ def parse_proposals(filepath):
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         # skip header
         next(reader)
+        lineno = 1
 
-        for row in reader:
-            (proposal, propid, rank, band, hours, partner, skip) = row
-            if skip.strip() != '':
-                continue
-            programs[proposal] = entity.Program(proposal, propid=propid,
-                                                rank=float(rank),
-                                                band=int(band), partner=partner,
-                                                hours=float(hours))
+        try:
+            for row in reader:
+                lineno += 1
+                (proposal, propid, rank, band, hours, partner, skip) = row
+                if skip.strip() != '':
+                    continue
+                programs[proposal] = entity.Program(proposal, propid=propid,
+                                                    rank=float(rank),
+                                                    band=int(band), partner=partner,
+                                                    hours=float(hours))
+        except Exception as e:
+            raise ValueError("Error reading proposals at line %d: %s" % (
+                lineno, str(e)))
 
     return programs
 
