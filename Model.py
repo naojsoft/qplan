@@ -47,6 +47,7 @@ class QueueModel(Callback.Callbacks):
         self.timezone = pytz.timezone('US/Hawaii')
 
         self.oblist = []
+        self.schedule = None
         self.schedule_tups = []
         self.programs = {}
 
@@ -65,17 +66,61 @@ class QueueModel(Callback.Callbacks):
         self.w_filterchange = 0.3
 
         # For callbacks
-        for name in ('schedule-cleared', 'schedule-added', 'schedule-selected'):
+        for name in ('schedule-cleared', 'schedule-added', 'schedule-selected',
+                     'programs-file-loaded', 'schedule-file-loaded', 'show-oblist', 'programs-updated', 'schedule-updated', 'oblist-updated', 'show-proposal'):
             self.enable_callback(name)
 
     def set_programs(self, programs):
-        self.programs = programs
+        self.programs_obj = programs
+        self.make_callback('programs-file-loaded',self.programs_obj)
 
-    def set_oblist(self, oblist):
-        self.oblist = oblist
+    def set_programs_info(self, info):
+        self.programs = info
+
+    def update_programs(self, row, colHeader, value, parse_flag):
+        self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
+        self.programs_obj.update(row, colHeader, value, parse_flag)
+        self.programs = self.programs_obj.programs_info
+        self.make_callback('programs-updated')
+
+    def set_oblist(self, obdict):
+        self.obdict = obdict
+
+    def set_oblist_info(self, info):
+        self.oblist = info
         
+    def update_oblist(self, proposal, row, colHeader, value, parse_flag):
+        self.obdict[proposal].update(row, colHeader, value, parse_flag)
+        self.oblist = []
+        for propname in self.obdict:
+            self.oblist.extend(self.obdict[propname].obs_info)
+        self.make_callback('oblist-updated', proposal)
+
+    def show_proposal(self, req_proposal, obListTab):
+        self.logger.debug('req_proposal %s OBListFile %s ' % (req_proposal, self.obdict[req_proposal]))
+        self.make_callback('show-oblist', req_proposal, self.obdict[req_proposal])
+
+    def set_schedule(self, schedule):
+        # This method gets called when a Schedule is loaded from an
+        # input data file. Set our schedule attribute and invoke the
+        # method attached to the schedule-file-loaded callback.
+        self.schedule = schedule
+        self.make_callback('schedule-file-loaded', self.schedule)
+
     def set_schedule_info(self, info):
+        # Set our schedule_tups attribute to the supplied data
+        # structure.
         self.schedule_tups = info
+
+    def update_schedule(self, row, colHeader, value, parse_flag):
+        # This method gets called when the user updates a value in the
+        # ScheduleTab GUI. Update our schedule and schedule_tups
+        # attributes. Finally, invoke the method attached to the
+        # schedule-updated callback.
+        self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
+        self.schedule.update(row, colHeader, value, parse_flag)
+        self.schedule_tups = self.schedule.schedule_info
+        self.make_callback('schedule-updated')
 
     def cmp_res(self, res1, res2):
         """

@@ -4,6 +4,9 @@
 #  Eric Jeschke (eric@naoj.org)
 #
 from datetime import tzinfo, timedelta, datetime
+import csv
+import string
+import StringIO
 
 # local imports
 import misc
@@ -670,5 +673,247 @@ class EnvironmentConfiguration(object):
         if (sky == None) or (len(sky) == 0):
             sky = 'any'
         self.sky = sky.lower()
+
+class QueueFile(object):
+
+    # Default format parameters for reading/writing CSV files.
+    fmtparams = {'delimiter':',', 'quotechar':'"', 'quoting': csv.QUOTE_MINIMAL}
+
+    def __init__(self, filepath, logger, **parse_kwdargs):
+        self.filepath = filepath
+        self.logger = logger
+        self.queue_file = None
+        self.columnNames = []
+        self.rows = []
+        self.parse_kwdargs = parse_kwdargs
+
+        # Read the supplied filepath into a StringIO object. This
+        # makes it easier to process and parse the file contents with
+        # the CSV classes.
+        with open(filepath, 'rb') as f:
+            self.queue_file = StringIO.StringIO(f.read())
+
+        # Read and save the first line, which should have the column
+        # titles.
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        self.columnNames = next(reader)
+
+        # Read the rest of the file and put the contents into a list
+        # data structure (i.e., the "rows" attribute). The column
+        # titles will be the dictionary keys.
+        reader = csv.DictReader(self.queue_file.getvalue().splitlines(),
+                                **self.fmtparams)
+        for row in reader:
+            self.rows.append(row)
+
+        self.parse_input()
+        # We are done with the StringIO object, so close it.
+        self.queue_file.close()
+
+    def write_output(self, new_filepath=None):
+        # Write the data to the specified output file. If a
+        # new_filepath is supplied, use it. Otherwise, use the
+        # existing filepath.
+        if new_filepath:
+            self.filepath = new_filepath
+
+        # Open the file for writing.
+        with open(self.filepath, 'wb') as f:
+            # Write the column titles first
+            writer = csv.writer(f, **self.fmtparams)
+            writer.writerow(self.columnNames)
+
+            # Write the rest of the file from the "rows" attribute,
+            # which stores the data as a list of dictionaries.
+            writer = csv.DictWriter(f, self.columnNames, **self.fmtparams)
+            for row in self.rows:
+                writer.writerow(row)
+
+    def parse_input(self):
+        # Override in subclass
+        pass
+
+    def update(self, row, colHeader, value, parse_flag):
+        # User has changed a value in the table, so update our "rows"
+        # attribute, recreate the StringIO object, and parse the input
+        # again.
+        self.logger.debug('QueueFile.update row %d colHeader %s value %s' % (row, colHeader, value))
+        self.rows[row][colHeader] = value
+
+        # Use the CSV "writer" classes to create a new version of the
+        # StringIO object from our "rows" attribute.
+        if parse_flag:
+            self.parse()
+
+    def parse(self):
+        # Create a StringIO.StringIO object and write our columnNames
+        # and rows attributes into that object. This gives us an
+        # object that looks like a disk file so we can parse the data.
+        self.queue_file = StringIO.StringIO()
+        writer = csv.writer(self.queue_file, **self.fmtparams)
+        writer.writerow(self.columnNames)
+        writer = csv.DictWriter(self.queue_file, self.columnNames, **self.fmtparams)
+        for row in self.rows:
+            writer.writerow(row)
+
+        # Parse the input data from the StringIO.StringIO object
+        self.parse_input()
+        # We are done with the StringIO object, so close it.
+        self.queue_file.close()
+
+class ScheduleFile(QueueFile):
+    def __init__(self, filepath, logger):
+        # schedule_info is the list of tuples that will be used by the
+        # observing block scheduling functions.
+        self.schedule_info = []
+        super(ScheduleFile, self).__init__(filepath, logger)
+
+    def parse_input(self):
+        """
+        Parse the observing schedule from the input file.
+        """
+        self.queue_file.seek(0)
+        self.schedule_info = []
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        # skip header
+        next(reader)
+
+        lineNum = 1
+        for row in reader:
+            try:
+                lineNum += 1
+                (date, starttime, stoptime, categories, filters, skycond,
+                 seeing, note) = row
+                self.logger.debug('ScheduleFile.parse_input row %s' % (row))
+
+            except Exception as e:
+                raise ValueError("Error reading line %d of schedule: %s" % (
+                    lineNum, str(e)))
+
+            # skip blank lines
+            if len(date.strip()) == 0:
+                continue
+
+            filters = map(string.strip, filters.split(','))
+            seeing = float(seeing)
+            categories = categories.replace(' ', '').lower().split(',')
+
+            # TEMP: skip non-OPEN categories
+            if not 'open' in categories:
+                continue
+
+            rec = (date, starttime, stoptime, filters, seeing, skycond)
+            self.schedule_info.append(rec)
+
+class ProgramsFile(QueueFile):
+    def __init__(self, filepath, logger):
+        # programs_info is the dictionary of Program objects that will
+        # be used by the observing block scheduling functions.
+        self.programs_info = {}
+        super(ProgramsFile, self).__init__(filepath, logger)
+
+    def parse_input(self):
+        """
+        Parse the programs from the input file.
+        """
+        self.queue_file.seek(0)
+        self.programs_info = {}
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        # skip header
+        next(reader)
+
+        lineNum = 1
+        for row in reader:
+            try:
+                lineNum += 1
+                (proposal, propid, rank, category, band, hours,
+                 partner, skip) = row
+                if skip.strip() != '':
+                    continue
+
+                self.programs_info[proposal] = Program(proposal, propid=propid,
+                                                       rank=float(rank),
+                                                       band=int(band),
+                                                       partner=partner,
+                                                       category=category,
+                                                       hours=float(hours))
+            except Exception as e:
+                raise ValueError("Error reading line %d of programs: %s" % (
+                    lineNum, str(e)))
+
+class OBListFile(QueueFile):
+    def __init__(self, filepath, logger, propname, propdict):
+        # obs_info is the list of OB objects that will be used by the
+        # observing block scheduling functions.
+        self.obs_info = []
+        super(OBListFile, self).__init__(filepath, logger, propname=propname, propdict=propdict)
+
+    def parse_input(self):
+        """
+        Read all observing blocks from a CSV file.
+        """
+        proposal = self.parse_kwdargs['propname']
+        propdict = self.parse_kwdargs['propdict']
+        self.queue_file.seek(0)
+        self.obs_info = []
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        # skip header
+        next(reader)
+
+        lineNum = 1
+        for row in reader:
+            try:
+                lineNum += 1
+
+                (obname, name, ra, dec, eq, filter, exptime, num_exp,
+                 dither, totaltime, priority, seeing, airmass, moon, sky) = row
+                # skip blank lines
+                obname = obname.strip()
+                if len(obname) == 0:
+                    continue
+                # skip comments
+                if obname.lower() == 'comment':
+                    continue
+                # transform equinox, e.g. "J2000" -> 2000
+                if isinstance(eq, str):
+                    if eq[0] in ('B', 'J'):
+                        eq = eq[1:]
+                        eq = float(eq)
+                eq = int(eq)
+
+                if len(seeing.strip()) != 0:
+                    seeing = float(seeing)
+                else:
+                    seeing = None
+
+                if len(airmass.strip()) != 0:
+                    airmass = float(airmass)
+                else:
+                    airmass = None
+
+                if len(priority.strip()) != 0:
+                    priority = float(priority)
+                else:
+                    priority = 1.0
+
+                envcfg = EnvironmentConfiguration(seeing=seeing,
+                                                  airmass=airmass,
+                                                  moon=moon, sky=sky)
+                inscfg = SPCAMConfiguration(filter=filter)
+                telcfg = TelescopeConfiguration(focus='P_OPT')
+
+                ob = OB(program=propdict[proposal],
+                        target=StaticTarget(name, ra, dec, eq),
+                        inscfg=inscfg,
+                        envcfg=envcfg,
+                        telcfg=telcfg,
+                        priority=priority,
+                        name=obname,
+                        total_time=float(totaltime))
+                self.obs_info.append(ob)
+
+            except Exception as e:
+                raise ValueError("Error reading line %d of oblist from file %s: %s" % (
+                    lineNum, self.filepath, str(e)))
 
 #END
