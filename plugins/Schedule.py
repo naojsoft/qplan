@@ -29,16 +29,19 @@ class Schedule(PlBase.Plugin):
         self.table = table
         table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         table.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
-        table.setShowGrid(False)
+        #table.setShowGrid(False)
         vh = table.verticalHeader()
         # Hack to make the rows in a TableView all have a
         # reasonable height for the data
         ## if QtHelp.have_pyqt5:
         ##     vh.setSectionResizeMode(QtGui.QHeaderView.ResizeToContents)
         ## else:
-        vh.setResizeMode(QtGui.QHeaderView.ResizeToContents)
+        #vh.setResizeMode(QtGui.QHeaderView.ResizeToContents)
         # Hide vertical header
-        vh.setVisible(False)
+        #vh.setVisible(False)
+        vh.setVisible(True)
+
+        table.resizeColumnsToContents()
 
         layout.addWidget(self.table, stretch=1)
 
@@ -92,17 +95,17 @@ class GenericTableModel(QtCore.QAbstractTableModel):
         super(GenericTableModel, self).__init__(None)
 
         self.columns = columns
-        self.data = data
+        self.model_data = data
 
     def rowCount(self, parent): 
-        return len(self.data) 
+        return len(self.model_data) 
  
     def columnCount(self, parent): 
         return len(self.columns) 
 
     def get_data(self, row, col):
         """Subclass should override this as necessary."""
-        return self.data[row][col]
+        return self.model_data[row][col]
         
     def mksort(self, col):
         """Subclass should override this as necessary."""
@@ -139,10 +142,10 @@ class GenericTableModel(QtCore.QAbstractTableModel):
         #if QtHelp.have_pyqt4:
         self.emit(QtCore.SIGNAL("layoutAboutToBeChanged()"))
 
-        self.data = sorted(self.data, key=self.mksort(Ncol))
+        self.model_data = sorted(self.model_data, key=self.mksort(Ncol))
 
         if order == QtCore.Qt.DescendingOrder:
-            self.data.reverse()
+            self.model_data.reverse()
 
         #if QtHelp.have_pyqt4:
         self.emit(QtCore.SIGNAL("layoutChanged()"))
@@ -151,7 +154,7 @@ class GenericTableModel(QtCore.QAbstractTableModel):
 class ScheduleTableModel(GenericTableModel):
 
     def get_data(self, row, col):
-        return self.data[row]
+        return self.model_data[row]
         
     def mksort(self, col):
         """Subclass should override this as necessary."""

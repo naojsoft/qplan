@@ -10,6 +10,7 @@ from ginga.misc import Widgets
 from PyQt4 import QtGui, QtCore
 
 import PlBase
+import entity
 import misc
 
 class ControlPanel(PlBase.Plugin):
@@ -94,8 +95,13 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (schedule_file))
                 return
             self.logger.info("reading schedule from %s" % (schedule_file))
-            schedule_info = misc.parse_schedule(schedule_file)
-            self.model.set_schedule_info(schedule_info)
+            schedule = entity.ScheduleFile(schedule_file, self.logger)
+            # Set the appropriate "schedule" attributes in the
+            # QueueModel
+            if 'scheduletab' not in self.view.plugins:
+                self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
+            self.model.set_schedule(schedule)
+            self.model.set_schedule_info(schedule.schedule_info)
 
             # read proposals
             proposal_file = os.path.join(self.input_dir, "programs.csv")
@@ -103,19 +109,25 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (proposal_file))
                 return
             self.logger.info("reading proposals from %s" % (proposal_file))
-            programs = misc.parse_proposals(proposal_file)
+            programs = entity.ProgramsFile(proposal_file, self.logger)
+            if 'programstab' not in self.view.plugins:
+                self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
             self.model.set_programs(programs)
+            self.model.set_programs_info(programs.programs_info)
 
             # read observing blocks
-            self.logger.info("loading observing blocks")
-            oblist = []
-            for propname in programs:
+            oblist = {}
+            oblist_info = []
+            for propname in programs.programs_info:
                 obfile = os.path.join(self.input_dir, propname+".csv")
                 if not os.path.exists(obfile):
                     self.logger.error("File not readable: %s" % (obfile))
                     continue
-                oblist.extend(misc.parse_obs(obfile, propname, programs))
+                self.logger.info("loading observing blocks from file %s" % obfile)
+                oblist[propname] = entity.OBListFile(obfile, self.logger, propname, programs.programs_info)
+                oblist_info.extend(oblist[propname].obs_info)
             self.model.set_oblist(oblist)
+            self.model.set_oblist_info(oblist_info)
 
         except Exception as e:
             self.logger.error("Error initializing: %s" % (str(e)))
