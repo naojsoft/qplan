@@ -27,7 +27,7 @@ parked_az_deg = -90.0
 parked_alt_deg = 90.0
 
 # filter change time in sec
-filter_change_time = 15.0 * 60.0
+filter_change_time = 30.0 * 60.0
 
 # Subaru defines a dark night as one that is 2-3 days before or
 # after a new moon (0%).  Since a half moon (50%)occurs just 7 days
@@ -73,6 +73,10 @@ def precheck_slot(site, slot, ob):
     if not (ob.inscfg.filter in slot.data.filters):
         return False
 
+    # check if this slot can take this category
+    if not ob.program.category in slot.data.categories:
+        return False
+
     # Check whether OB will fit in this slot
     ## delta = (slot.stop_time - slot.start_time).total_seconds()
     ## if ob.total_time > delta:
@@ -108,6 +112,10 @@ def check_slot(site, prev_slot, slot, ob):
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
         return Bunch.Bunch(obs_ok=False, reason="Filter not installed")
+
+    # check if this slot can take this category
+    if not ob.program.category in slot.data.categories:
+        return Bunch.Bunch(obs_ok=False, reason="Slot cannot take this category")
 
     # check seeing on the slot is acceptable to this ob
     if not (ob.envcfg.seeing >= slot.data.seeing):

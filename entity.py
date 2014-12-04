@@ -24,7 +24,7 @@ class Program(object):
     """
     def __init__(self, proposal, rank=1.0, pi=None, observers=None,
                  propid=None, band=None, partner=None, hours=None,
-                 description=None):
+                 category=None, description=None):
         super(Program, self).__init__()
         
         self.proposal = proposal
@@ -36,6 +36,7 @@ class Program(object):
         self.rank = rank
         self.band = band
         self.partner = partner
+        self.category = category.lower()
         self.hours = hours
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
@@ -242,7 +243,7 @@ class Schedule(object):
         return self.waste
 
     def __repr__(self):
-        s = self.start_time.strftime("%Y:%m:%d %H:%M")
+        s = self.start_time.strftime("%Y-%m-%d %H:%M")
         return s
 
     __str__ = __repr__

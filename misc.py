@@ -60,12 +60,15 @@ def parse_proposals(filepath):
         try:
             for row in reader:
                 lineno += 1
-                (proposal, propid, rank, band, hours, partner, skip) = row
+                (proposal, propid, rank, category, band, hours,
+                 partner, skip) = row
                 if skip.strip() != '':
                     continue
                 programs[proposal] = entity.Program(proposal, propid=propid,
                                                     rank=float(rank),
-                                                    band=int(band), partner=partner,
+                                                    band=int(band),
+                                                    partner=partner,
+                                                    category=category,
                                                     hours=float(hours))
         except Exception as e:
             raise ValueError("Error reading proposals at line %d: %s" % (
@@ -147,7 +150,7 @@ def parse_schedule(filepath):
         line = 1
         for row in reader:
             try:
-                (date, starttime, stoptime, filters, skycond,
+                (date, starttime, stoptime, categories, filters, skycond,
                  seeing, note) = row
 
             except Exception as e:
@@ -161,7 +164,14 @@ def parse_schedule(filepath):
 
             filters = map(string.strip, filters.split(','))
             seeing = float(seeing)
-            rec = (date, starttime, stoptime, filters, seeing, skycond)
+            categories = categories.replace(' ', '').lower().split(',')
+
+            # TEMP: skip non-OPEN categories
+            if not 'open' in categories:
+                continue
+            
+            rec = (date, starttime, stoptime, categories, filters,
+                   seeing, skycond)
             schedule.append(rec)
 
     return schedule

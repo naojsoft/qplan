@@ -225,7 +225,8 @@ class QueueModel(Callback.Callbacks):
         site = self.site
 
         for tup in self.schedule_tups:
-            date_s, starttime_s, stoptime_s, filters, seeing, skycond = tup
+            (date_s, starttime_s, stoptime_s, categories,
+             filters, seeing, skycond) = tup
 
             night_start = site.get_date("%s %s" % (date_s, starttime_s))
             next_day = night_start + timedelta(0, 3600*14)
@@ -234,7 +235,7 @@ class QueueModel(Callback.Callbacks):
 
             # associate available filters with this schedule
             data = Bunch.Bunch(filters=filters, seeing=seeing,
-                               skycond=skycond)
+                               skycond=skycond, categories=categories)
             schedules.append(entity.Schedule(night_start, night_stop,
                                              data=data))
             delta = (night_stop - night_start).total_seconds()
