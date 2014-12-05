@@ -659,6 +659,18 @@ class SPCAMConfiguration(InstrumentConfiguration):
         super(SPCAMConfiguration, self).__init__()
 
         self.insname = 'SPCAM'
+        if filter is not None:
+            filter = filter.lower()
+        self.filter = filter
+    
+class HSCConfiguration(InstrumentConfiguration):
+    
+    def __init__(self, filter=None):
+        super(HSCConfiguration, self).__init__()
+
+        self.insname = 'HSC'
+        if filter is not None:
+            filter = filter.lower()
         self.filter = filter
     
 class EnvironmentConfiguration(object):
@@ -679,13 +691,14 @@ class QueueFile(object):
     # Default format parameters for reading/writing CSV files.
     fmtparams = {'delimiter':',', 'quotechar':'"', 'quoting': csv.QUOTE_MINIMAL}
 
-    def __init__(self, filepath, logger, **parse_kwdargs):
+    def __init__(self, filepath, logger, column_map, **parse_kwdargs):
         self.filepath = filepath
         self.logger = logger
         self.queue_file = None
         self.columnNames = []
         self.rows = []
         self.parse_kwdargs = parse_kwdargs
+        self.column_map = column_map
 
         # Read the supplied filepath into a StringIO object. This
         # makes it easier to process and parse the file contents with
@@ -761,12 +774,38 @@ class QueueFile(object):
         # We are done with the StringIO object, so close it.
         self.queue_file.close()
 
+    def parse_row(self, row):
+        # Parse a row of values (tup or list) into a record that can
+        # be accessed by attribute or map key
+        rec = Bunch.Bunch()
+        for i in range(len(row)):
+            # mangle header to get column->attribute mapping key
+            colname = self.columnNames[i]
+            key = colname.strip().lower().replace(' ', '_')
+            # get attr key
+            assert key in self.column_map, \
+                   Exception("No column->record map entry for column '%s' (%s):"% (colname, key)) 
+            attrkey = self.column_map[key]
+            rec[attrkey] = row[i]
+        return rec
+
 class ScheduleFile(QueueFile):
     def __init__(self, filepath, logger):
         # schedule_info is the list of tuples that will be used by the
         # observing block scheduling functions.
         self.schedule_info = []
-        super(ScheduleFile, self).__init__(filepath, logger)
+        column_map = {
+            'date': 'date',
+            'start_time': 'starttime',
+            'end_time': 'stoptime',
+            'categories': 'categories',
+            'filters': 'filters',
+            'sky': 'skycond',
+            'avg_seeing': 'seeing',
+            'note': 'note',
+            }
+        super(ScheduleFile, self).__init__(filepath, logger, column_map)
+
 
     def parse_input(self):
         """
@@ -782,35 +821,51 @@ class ScheduleFile(QueueFile):
         for row in reader:
             try:
                 lineNum += 1
-                (date, starttime, stoptime, categories, filters, skycond,
-                 seeing, note) = row
-                self.logger.debug('ScheduleFile.parse_input row %s' % (row))
+                ## (date, starttime, stoptime, categories, filters, skycond,
+                ##  seeing, note) = row
+                rec = self.parse_row(row)
+                self.logger.debug('ScheduleFile.parse_input rec %s' % (rec))
 
             except Exception as e:
                 raise ValueError("Error reading line %d of schedule: %s" % (
                     lineNum, str(e)))
 
             # skip blank lines
-            if len(date.strip()) == 0:
+            if len(rec.date.strip()) == 0:
                 continue
 
-            filters = map(string.strip, filters.split(','))
-            seeing = float(seeing)
-            categories = categories.replace(' ', '').lower().split(',')
+            filters = list(map(string.strip, rec.filters.lower().split(',')))
+            seeing = float(rec.seeing)
+            categories = rec.categories.replace(' ', '').lower().split(',')
+            skycond = rec.skycond.lower()
 
             # TEMP: skip non-OPEN categories
             if not 'open' in categories:
                 continue
 
-            rec = (date, starttime, stoptime, filters, seeing, skycond)
-            self.schedule_info.append(rec)
+            rec2 = Bunch.Bunch(date=rec.date, starttime=rec.starttime,
+                               stoptime=rec.stoptime,
+                               categories=categories, filters=filters,
+                               seeing=seeing, skycond=skycond, note=rec.note)
+            self.schedule_info.append(rec2)
+
 
 class ProgramsFile(QueueFile):
     def __init__(self, filepath, logger):
         # programs_info is the dictionary of Program objects that will
         # be used by the observing block scheduling functions.
         self.programs_info = {}
-        super(ProgramsFile, self).__init__(filepath, logger)
+        column_map = {
+            'proposal': 'proposal',
+            'propid': 'propid',
+            'rank': 'rank',
+            'category': 'category',
+            'band': 'band',
+            'hours': 'hours',
+            'partner': 'partner',
+            'skip': 'skip',
+            }
+        super(ProgramsFile, self).__init__(filepath, logger, column_map)
 
     def parse_input(self):
         """
@@ -826,17 +881,18 @@ class ProgramsFile(QueueFile):
         for row in reader:
             try:
                 lineNum += 1
-                (proposal, propid, rank, category, band, hours,
-                 partner, skip) = row
-                if skip.strip() != '':
+                rec = self.parse_row(row)
+                if rec.skip.strip() != '':
                     continue
 
-                self.programs_info[proposal] = Program(proposal, propid=propid,
-                                                       rank=float(rank),
-                                                       band=int(band),
-                                                       partner=partner,
-                                                       category=category,
-                                                       hours=float(hours))
+                program = rec.proposal.upper()
+                self.programs_info[program] = Program(program,
+                                                      propid=rec.propid,
+                                                      rank=float(rec.rank),
+                                                      band=int(rec.band),
+                                                      partner=rec.partner,
+                                                      category=rec.category,
+                                                      hours=float(rec.hours))
             except Exception as e:
                 raise ValueError("Error reading line %d of programs: %s" % (
                     lineNum, str(e)))
@@ -846,7 +902,25 @@ class OBListFile(QueueFile):
         # obs_info is the list of OB objects that will be used by the
         # observing block scheduling functions.
         self.obs_info = []
-        super(OBListFile, self).__init__(filepath, logger, propname=propname, propdict=propdict)
+        column_map = {
+            'ob_name': 'obname',
+            'target_name': 'name',
+            'ra': 'ra',
+            'dec': 'dec',
+            'equinox': 'eq',
+            'filter': 'filter',
+            'exp_time': 'exptime',
+            'num_exp': 'num_exp',
+            'dither': 'dither',
+            'total_time': 'totaltime',
+            'priority': 'priority',
+            'seeing': 'seeing',
+            'airmass': 'airmass',
+            'moon': 'moon',
+            'sky': 'sky',
+            }
+        super(OBListFile, self).__init__(filepath, logger, column_map,
+                                         propname=propname, propdict=propdict)
 
     def parse_input(self):
         """
@@ -865,51 +939,66 @@ class OBListFile(QueueFile):
             try:
                 lineNum += 1
 
-                (obname, name, ra, dec, eq, filter, exptime, num_exp,
-                 dither, totaltime, priority, seeing, airmass, moon, sky) = row
+                ## (obname, name, ra, dec, eq, filter, exptime, num_exp,
+                ##  dither, totaltime, priority, seeing, airmass, moon, sky) = row
+                rec = self.parse_row(row)
                 # skip blank lines
-                obname = obname.strip()
+                obname = rec.obname.strip()
                 if len(obname) == 0:
                     continue
+
                 # skip comments
                 if obname.lower() == 'comment':
                     continue
+
                 # transform equinox, e.g. "J2000" -> 2000
+                eq = rec.eq
                 if isinstance(eq, str):
                     if eq[0] in ('B', 'J'):
                         eq = eq[1:]
                         eq = float(eq)
                 eq = int(eq)
 
-                if len(seeing.strip()) != 0:
+                seeing = rec.seeing.strip()
+                if len(seeing) != 0:
                     seeing = float(seeing)
                 else:
                     seeing = None
 
-                if len(airmass.strip()) != 0:
+                airmass = rec.airmass.strip()
+                if len(airmass) != 0:
                     airmass = float(airmass)
                 else:
                     airmass = None
 
-                if len(priority.strip()) != 0:
+                priority = rec.priority.strip()
+                if len(priority) != 0:
                     priority = float(priority)
                 else:
                     priority = 1.0
 
+                moon = rec.moon
+                sky = rec.sky
+
                 envcfg = EnvironmentConfiguration(seeing=seeing,
                                                   airmass=airmass,
                                                   moon=moon, sky=sky)
-                inscfg = SPCAMConfiguration(filter=filter)
-                telcfg = TelescopeConfiguration(focus='P_OPT')
+
+                filter = rec.filter
+                # TODO: add an "instrument" column to the OBs
+                #inscfg = SPCAMConfiguration(filter=filter)
+                #telcfg = TelescopeConfiguration(focus='P_OPT')
+                inscfg = HSCConfiguration(filter=filter)
+                telcfg = TelescopeConfiguration(focus='P_OPT2')
 
                 ob = OB(program=propdict[proposal],
-                        target=StaticTarget(name, ra, dec, eq),
+                        target=StaticTarget(rec.name, rec.ra, rec.dec, eq),
                         inscfg=inscfg,
                         envcfg=envcfg,
                         telcfg=telcfg,
                         priority=priority,
                         name=obname,
-                        total_time=float(totaltime))
+                        total_time=float(rec.totaltime))
                 self.obs_info.append(ob)
 
             except Exception as e:

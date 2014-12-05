@@ -48,7 +48,7 @@ class QueueModel(Callback.Callbacks):
 
         self.oblist = []
         self.schedule = None
-        self.schedule_tups = []
+        self.schedule_recs = []
         self.programs = {}
 
         # FOR SCALING PURPOSES ONLY, define maximums
@@ -56,7 +56,7 @@ class QueueModel(Callback.Callbacks):
         self.max_slew = 20*60.0          # max slew (sec)
         self.max_rank = 10.0             # max rank
         self.max_delay = 60*60*10.0      # max wait for visibility (sec)
-        self.max_filterchange = 15*60.0  # max filter exchange time (sec)
+        self.max_filterchange = 35*60.0  # max filter exchange time (sec)
 
         # define weights (see cmp_res() method)
         self.w_rank = 0.3
@@ -108,9 +108,19 @@ class QueueModel(Callback.Callbacks):
         self.make_callback('schedule-file-loaded', self.schedule)
 
     def set_schedule_info(self, info):
-        # Set our schedule_tups attribute to the supplied data
+        # Set our schedule_recs attribute to the supplied data
         # structure.
-        self.schedule_tups = info
+        self.schedule_recs = info
+
+    def update_schedule(self, row, colHeader, value, parse_flag):
+        # This method gets called when the user updates a value in the
+        # ScheduleTab GUI. Update our schedule and schedule_recs
+        # attributes. Finally, invoke the method attached to the
+        # schedule-updated callback.
+        self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
+        self.schedule.update(row, colHeader, value, parse_flag)
+        self.schedule_recs = self.schedule.schedule_info
+        self.make_callback('schedule-updated')
 
     def update_schedule(self, row, colHeader, value, parse_flag):
         # This method gets called when the user updates a value in the
@@ -269,18 +279,18 @@ class QueueModel(Callback.Callbacks):
         night_slots = []
         site = self.site
 
-        for tup in self.schedule_tups:
-            (date_s, starttime_s, stoptime_s, categories,
-             filters, seeing, skycond) = tup
-
-            night_start = site.get_date("%s %s" % (date_s, starttime_s))
+        for rec in self.schedule_recs:
+            #print("***", rec)
+            night_start = site.get_date("%s %s" % (rec.date, rec.starttime))
             next_day = night_start + timedelta(0, 3600*14)
             next_day_s = next_day.strftime("%Y-%m-%d")
-            night_stop = site.get_date("%s %s" % (next_day_s, stoptime_s))
+            # TODO: does this assume that stoptime is on the next day!??
+            night_stop = site.get_date("%s %s" % (next_day_s, rec.stoptime))
 
-            # associate available filters with this schedule
-            data = Bunch.Bunch(filters=filters, seeing=seeing,
-                               skycond=skycond, categories=categories)
+            # associate available filters and other items with this schedule
+            data = Bunch.Bunch(filters=rec.filters, seeing=rec.seeing,
+                               skycond=rec.skycond, categories=rec.categories,
+                               note=rec.note)
             schedules.append(entity.Schedule(night_start, night_stop,
                                              data=data))
             delta = (night_stop - night_start).total_seconds()
