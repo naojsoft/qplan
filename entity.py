@@ -779,12 +779,15 @@ class QueueFile(object):
         # be accessed by attribute or map key
         rec = Bunch.Bunch()
         for i in range(len(row)):
+            if i >= len(self.columnNames):
+                break
             # mangle header to get column->attribute mapping key
             colname = self.columnNames[i]
             key = colname.strip().lower().replace(' ', '_')
             # get attr key
-            assert key in self.column_map, \
-                   Exception("No column->record map entry for column '%s' (%s):"% (colname, key)) 
+            if not key in self.column_map:
+                self.logger.warn("No column->record map entry for column '%s' (%s); skipping..." % (colname, key))
+                continue
             attrkey = self.column_map[key]
             rec[attrkey] = row[i]
         return rec
@@ -821,18 +824,19 @@ class ScheduleFile(QueueFile):
         for row in reader:
             try:
                 lineNum += 1
-                ## (date, starttime, stoptime, categories, filters, skycond,
-                ##  seeing, note) = row
+                # skip comments
+                if row[0].lower() == 'comment':
+                    continue
+                # skip blank lines
+                if len(row[0].strip()) == 0:
+                    continue
+
                 rec = self.parse_row(row)
                 self.logger.debug('ScheduleFile.parse_input rec %s' % (rec))
 
             except Exception as e:
                 raise ValueError("Error reading line %d of schedule: %s" % (
                     lineNum, str(e)))
-
-            # skip blank lines
-            if len(rec.date.strip()) == 0:
-                continue
 
             filters = list(map(string.strip, rec.filters.lower().split(',')))
             seeing = float(rec.seeing)
@@ -881,6 +885,13 @@ class ProgramsFile(QueueFile):
         for row in reader:
             try:
                 lineNum += 1
+                # skip comments
+                if row[0].lower() == 'comment':
+                    continue
+                # skip blank lines
+                if len(row[0].strip()) == 0:
+                    continue
+
                 rec = self.parse_row(row)
                 if rec.skip.strip() != '':
                     continue
@@ -939,17 +950,15 @@ class OBListFile(QueueFile):
             try:
                 lineNum += 1
 
-                ## (obname, name, ra, dec, eq, filter, exptime, num_exp,
-                ##  dither, totaltime, priority, seeing, airmass, moon, sky) = row
-                rec = self.parse_row(row)
+                # skip comments
+                if row[0].lower() == 'comment':
+                    continue
                 # skip blank lines
-                obname = rec.obname.strip()
-                if len(obname) == 0:
+                if len(row[0].strip()) == 0:
                     continue
 
-                # skip comments
-                if obname.lower() == 'comment':
-                    continue
+                rec = self.parse_row(row)
+                obname = rec.obname.strip()
 
                 # transform equinox, e.g. "J2000" -> 2000
                 eq = rec.eq

@@ -198,7 +198,8 @@ class QueueModel(Callback.Callbacks):
         oblist = list(oblist)   # work on a copy
 
         while not done:
-            time.sleep(0.01)
+            # give GUI thread a chance to run
+            time.sleep(0.0001)
             
             slot = schedule.next_free_slot()
             if slot == None:

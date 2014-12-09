@@ -4,7 +4,7 @@
 #
 
 from PyQt4 import QtGui, QtCore
-from ginga.qtw.QtHelp import MenuBar
+from ginga.qtw.QtHelp import ToolBar
 import PlBase
 
 from Schedule import GenericTableModel
@@ -19,38 +19,38 @@ class QueueFileTab(PlBase.Plugin):
         self.copySelectionRange = None
 
     def build_gui(self, container):
-        # Make a top-level layout to which we will add the Menubar and
+        # Make a top-level layout to which we will add the Toolbar and
         # the TableView.
         top_layout = QtGui.QVBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
         container.setLayout(top_layout)
 
-        # Create a menubar and add it to the top_layout
-        menubar = MenuBar()
-        top_layout.addWidget(menubar)
+        # Create a toolbar and add it to the top_layout
+        toolbar = ToolBar()
+        top_layout.addWidget(toolbar)
 
         # Create a "File" menu
-        filemenu = menubar.add_menu('File')
-        self.file_save_item = menubar.make_action('Save')
+        filemenu = toolbar.add_menu('File')
+        self.file_save_item = toolbar.make_action('Save')
         self.file_save_item.setEnabled(False)
         self.file_save_item.triggered.connect(self.save_item_clicked)
         filemenu.addAction(self.file_save_item)
 
         # Create an "Edit" menu
-        editmenu = menubar.add_menu('Edit')
-        copy_item = menubar.make_action('Copy')
+        editmenu = toolbar.add_menu('Edit')
+        copy_item = toolbar.make_action('Copy')
         copy_item.setShortcut("Ctrl+C")
         copy_item.triggered.connect(self.copy_clicked)
         editmenu.addAction(copy_item)
-        paste_item = menubar.make_action('Paste')
+        paste_item = toolbar.make_action('Paste')
         paste_item.setShortcut("Ctrl+V")
         paste_item.triggered.connect(self.paste_clicked)
         editmenu.addAction(paste_item)
 
-        insert_row_item = menubar.make_action('Insert Rows')
+        insert_row_item = toolbar.make_action('Insert Rows')
         insert_row_item.triggered.connect(self.insert_row_clicked)
         editmenu.addAction(insert_row_item)
-        delete_row_item = menubar.make_action('Delete Rows')
+        delete_row_item = toolbar.make_action('Delete Rows')
         delete_row_item.triggered.connect(self.delete_row_clicked)
         editmenu.addAction(delete_row_item)
 

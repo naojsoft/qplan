@@ -74,7 +74,7 @@ class Viewer(QtMain.QtMain):
             holder.layout().addWidget(menubar, stretch=1)
 
         # create a File pulldown menu, and add it to the menu bar
-        filemenu = menubar.add_menu("File")
+        filemenu = menubar.add_name("File")
 
         sep = menubar.make_action('')
         sep.setSeparator(True)
@@ -85,7 +85,7 @@ class Viewer(QtMain.QtMain):
         filemenu.addAction(item)
 
         # create a Option pulldown menu, and add it to the menu bar
-        ## optionmenu = menubar.add_menu("Option")
+        ## optionmenu = menubar.add_name("Option")
 
     def add_statusbar(self, holder):
         self.w.status = QtGui.QStatusBar()
