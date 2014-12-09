@@ -4,7 +4,7 @@ import platform
 import traceback
 
 from ginga.qtw import QtHelp, QtMain
-from ginga.qtw.QtHelp import QtGui, QtCore, QFont
+from ginga.qtw.QtHelp import QtGui, QtCore, QFont, MenuBar
 from ginga.misc import Bunch
 
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
@@ -63,7 +63,7 @@ class Viewer(QtMain.QtMain):
 
 
     def add_menus(self, holder):
-        menubar = QtGui.QMenuBar()
+        menubar = MenuBar()
 
         # NOTE: Special hack for Mac OS X, otherwise the menus
         # do not get added to the global OS X menu
@@ -74,18 +74,18 @@ class Viewer(QtMain.QtMain):
             holder.layout().addWidget(menubar, stretch=1)
 
         # create a File pulldown menu, and add it to the menu bar
-        filemenu = menubar.addMenu("File")
+        filemenu = menubar.add_menu("File")
 
-        sep = QtGui.QAction(menubar)
+        sep = menubar.make_action('')
         sep.setSeparator(True)
         filemenu.addAction(sep)
         
-        item = QtGui.QAction("Quit", menubar)
+        item = menubar.make_action("Quit")
         item.triggered.connect(self.quit)
         filemenu.addAction(item)
 
         # create a Option pulldown menu, and add it to the menu bar
-        ## optionmenu = menubar.addMenu("Option")
+        ## optionmenu = menubar.add_menu("Option")
 
     def add_statusbar(self, holder):
         self.w.status = QtGui.QStatusBar()

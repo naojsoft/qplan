@@ -4,6 +4,7 @@
 #
 
 from PyQt4 import QtGui, QtCore
+from ginga.qtw.QtHelp import MenuBar
 import PlBase
 
 from Schedule import GenericTableModel
@@ -25,31 +26,31 @@ class QueueFileTab(PlBase.Plugin):
         container.setLayout(top_layout)
 
         # Create a menubar and add it to the top_layout
-        menubar = QtGui.QMenuBar()
+        menubar = MenuBar()
         top_layout.addWidget(menubar)
 
         # Create a "File" menu
-        filemenu = menubar.addMenu('File')
-        self.file_save_item = QtGui.QAction('Save', menubar)
+        filemenu = menubar.add_menu('File')
+        self.file_save_item = menubar.make_action('Save')
         self.file_save_item.setEnabled(False)
         self.file_save_item.triggered.connect(self.save_item_clicked)
         filemenu.addAction(self.file_save_item)
 
         # Create an "Edit" menu
-        editmenu = menubar.addMenu('Edit')
-        copy_item = QtGui.QAction('Copy', menubar)
+        editmenu = menubar.add_menu('Edit')
+        copy_item = menubar.make_action('Copy')
         copy_item.setShortcut("Ctrl+C")
         copy_item.triggered.connect(self.copy_clicked)
         editmenu.addAction(copy_item)
-        paste_item = QtGui.QAction('Paste', menubar)
+        paste_item = menubar.make_action('Paste')
         paste_item.setShortcut("Ctrl+V")
         paste_item.triggered.connect(self.paste_clicked)
         editmenu.addAction(paste_item)
 
-        insert_row_item = QtGui.QAction('Insert Rows', menubar)
+        insert_row_item = menubar.make_action('Insert Rows')
         insert_row_item.triggered.connect(self.insert_row_clicked)
         editmenu.addAction(insert_row_item)
-        delete_row_item = QtGui.QAction('Delete Rows', menubar)
+        delete_row_item = menubar.make_action('Delete Rows')
         delete_row_item.triggered.connect(self.delete_row_clicked)
         editmenu.addAction(delete_row_item)
 
