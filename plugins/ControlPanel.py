@@ -19,6 +19,10 @@ class ControlPanel(PlBase.Plugin):
         super(ControlPanel, self).__init__(model, view, controller, logger)
 
         self.input_dir = "inputs"
+
+        self.schedule = None
+        self.programs = None
+        self.oblist = None
         
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -95,13 +99,13 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (schedule_file))
                 return
             self.logger.info("reading schedule from %s" % (schedule_file))
-            schedule = entity.ScheduleFile(schedule_file, self.logger)
+            self.schedule = entity.ScheduleFile(schedule_file, self.logger)
             # Set the appropriate "schedule" attributes in the
             # QueueModel
             if 'scheduletab' not in self.view.plugins:
                 self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
-            self.model.set_schedule(schedule)
-            self.model.set_schedule_info(schedule.schedule_info)
+            self.model.set_schedule(self.schedule)
+            #self.model.set_schedule_info(self.schedule.schedule_info)
 
             # read proposals
             proposal_file = os.path.join(self.input_dir, "programs.csv")
@@ -109,28 +113,51 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (proposal_file))
                 return
             self.logger.info("reading proposals from %s" % (proposal_file))
-            programs = entity.ProgramsFile(proposal_file, self.logger)
+            self.programs = entity.ProgramsFile(proposal_file, self.logger)
             if 'programstab' not in self.view.plugins:
                 self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
-            self.model.set_programs(programs)
-            self.model.set_programs_info(programs.programs_info)
+            self.model.set_programs(self.programs)
+            #self.model.set_programs_info(self.programs.programs_info)
 
             # read observing blocks
-            oblist = {}
-            oblist_info = []
-            for propname in programs.programs_info:
+            self.oblist = {}
+            self.oblist_info = []
+            for propname in self.programs.programs_info:
                 obfile = os.path.join(self.input_dir, propname+".csv")
                 if not os.path.exists(obfile):
                     self.logger.error("File not readable: %s" % (obfile))
                     continue
                 self.logger.info("loading observing blocks from file %s" % obfile)
-                oblist[propname] = entity.OBListFile(obfile, self.logger, propname, programs.programs_info)
-                oblist_info.extend(oblist[propname].obs_info)
-            self.model.set_oblist(oblist)
-            self.model.set_oblist_info(oblist_info)
+                self.oblist[propname] = entity.OBListFile(obfile, self.logger,
+                                                          propname,
+                                                          self.programs.programs_info)
+                #self.oblist_info.extend(self.oblist[propname].obs_info)
+            self.model.set_oblist(self.oblist)
+            #self.model.set_oblist_info(self.oblist_info)
 
         except Exception as e:
             self.logger.error("Error initializing: %s" % (str(e)))
+
+        # update the model
+        #self.update_model()
+        #self.logger.info("model initialized")
+
+    def update_model(self):
+        try:
+            self.model.set_schedule_info(self.schedule.schedule_info)
+            self.model.set_programs_info(self.programs.programs_info)
+
+            # TODO: this maybe should be done in the Model
+            #self.oblist = {}
+            self.oblist_info = []
+            for propname in self.programs.programs_info:
+                self.oblist_info.extend(self.oblist[propname].obs_info)
+            # TODO: only needed if we ADD or REMOVE programs
+            #self.model.set_oblist(self.oblist)
+            self.model.set_oblist_info(self.oblist_info)
+
+        except Exception as e:
+            self.logger.error("Error storing into model: %s" % (str(e)))
 
         self.logger.info("model initialized")
 
@@ -140,6 +167,9 @@ class ControlPanel(PlBase.Plugin):
         self.model.w_delay = float(self.w.delay_weight.get_text())
         self.model.w_filterchange = float(self.w.filter_weight.get_text())
         self.model.w_rank = float(self.w.rank_weight.get_text())
+
+        # update the model with any changes from GUI
+        self.update_model()
         
         self.view.nongui_do(self.model.schedule_all)
         
