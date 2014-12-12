@@ -109,25 +109,41 @@ def obs_to_slots(slots, site, obs):
 
 def check_slot(site, prev_slot, slot, ob):
 
+    res = Bunch.Bunch(ob=ob)
+    
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
-        return Bunch.Bunch(obs_ok=False, reason="Filter not installed")
+        res.setvals(obs_ok=False, reason="Filter '%s' not installed" % (
+            ob.inscfg.filter))
+        return res
 
     # check if this slot can take this category
     if not ob.program.category in slot.data.categories:
-        return Bunch.Bunch(obs_ok=False, reason="Slot cannot take this category")
+        res.setvals(obs_ok=False,
+                    reason="Slot cannot take category '%s'" % (
+            ob.program.category))
+        return res
 
     # check seeing on the slot is acceptable to this ob
-    if not (ob.envcfg.seeing >= slot.data.seeing):
-        return Bunch.Bunch(obs_ok=False, reason="Seeing not acceptable")
+    if (slot.data.seeing > ob.envcfg.seeing):
+        res.setvals(obs_ok=False,
+                    reason="Seeing (%f > %f) not acceptable" % (
+            slot.data.seeing, ob.envcfg.seeing))
+        return res
 
     # check sky condition on the slot is acceptable to this ob
     if ob.envcfg.sky == 'clear':
         if slot.data.skycond != 'clear':
-            return Bunch.Bunch(obs_ok=False, reason="Sky condition '%s' not acceptable" % (slot.data.skycond))
+            res.setvals(obs_ok=False,
+                        reason="Sky condition '%s' not acceptable" % (
+                slot.data.skycond))
+            return res
     elif ob.envcfg.sky == 'cirrus':
         if slot.data.skycond == 'any':
-            return Bunch.Bunch(obs_ok=False, reason="Sky condition '%s' not acceptable" % (slot.data.skycond))
+            res.setvals(obs_ok=False,
+                        reason="Sky condition '%s' not acceptable" % (
+                slot.data.skycond))
+            return res
 
     c1 = ob.target.calc(site, slot.start_time)
 
@@ -136,8 +152,10 @@ def check_slot(site, prev_slot, slot, ob):
         ## print "moon pct=%f moon alt=%f moon_sep=%f" % (
         ##     c1.moon_pct, c1.moon_alt, c1.moon_sep)
         if c1.moon_pct > dark_night_moon_pct_limit:
-            return Bunch.Bunch(obs_ok=False,
-                               reason="Moon illumination=%f" % (c1.moon_pct))
+            res.setvals(obs_ok=False,
+                        reason="Moon illumination=%f not acceptable" % (
+                c1.moon_pct))
+            return res
 
     # TODO: check moon separation from target here
     
@@ -190,21 +208,22 @@ def check_slot(site, prev_slot, slot, ob):
                                                 airmass=ob.envcfg.airmass)
 
     if not obs_ok:
-        return Bunch.Bunch(obs_ok=False,
-                           reason="Time or visibility of target")
+        res.setvals(obs_ok=False,
+                    reason="Time or visibility of target")
+        return res
 
     # calculate delay until we could actually start observing the object
     # in this slot
     delay_sec = (t_start - start_time).total_seconds()
 
     stop_time = t_start + timedelta(0, ob.total_time)
-    res = Bunch.Bunch(obs_ok=obs_ok, ob=ob, prev_ob=prev_ob,
-                      prep_sec=prep_sec, slew_sec=slew_sec,
-                      delta_az=delta_az, delta_alt=delta_alt,
-                      filterchange=filterchange,
-                      filterchange_sec=filterchange_sec,
-                      start_time=t_start, stop_time=stop_time,
-                      delay_sec=delay_sec)
+    res.setvals(obs_ok=obs_ok, prev_ob=prev_ob,
+                prep_sec=prep_sec, slew_sec=slew_sec,
+                delta_az=delta_az, delta_alt=delta_alt,
+                filterchange=filterchange,
+                filterchange_sec=filterchange_sec,
+                start_time=t_start, stop_time=stop_time,
+                delay_sec=delay_sec)
     return res
 
 

@@ -180,16 +180,13 @@ class QueueModel(Callback.Callbacks):
                       oblist)
 
         # filter out unobservable OBs
-        results = filter(lambda res: res.obs_ok, results)
-
-        # no observable OBs?
-        if len(results) == 0:
-            return None
+        good = filter(lambda res: res.obs_ok, results)
+        bad = filter(lambda res: not res.obs_ok, results)
 
         # sort according to desired criteria
-        results.sort(cmp=self.cmp_res)
+        good.sort(cmp=self.cmp_res)
 
-        return results[0]
+        return good, bad
 
 
     def fill_schedule(self, schedule, site, oblist):
@@ -199,7 +196,7 @@ class QueueModel(Callback.Callbacks):
 
         while not done:
             # give GUI thread a chance to run
-            time.sleep(0.0001)
+            #time.sleep(0.0001)
             
             slot = schedule.next_free_slot()
             if slot == None:
@@ -221,17 +218,23 @@ class QueueModel(Callback.Callbacks):
             # evaluate this slot against the available OBs
             # with knowledge of the previous slot
             self.logger.debug("considering slot %s" % (slot))
-            res = self.eval_slot(prev_slot, slot, site, oblist)
+            good, bad = self.eval_slot(prev_slot, slot, site, oblist)
+
+            for res in bad:
+                ob_id = "%s/%s" % (res.ob.program, res.ob.name)
+                self.logger.debug("rejected %s (%s) because: %s" % (
+                    res.ob, ob_id, res.reason))
 
             # no OBs fit the slot?
-            if res == None:
+            if len(good) == 0:
                 self.logger.debug("can't find any OBs to fit slot %s" % (
                     slot))
                 # insert empty time
                 schedule.insert_slot(slot)
                 continue
 
-            # insert this slot/ob into the schedule
+            # insert top slot/ob into the schedule
+            res = good[0]
             ob = res.ob
             dur = ob.total_time / 60.0
 
