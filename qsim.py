@@ -135,14 +135,14 @@ def check_slot(site, prev_slot, slot, ob):
     if ob.envcfg.sky == 'clear':
         if slot.data.skycond != 'clear':
             res.setvals(obs_ok=False,
-                        reason="Sky condition '%s' not acceptable" % (
-                slot.data.skycond))
+                        reason="Sky condition '%s' not acceptable ('%s' specified)" % (
+                slot.data.skycond, ob.envcfg.sky))
             return res
     elif ob.envcfg.sky == 'cirrus':
         if slot.data.skycond == 'any':
             res.setvals(obs_ok=False,
-                        reason="Sky condition '%s' not acceptable" % (
-                slot.data.skycond))
+                        reason="Sky condition '%s' not acceptable ('%s' specified)" % (
+                slot.data.skycond, ob.envcfg.sky))
             return res
 
     c1 = ob.target.calc(site, slot.start_time)

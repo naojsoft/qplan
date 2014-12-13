@@ -40,7 +40,7 @@ class Program(object):
         self.band = band
         self.partner = partner
         self.category = category.lower()
-        self.hours = hours
+        self.total_time = hours * 3600.0
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
         

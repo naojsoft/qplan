@@ -189,7 +189,7 @@ class QueueModel(Callback.Callbacks):
         return good, bad
 
 
-    def fill_schedule(self, schedule, site, oblist):
+    def fill_schedule(self, schedule, site, oblist, props):
 
         done = False
         oblist = list(oblist)   # work on a copy
@@ -225,17 +225,37 @@ class QueueModel(Callback.Callbacks):
                 self.logger.debug("rejected %s (%s) because: %s" % (
                     res.ob, ob_id, res.reason))
 
+            # insert top slot/ob into the schedule
+            found_one = False
+            for res in good:
+                ob = res.ob
+                ob_id = "%s/%s" % (ob.program, ob.name)
+                # check whether this proposal has exceeded its allotted time
+                # if we schedule this OB
+                # NOTE: charge them for any delay time, filter exch time, etc?
+                # currently: no
+                #obtime = (ob.time_stop - ob.time_start).total_seconds()
+                obtime = ob.total_time
+                prop_total = props[str(ob.program)].sched_time + obtime
+                if prop_total > props[str(ob.program)].total_time:
+                    self.logger.debug("rejected %s (%s) because it would exceed program allotted time" % (
+                        ob, ob_id))
+                    continue
+
+                found_one = True
+                break
+                    
             # no OBs fit the slot?
-            if len(good) == 0:
+            if not found_one:
                 self.logger.debug("can't find any OBs to fit slot %s" % (
                     slot))
                 # insert empty time
                 schedule.insert_slot(slot)
                 continue
 
-            # insert top slot/ob into the schedule
-            res = good[0]
             ob = res.ob
+            # account this scheduled time to the program
+            props[str(ob.program)].sched_time += obtime
             dur = ob.total_time / 60.0
 
             # if a long slew is required, insert a separate OB for that
@@ -284,7 +304,6 @@ class QueueModel(Callback.Callbacks):
         site = self.site
 
         for rec in self.schedule_recs:
-            #print("***", rec)
             night_start = site.get_date("%s %s" % (rec.date, rec.starttime))
             next_day = night_start + timedelta(0, 3600*14)
             next_day_s = next_day.strftime("%Y-%m-%d")
@@ -318,7 +337,10 @@ class QueueModel(Callback.Callbacks):
         # build a lookup table of programs -> OBs
         props = {}
         for key in self.programs:
-            props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[], obcount=0)
+            totaltime = self.programs[key].total_time
+            props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[],
+                                     obcount=0, sched_time=0.0,
+                                     total_time=totaltime)
 
         # count OBs in each program
         for ob in self.oblist:
@@ -353,7 +375,7 @@ class QueueModel(Callback.Callbacks):
                 len(this_nights_obs)))
 
             # optomize and rank schedules
-            self.fill_schedule(schedule, site, this_nights_obs)
+            self.fill_schedule(schedule, site, this_nights_obs, props)
 
             res = qsim.eval_schedule(schedule)
 
