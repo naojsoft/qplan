@@ -20,10 +20,10 @@ class ControlPanel(PlBase.Plugin):
 
         self.input_dir = "inputs"
 
-        self.schedule = None
-        self.programs = None
-        self.oblist = None
-        
+        self.schedule_qf = None
+        self.programs_qf = None
+        self.ob_qf_dict = None
+
     def build_gui(self, container):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
@@ -99,12 +99,12 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (schedule_file))
                 return
             self.logger.info("reading schedule from %s" % (schedule_file))
-            self.schedule = entity.ScheduleFile(schedule_file, self.logger)
+            self.schedule_qf = entity.ScheduleFile(schedule_file, self.logger)
             # Set the appropriate "schedule" attributes in the
             # QueueModel
             if 'scheduletab' not in self.view.plugins:
                 self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
-            self.model.set_schedule(self.schedule)
+            self.model.set_schedule_qf(self.schedule_qf)
             #self.model.set_schedule_info(self.schedule.schedule_info)
 
             # read proposals
@@ -113,26 +113,31 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (proposal_file))
                 return
             self.logger.info("reading proposals from %s" % (proposal_file))
-            self.programs = entity.ProgramsFile(proposal_file, self.logger)
+            self.programs_qf = entity.ProgramsFile(proposal_file, self.logger)
             if 'programstab' not in self.view.plugins:
                 self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
-            self.model.set_programs(self.programs)
-            #self.model.set_programs_info(self.programs.programs_info)
+            self.model.set_programs_qf(self.programs_qf)
+            #self.model.set_programs_info(self.programs_qf.programs_info)
 
             # read observing blocks
-            self.oblist = {}
+            self.ob_qf_dict = {}
             self.oblist_info = []
-            for propname in self.programs.programs_info:
+
+            propnames = list(self.programs_qf.programs_info.keys())
+            propnames.sort()
+
+            #for propname in self.programs_qf.programs_info:
+            for propname in propnames:
                 obfile = os.path.join(self.input_dir, propname+".csv")
                 if not os.path.exists(obfile):
                     self.logger.error("File not readable: %s" % (obfile))
                     continue
                 self.logger.info("loading observing blocks from file %s" % obfile)
-                self.oblist[propname] = entity.OBListFile(obfile, self.logger,
+                self.ob_qf_dict[propname] = entity.OBListFile(obfile, self.logger,
                                                           propname,
-                                                          self.programs.programs_info)
+                                                          self.programs_qf.programs_info)
                 #self.oblist_info.extend(self.oblist[propname].obs_info)
-            self.model.set_oblist(self.oblist)
+            self.model.set_ob_qf_dict(self.ob_qf_dict)
             #self.model.set_oblist_info(self.oblist_info)
 
         except Exception as e:
@@ -144,16 +149,17 @@ class ControlPanel(PlBase.Plugin):
 
     def update_model(self):
         try:
-            self.model.set_schedule_info(self.schedule.schedule_info)
-            self.model.set_programs_info(self.programs.programs_info)
+            self.model.set_schedule_info(self.schedule_qf.schedule_info)
+            self.model.set_programs_info(self.programs_qf.programs_info)
 
             # TODO: this maybe should be done in the Model
-            #self.oblist = {}
             self.oblist_info = []
-            for propname in self.programs.programs_info:
-                self.oblist_info.extend(self.oblist[propname].obs_info)
+            propnames = list(self.programs_qf.programs_info.keys())
+            propnames.sort()
+            #for propname in self.programs_qf.programs_info:
+            for propname in propnames:
+                self.oblist_info.extend(self.ob_qf_dict[propname].obs_info)
             # TODO: only needed if we ADD or REMOVE programs
-            #self.model.set_oblist(self.oblist)
             self.model.set_oblist_info(self.oblist_info)
 
         except Exception as e:

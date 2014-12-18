@@ -36,7 +36,7 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         row, col = index.row(), index.column()
         if self.columnNames[col].lower() == 'proposal':
             proposal = self.dataForTableModel[row][col]
-            if proposal in self.model.obdict:
+            if proposal in self.model.ob_qf_dict:
                 if proposal not in self.view.plugins:
                     self.view.load_plugin(proposal, 'OBListTab', 'OBListTab', 'report', proposal)
 

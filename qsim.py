@@ -5,6 +5,7 @@
 #  Eric Jeschke (eric@naoj.org)
 #
 from datetime import timedelta
+import time
 
 # Gen2 imports
 from ginga.misc import Bunch
@@ -109,6 +110,7 @@ def obs_to_slots(slots, site, obs):
 
 def check_slot(site, prev_slot, slot, ob):
 
+    start_time = time.time()
     res = Bunch.Bunch(ob=ob)
     
     # check if filter will be installed
@@ -145,7 +147,9 @@ def check_slot(site, prev_slot, slot, ob):
                 slot.data.skycond, ob.envcfg.sky))
             return res
 
+    split1_time = time.time()
     c1 = ob.target.calc(site, slot.start_time)
+    split2_time = time.time()
 
     # if observer specified a moon phase, check it now
     if ob.envcfg.moon == 'dark':
@@ -179,6 +183,8 @@ def check_slot(site, prev_slot, slot, ob):
     slew_sec = misc.calc_slew_time(delta_az, delta_alt)
     #print "slew time for new ob is %f sec" % (slew_sec)
 
+    split3_time = time.time()
+
     # calculate cost of filter exchange
     if filterchange or (prev_slot.ob.inscfg.filter != ob.inscfg.filter):
         # filter exchange necessary
@@ -200,12 +206,17 @@ def check_slot(site, prev_slot, slot, ob):
 
     min_el, max_el = ob.telcfg.get_el_minmax()
 
+    split4_time = time.time()
+
     # find the time that this object begins to be visible
     # TODO: figure out the best place to split the slot
     (obs_ok, t_start, t_stop) = site.observable(ob.target,
                                                 start_time, slot.stop_time,
                                                 min_el, max_el, ob.total_time,
                                                 airmass=ob.envcfg.airmass)
+
+    split5_time = time.time()
+    # TODO: time dump here
 
     if not obs_ok:
         res.setvals(obs_ok=False,

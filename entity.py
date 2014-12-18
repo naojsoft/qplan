@@ -43,7 +43,7 @@ class Program(object):
         self.total_time = hours * 3600.0
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
-        
+
     def __repr__(self):
         return self.proposal
 
@@ -770,7 +770,12 @@ class QueueFile(object):
             writer.writerow(row)
 
         # Parse the input data from the StringIO.StringIO object
-        self.parse_input()
+        try:
+            self.parse_input()
+
+        except Exception as e:
+            self.logger.error("Error reparsing input: %s" % (str(e)))
+            
         # We are done with the StringIO object, so close it.
         self.queue_file.close()
 
@@ -876,6 +881,7 @@ class ProgramsFile(QueueFile):
         Parse the programs from the input file.
         """
         self.queue_file.seek(0)
+        old_info = self.programs_info
         self.programs_info = {}
         reader = csv.reader(self.queue_file, **self.fmtparams)
         # skip header
@@ -896,14 +902,23 @@ class ProgramsFile(QueueFile):
                 if rec.skip.strip() != '':
                     continue
 
-                program = rec.proposal.upper()
-                self.programs_info[program] = Program(program,
-                                                      propid=rec.propid,
-                                                      rank=float(rec.rank),
-                                                      band=int(rec.band),
-                                                      partner=rec.partner,
-                                                      category=rec.category,
-                                                      hours=float(rec.hours))
+                key = rec.proposal.upper()
+                pgm = Program(key, propid=rec.propid,
+                              rank=float(rec.rank),
+                              band=int(rec.band),
+                              partner=rec.partner,
+                              category=rec.category,
+                              hours=float(rec.hours))
+                
+                # update existing old program record if it exists
+                # since OBs may be pointing to it
+                if key in old_info:
+                    new_pgm = pgm
+                    pgm = old_info[key]
+                    pgm.__dict__.update(new_pgm.__dict__)
+
+                self.programs_info[key] = pgm
+
             except Exception as e:
                 raise ValueError("Error reading line %d of programs: %s" % (
                     lineNum, str(e)))

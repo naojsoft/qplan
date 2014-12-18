@@ -46,8 +46,8 @@ class QueueModel(Callback.Callbacks):
 
         self.timezone = pytz.timezone('US/Hawaii')
 
+        # these are the main data structures used to schedule
         self.oblist = []
-        self.schedule = None
         self.schedule_recs = []
         self.programs = {}
 
@@ -70,42 +70,43 @@ class QueueModel(Callback.Callbacks):
                      'programs-file-loaded', 'schedule-file-loaded', 'show-oblist', 'programs-updated', 'schedule-updated', 'oblist-updated', 'show-proposal'):
             self.enable_callback(name)
 
-    def set_programs(self, programs):
-        self.programs_obj = programs
-        self.make_callback('programs-file-loaded',self.programs_obj)
+    def set_programs_qf(self, programs_qf):
+        self.programs_qf = programs_qf
+        self.make_callback('programs-file-loaded',self.programs_qf)
 
     def set_programs_info(self, info):
         self.programs = info
 
     def update_programs(self, row, colHeader, value, parse_flag):
         self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
-        self.programs_obj.update(row, colHeader, value, parse_flag)
-        self.programs = self.programs_obj.programs_info
+        self.programs_qf.update(row, colHeader, value, parse_flag)
+        #self.set_programs(self.programs_qf.programs_info)
         self.make_callback('programs-updated')
 
-    def set_oblist(self, obdict):
-        self.obdict = obdict
+    def set_ob_qf_dict(self, obdict):
+        self.ob_qf_dict = obdict
 
     def set_oblist_info(self, info):
         self.oblist = info
         
     def update_oblist(self, proposal, row, colHeader, value, parse_flag):
-        self.obdict[proposal].update(row, colHeader, value, parse_flag)
-        self.oblist = []
-        for propname in self.obdict:
-            self.oblist.extend(self.obdict[propname].obs_info)
+        self.ob_qf_dict[proposal].update(row, colHeader, value, parse_flag)
+        ## oblist = []
+        ## for propname in self.ob_qf_dict:
+        ##     oblist.extend(self.ob_qf_dict[propname].obs_info)
+        ## self.set_oblist_info(oblist)
         self.make_callback('oblist-updated', proposal)
 
     def show_proposal(self, req_proposal, obListTab):
-        self.logger.debug('req_proposal %s OBListFile %s ' % (req_proposal, self.obdict[req_proposal]))
-        self.make_callback('show-oblist', req_proposal, self.obdict[req_proposal])
+        self.logger.debug('req_proposal %s OBListFile %s ' % (req_proposal, self.ob_qf_dict[req_proposal]))
+        self.make_callback('show-oblist', req_proposal, self.ob_qf_dict[req_proposal])
 
-    def set_schedule(self, schedule):
+    def set_schedule_qf(self, schedule_qf):
         # This method gets called when a Schedule is loaded from an
         # input data file. Set our schedule attribute and invoke the
         # method attached to the schedule-file-loaded callback.
-        self.schedule = schedule
-        self.make_callback('schedule-file-loaded', self.schedule)
+        self.schedule_qf = schedule_qf
+        self.make_callback('schedule-file-loaded', self.schedule_qf)
 
     def set_schedule_info(self, info):
         # Set our schedule_recs attribute to the supplied data
@@ -118,8 +119,8 @@ class QueueModel(Callback.Callbacks):
         # attributes. Finally, invoke the method attached to the
         # schedule-updated callback.
         self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
-        self.schedule.update(row, colHeader, value, parse_flag)
-        self.schedule_recs = self.schedule.schedule_info
+        self.schedule_qf.update(row, colHeader, value, parse_flag)
+        #self.set_schedule_info(self.schedule.schedule_info)
         self.make_callback('schedule-updated')
 
     def cmp_res(self, res1, res2):
@@ -360,7 +361,11 @@ class QueueModel(Callback.Callbacks):
             self.logger.info("scheduling night %s" % (ndate))
 
             obmap = qsim.obs_to_slots(slots, site, unscheduled_obs)
-            this_nights_obs = obmap[str(nslot)]
+            #this_nights_obs = obmap[str(nslot)]
+            # sort to force deterministic scheduling if the same
+            # files are reloaded
+            this_nights_obs = sorted(obmap[str(nslot)],
+                                     cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2)))
             self.logger.info("%d OBs can be executed this night" % (
                 len(this_nights_obs)))
 
@@ -442,8 +447,6 @@ class QueueModel(Callback.Callbacks):
         
 
     def select_schedule(self, schedule):
-
         self.make_callback('schedule-selected', schedule)
         
-
 # END
