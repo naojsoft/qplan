@@ -122,16 +122,6 @@ class QueueModel(Callback.Callbacks):
         self.schedule_recs = self.schedule.schedule_info
         self.make_callback('schedule-updated')
 
-    def update_schedule(self, row, colHeader, value, parse_flag):
-        # This method gets called when the user updates a value in the
-        # ScheduleTab GUI. Update our schedule and schedule_tups
-        # attributes. Finally, invoke the method attached to the
-        # schedule-updated callback.
-        self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
-        self.schedule.update(row, colHeader, value, parse_flag)
-        self.schedule_tups = self.schedule.schedule_info
-        self.make_callback('schedule-updated')
-
     def cmp_res(self, res1, res2):
         """
         Compare two results from check_slot.
