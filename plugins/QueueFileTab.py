@@ -30,14 +30,14 @@ class QueueFileTab(PlBase.Plugin):
         top_layout.addWidget(toolbar)
 
         # Create a "File" menu
-        filemenu = toolbar.add_menu('File')
+        filemenu = toolbar.add_name('File')
         self.file_save_item = toolbar.make_action('Save')
         self.file_save_item.setEnabled(False)
         self.file_save_item.triggered.connect(self.save_item_clicked)
         filemenu.addAction(self.file_save_item)
 
         # Create an "Edit" menu
-        editmenu = toolbar.add_menu('Edit')
+        editmenu = toolbar.add_name('Edit')
         copy_item = toolbar.make_action('Copy')
         copy_item.setShortcut("Ctrl+C")
         copy_item.triggered.connect(self.copy_clicked)

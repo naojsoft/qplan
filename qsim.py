@@ -27,9 +27,6 @@ minimum_slot_size = 60.0
 parked_az_deg = -90.0
 parked_alt_deg = 90.0
 
-# filter change time in sec
-filter_change_time = 30.0 * 60.0
-
 # Subaru defines a dark night as one that is 2-3 days before or
 # after a new moon (0%).  Since a half moon (50%)occurs just 7 days
 # prior to a new moon, we can roughly calculate a dark night as
@@ -189,7 +186,7 @@ def check_slot(site, prev_slot, slot, ob):
     if filterchange or (prev_slot.ob.inscfg.filter != ob.inscfg.filter):
         # filter exchange necessary
         filterchange = True
-        filterchange_sec = filter_change_time
+        filterchange_sec = ob.inscfg.calc_filter_change_time()
     #print "filter change time for new ob is %f sec" % (filterchange_sec)
 
     # add up total preparation time for new OB

@@ -27,7 +27,7 @@ class Program(object):
     """
     def __init__(self, proposal, rank=1.0, pi=None, observers=None,
                  propid=None, band=None, partner=None, hours=None,
-                 category=None, description=None):
+                 category=None, instruments=[], description=None):
         super(Program, self).__init__()
         
         self.proposal = proposal
@@ -40,6 +40,7 @@ class Program(object):
         self.band = band
         self.partner = partner
         self.category = category.lower()
+        self.instruments = map(string.upper, instruments)
         self.total_time = hours * 3600.0
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
@@ -662,7 +663,12 @@ class SPCAMConfiguration(InstrumentConfiguration):
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
-    
+
+    def calc_filter_change_time(self):
+        # TODO: this needs to become more accurate
+        filter_change_time_sec = 10.0 * 60.0
+        return filter_change_time_sec
+
 class HSCConfiguration(InstrumentConfiguration):
     
     def __init__(self, filter=None):
@@ -673,6 +679,11 @@ class HSCConfiguration(InstrumentConfiguration):
             filter = filter.lower()
         self.filter = filter
     
+    def calc_filter_change_time(self):
+        # TODO: this needs to become more accurate
+        filter_change_time_sec = 35.0 * 60.0
+        return filter_change_time_sec
+
 class EnvironmentConfiguration(object):
 
     def __init__(self, seeing=None, airmass=None, moon='any', sky='any'):
@@ -869,6 +880,7 @@ class ProgramsFile(QueueFile):
             'propid': 'propid',
             'rank': 'rank',
             'category': 'category',
+            'instruments': 'instruments',
             'band': 'band',
             'hours': 'hours',
             'partner': 'partner',
@@ -908,6 +920,7 @@ class ProgramsFile(QueueFile):
                               band=int(rec.band),
                               partner=rec.partner,
                               category=rec.category,
+                              instruments=rec.instruments.upper().split(','),
                               hours=float(rec.hours))
                 
                 # update existing old program record if it exists
@@ -1004,18 +1017,24 @@ class OBListFile(QueueFile):
                 moon = rec.moon
                 sky = rec.sky
 
+                program=propdict[proposal]
+                
                 envcfg = EnvironmentConfiguration(seeing=seeing,
                                                   airmass=airmass,
                                                   moon=moon, sky=sky)
 
                 filter = rec.filter
                 # TODO: add an "instrument" column to the OBs
-                #inscfg = SPCAMConfiguration(filter=filter)
-                #telcfg = TelescopeConfiguration(focus='P_OPT')
-                inscfg = HSCConfiguration(filter=filter)
-                telcfg = TelescopeConfiguration(focus='P_OPT2')
+                if 'SPCAM' in program.instruments:
+                    inscfg = SPCAMConfiguration(filter=filter)
+                    telcfg = TelescopeConfiguration(focus='P_OPT')
+                elif 'HSC' in program.instruments:
+                    inscfg = HSCConfiguration(filter=filter)
+                    telcfg = TelescopeConfiguration(focus='P_OPT2')
+                else:
+                    raise ValueError("No valid instruments listed")
 
-                ob = OB(program=propdict[proposal],
+                ob = OB(program=program,
                         target=StaticTarget(rec.name, rec.ra, rec.dec, eq),
                         inscfg=inscfg,
                         envcfg=envcfg,
