@@ -5,7 +5,6 @@
 from PyQt4 import QtGui, QtCore
 import PlBase
 
-from Schedule import GenericTableModel
 import QueueFileTab
 
 class ProgramsTab(QueueFileTab.QueueFileTab):

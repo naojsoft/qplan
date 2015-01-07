@@ -237,6 +237,10 @@ class Viewer(QtMain.QtMain):
                                 pInfo.classname, pInfo.wsname,
                                 pInfo.tabname)
 
+    def get_plugin(self, pluginName):
+        pInfo = self.plugins[pluginName]
+        return pInfo
+
     def logit(self, text):
         try:
             pInfo = self.plugins['logger']

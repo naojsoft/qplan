@@ -68,7 +68,8 @@ class Schedule(PlBase.Plugin):
         model = table.model()
         # TODO
         self.schedules = []
-        #model.clear()
+        if model is not None:
+            model.clear()
         
     def new_schedule_cb(self, qmodel, schedule):
         if not schedule in self.schedules:
@@ -149,7 +150,15 @@ class GenericTableModel(QtCore.QAbstractTableModel):
 
         #if QtHelp.have_pyqt4:
         self.emit(QtCore.SIGNAL("layoutChanged()"))
-        
+
+    def clear(self, index=QtCore.QModelIndex()):
+        n_rows = len(self.model_data)
+        if n_rows > 0:
+            self.beginRemoveRows(index, 0, n_rows-1)
+
+            self.model_data = []
+
+            self.endRemoveRows()
     
 class ScheduleTableModel(GenericTableModel):
 

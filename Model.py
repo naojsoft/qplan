@@ -46,6 +46,11 @@ class QueueModel(Callback.Callbacks):
 
         self.timezone = pytz.timezone('US/Hawaii')
 
+        self.weights_qf = None
+        self.programs_qf = None
+        self.schedule_qf = None
+        self.ob_qf_dict = {}
+
         # these are the main data structures used to schedule
         self.oblist = []
         self.schedule_recs = []
@@ -59,20 +64,34 @@ class QueueModel(Callback.Callbacks):
         self.max_filterchange = 35*60.0  # max filter exchange time (sec)
 
         # define weights (see cmp_res() method)
-        self.w_rank = 0.3
-        self.w_delay = 0.2
-        self.w_slew = 0.2
-        self.w_priority = 0.1
-        self.w_filterchange = 0.3
+        self.weights = Bunch.Bunch(w_rank=0.3, w_delay=0.2,
+                                   w_slew=0.2, w_priority=0.1,
+                                   w_filterchange = 0.3)
 
         # For callbacks
         for name in ('schedule-cleared', 'schedule-added', 'schedule-selected',
-                     'programs-file-loaded', 'schedule-file-loaded', 'show-oblist', 'programs-updated', 'schedule-updated', 'oblist-updated', 'show-proposal'):
+                     'programs-file-loaded', 'schedule-file-loaded',
+                     'weights-file-loaded',
+                     'show-oblist', 'programs-updated', 'schedule-updated',
+                     'oblist-updated', 'weights-updated', 'show-proposal'):
             self.enable_callback(name)
+
+    def set_weights_qf(self, weights_qf):
+        self.weights_qf = weights_qf
+        self.make_callback('weights-file-loaded', self.weights_qf)
+
+    def set_weights(self, weights):
+        self.weights = weights
+        print(weights)
+
+    def update_weights(self, row, colHeader, value, parse_flag):
+        self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))
+        self.weights_qf.update(row, colHeader, value, parse_flag)
+        self.make_callback('weights-updated')
 
     def set_programs_qf(self, programs_qf):
         self.programs_qf = programs_qf
-        self.make_callback('programs-file-loaded',self.programs_qf)
+        self.make_callback('programs-file-loaded', self.programs_qf)
 
     def set_programs_info(self, info):
         self.programs = info
@@ -88,7 +107,7 @@ class QueueModel(Callback.Callbacks):
 
     def set_oblist_info(self, info):
         self.oblist = info
-        
+
     def update_oblist(self, proposal, row, colHeader, value, parse_flag):
         self.ob_qf_dict[proposal].update(row, colHeader, value, parse_flag)
         ## oblist = []
@@ -128,14 +147,16 @@ class QueueModel(Callback.Callbacks):
         Compare two results from check_slot.
 
         Calculate a number based on the
-        - slew time to target (weight: self.w_slew)
-        - delay until target visible (weight: self.w_delay)
+        - slew time to target (weight: w_slew)
+        - delay until target visible (weight: w_delay)
         - time lost (if any) having to change
              filters (weight: self.w_filterchange)
-        - rank of the program (weight: self.w_rank)
+        - rank of the program (weight: w_rank)
 
         LOWER NUMBERS ARE BETTER!
         """
+        wts = self.weights
+        
         r1_slew = min(res1.slew_sec, self.max_slew) / self.max_slew
         r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay
         r1_filter = min(res1.filterchange_sec, self.max_filterchange) / \
@@ -143,8 +164,8 @@ class QueueModel(Callback.Callbacks):
         r1_rank = min(res1.ob.program.rank, self.max_rank) / self.max_rank
         # invert because higher rank should make a lower number
         r1_rank = 1.0 - r1_rank
-        t1 = ((self.w_slew * r1_slew) + (self.w_delay * r1_delay) +
-              (self.w_filterchange * r1_filter) + (self.w_rank * r1_rank))
+        t1 = ((wts.w_slew * r1_slew) + (wts.w_delay * r1_delay) +
+              (wts.w_filterchange * r1_filter) + (wts.w_rank * r1_rank))
 
         r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
         r2_delay = min(res2.delay_sec, self.max_delay) / self.max_delay
@@ -152,13 +173,13 @@ class QueueModel(Callback.Callbacks):
                     self.max_filterchange
         r2_rank = min(res2.ob.program.rank, self.max_rank) / self.max_rank
         r2_rank = 1.0 - r2_rank
-        t2 = ((self.w_slew * r2_slew) + (self.w_delay * r2_delay) +
-              (self.w_filterchange * r2_filter) + (self.w_rank * r2_rank))
+        t2 = ((wts.w_slew * r2_slew) + (wts.w_delay * r2_delay) +
+              (wts.w_filterchange * r2_filter) + (wts.w_rank * r2_rank))
 
         if res1.ob.program == res2.ob.program:
             # for OBs in the same program, factor in priority
-            t1 += self.w_priority * res1.ob.priority
-            t2 += self.w_priority * res2.ob.priority
+            t1 += wts.w_priority * res1.ob.priority
+            t2 += wts.w_priority * res2.ob.priority
 
         res = int(numpy.sign(t1 - t2))
         return res
@@ -288,7 +309,7 @@ class QueueModel(Callback.Callbacks):
     def schedule_all(self):
 
         self.make_callback('schedule-cleared')
-        
+
         # -- Define fillable slots --
         schedules = []
         night_slots = []
@@ -383,7 +404,7 @@ class QueueModel(Callback.Callbacks):
 
                 ob = slot.ob
                 if ob != None:
-                    if len(ob.comment) == 0:
+                    if not ob.derived:
                         # not an OB generated to serve another OB
                         key = (ob.target.ra, ob.target.dec)
                         targets[key] = ob.target

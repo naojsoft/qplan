@@ -25,17 +25,19 @@ class Program(object):
     Program
     Defines a program that has been accepted for observation.
     """
-    def __init__(self, proposal, rank=1.0, pi=None, observers=None,
-                 propid=None, band=None, partner=None, hours=None,
+    def __init__(self, proposal, pi='', observers='', rank=1.0, 
+                 propid=None, band=3, partner=None, hours=None,
                  category=None, instruments=[], description=None):
         super(Program, self).__init__()
         
         self.proposal = proposal
         if propid == None:
-            # TODO: supposedly there is an algorithm to turn proposals
-            # into propids
+            # TODO: is there an algorithm to turn proposals
+            # into propids?
             propid = proposal
         self.propid = propid
+        self.pi = pi
+        self.observers = observers
         self.rank = rank
         self.band = band
         self.partner = partner
@@ -263,7 +265,7 @@ class OB(object):
     
     def __init__(self, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, total_time=None,
-                 priority=1.0, name=None):
+                 priority=1.0, name=None, derived=False, comment=''):
         super(OB, self).__init__()
         self.id = "ob%04d" % (OB.count)
         OB.count += 1
@@ -281,7 +283,10 @@ class OB(object):
         self.envcfg = envcfg
         self.total_time = total_time
 
-        self.comment = ''
+        # other fields
+        self.derived = derived
+        self.comment = comment
+        self.status = ''
 
     def __repr__(self):
         return self.id
@@ -656,13 +661,18 @@ class InstrumentConfiguration(object):
 
 class SPCAMConfiguration(InstrumentConfiguration):
     
-    def __init__(self, filter=None):
+    def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
+                 mode='IMAGE'):
         super(SPCAMConfiguration, self).__init__()
 
         self.insname = 'SPCAM'
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
+        self.guiding = guiding
+        self.num_exp = num_exp
+        self.exp_time = exp_time
+        self.mode = mode
 
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
@@ -671,13 +681,18 @@ class SPCAMConfiguration(InstrumentConfiguration):
 
 class HSCConfiguration(InstrumentConfiguration):
     
-    def __init__(self, filter=None):
+    def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
+                 mode='IMAGE'):
         super(HSCConfiguration, self).__init__()
 
         self.insname = 'HSC'
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
+        self.guiding = guiding
+        self.num_exp = num_exp
+        self.exp_time = exp_time
+        self.mode = mode
     
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
@@ -948,7 +963,7 @@ class OBListFile(QueueFile):
             'dec': 'dec',
             'equinox': 'eq',
             'filter': 'filter',
-            'exp_time': 'exptime',
+            'exp_time': 'exp_time',
             'num_exp': 'num_exp',
             'dither': 'dither',
             'total_time': 'totaltime',
@@ -1023,13 +1038,23 @@ class OBListFile(QueueFile):
                                                   airmass=airmass,
                                                   moon=moon, sky=sky)
 
-                filter = rec.filter
+                filtername = rec.filter
                 # TODO: add an "instrument" column to the OBs
                 if 'SPCAM' in program.instruments:
-                    inscfg = SPCAMConfiguration(filter=filter)
+                    guiding = 'G' in rec.dither
+                    mode = rec.dither[0]
+                    inscfg = SPCAMConfiguration(filter=filtername,
+                                                mode=mode, guiding=guiding,
+                                                num_exp=int(rec.num_exp),
+                                                exp_time=int(rec.exp_time))
                     telcfg = TelescopeConfiguration(focus='P_OPT')
                 elif 'HSC' in program.instruments:
-                    inscfg = HSCConfiguration(filter=filter)
+                    guiding = 'G' in rec.dither
+                    mode = rec.dither[0]
+                    inscfg = HSCConfiguration(filter=filtername,
+                                              mode=mode, guiding=guiding,
+                                              num_exp=int(rec.num_exp),
+                                              exp_time=int(rec.exp_time))
                     telcfg = TelescopeConfiguration(focus='P_OPT2')
                 else:
                     raise ValueError("No valid instruments listed")
@@ -1047,5 +1072,54 @@ class OBListFile(QueueFile):
             except Exception as e:
                 raise ValueError("Error reading line %d of oblist from file %s: %s" % (
                     lineNum, self.filepath, str(e)))
+
+
+class WeightsFile(QueueFile):
+
+    def __init__(self, filepath, logger):
+
+        self.weights = Bunch.Bunch()
+        column_map = {
+            'slew': 'w_slew',
+            'delay': 'w_delay',
+            'filter': 'w_filterchange',
+            'rank': 'w_rank',
+            'priority': 'w_priority',
+            }
+        super(WeightsFile, self).__init__(filepath, logger, column_map)
+
+    def parse_input(self):
+        """
+        Parse the weights from the input file.
+        """
+        self.queue_file.seek(0)
+        self.weights = Bunch.Bunch()
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        # skip header
+        next(reader)
+
+        lineNum = 1
+        for row in reader:
+            try:
+                lineNum += 1
+                # skip comments
+                if row[0].lower() == 'comment':
+                    continue
+                # skip blank lines
+                if len(row[0].strip()) == 0:
+                    continue
+
+                rec = self.parse_row(row)
+                ## if rec.skip.strip() != '':
+                ##     continue
+
+                # remember the last one read
+                zipped = rec.items()
+                keys, vals = zip(*zipped)
+                self.weights = Bunch.Bunch(zip(keys, map(float, vals)))
+
+            except Exception as e:
+                raise ValueError("Error reading line %d of weights: %s" % (
+                    lineNum, str(e)))
 
 #END

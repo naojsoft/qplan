@@ -20,6 +20,7 @@ class ControlPanel(PlBase.Plugin):
 
         self.input_dir = "inputs"
 
+        self.weights_qf = None
         self.schedule_qf = None
         self.programs_qf = None
         self.ob_qf_dict = None
@@ -32,37 +33,16 @@ class ControlPanel(PlBase.Plugin):
         sw = Widgets.ScrollArea()
         sw.set_widget(vbox)
 
-        fr = Widgets.Frame("Factors")
-
-        captions = (('Slew weight:', 'label', 'Slew weight', 'entry'),
-                    ('Delay weight:', 'label', 'Delay weight', 'entry'),
-                    ('Filter weight:', 'label', 'Filter weight', 'entry'),
-                    ('Rank weight:', 'label', 'Rank weight', 'entry'),
-                    ('Priority weight:', 'label', 'Priority weight', 'entry'),
-                    ('Build Schedule', 'button'),
-                    )
-        w, b = Widgets.build_info(captions, orientation='vertical')
-        self.w = b
-
-        b.slew_weight.set_text(str(self.model.w_slew))
-        b.delay_weight.set_text(str(self.model.w_delay))
-        b.filter_weight.set_text(str(self.model.w_filterchange))
-        b.rank_weight.set_text(str(self.model.w_rank))
-        b.priority_weight.set_text(str(self.model.w_priority))
-        b.build_schedule.add_callback('activated', self.build_schedule_cb)
-
-        fr.set_widget(w)
-        vbox.add_widget(fr, stretch=0)
-
         fr = Widgets.Frame("Files")
 
         captions = (('Inputs:', 'label', 'Input dir', 'entry'),
                     ('Load Info', 'button'),
-                    )
+                    ('Build Schedule', 'button'))
         w, b = Widgets.build_info(captions, orientation='vertical')
-        self.w.update(b)
+        self.w = b
 
         b.load_info.add_callback('activated', self.initialize_model_cb)
+        b.build_schedule.add_callback('activated', self.build_schedule_cb)
 
         fr.set_widget(w)
         vbox.add_widget(fr, stretch=0)
@@ -93,6 +73,18 @@ class ControlPanel(PlBase.Plugin):
         self.input_dir = self.w.input_dir.get_text().strip()
 
         try:
+            # read weights
+            weights_file = os.path.join(self.input_dir, "weights.csv")
+            if not os.path.exists(weights_file):
+                self.logger.error("File not readable: %s" % (weights_file))
+                return
+            self.logger.info("reading weights from %s" % (weights_file))
+            self.weights_qf = entity.WeightsFile(weights_file, self.logger)
+            # Load "Weights" Tab
+            if 'weightstab' not in self.view.plugins:
+                self.view.load_plugin('weightstab', 'WeightsTab', 'WeightsTab', 'report', 'Weights')
+            self.model.set_weights_qf(self.weights_qf)
+
             # read schedule
             schedule_file = os.path.join(self.input_dir, "schedule.csv")
             if not os.path.exists(schedule_file):
@@ -100,12 +92,10 @@ class ControlPanel(PlBase.Plugin):
                 return
             self.logger.info("reading schedule from %s" % (schedule_file))
             self.schedule_qf = entity.ScheduleFile(schedule_file, self.logger)
-            # Set the appropriate "schedule" attributes in the
-            # QueueModel
+            # Load "Schedule" Tab
             if 'scheduletab' not in self.view.plugins:
                 self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
             self.model.set_schedule_qf(self.schedule_qf)
-            #self.model.set_schedule_info(self.schedule.schedule_info)
 
             # read proposals
             proposal_file = os.path.join(self.input_dir, "programs.csv")
@@ -117,7 +107,6 @@ class ControlPanel(PlBase.Plugin):
             if 'programstab' not in self.view.plugins:
                 self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
             self.model.set_programs_qf(self.programs_qf)
-            #self.model.set_programs_info(self.programs_qf.programs_info)
 
             # read observing blocks
             self.ob_qf_dict = {}
@@ -138,17 +127,14 @@ class ControlPanel(PlBase.Plugin):
                                                           self.programs_qf.programs_info)
                 #self.oblist_info.extend(self.oblist[propname].obs_info)
             self.model.set_ob_qf_dict(self.ob_qf_dict)
-            #self.model.set_oblist_info(self.oblist_info)
 
         except Exception as e:
             self.logger.error("Error initializing: %s" % (str(e)))
 
-        # update the model
-        #self.update_model()
-        #self.logger.info("model initialized")
 
     def update_model(self):
         try:
+            self.model.set_weights(self.weights_qf.weights)
             self.model.set_schedule_info(self.schedule_qf.schedule_info)
             self.model.set_programs_info(self.programs_qf.programs_info)
 
@@ -168,12 +154,6 @@ class ControlPanel(PlBase.Plugin):
         self.logger.info("model initialized")
 
     def build_schedule_cb(self, widget):
-        # validate and make changes to model from gui
-        self.model.w_slew = float(self.w.slew_weight.get_text())
-        self.model.w_delay = float(self.w.delay_weight.get_text())
-        self.model.w_filterchange = float(self.w.filter_weight.get_text())
-        self.model.w_rank = float(self.w.rank_weight.get_text())
-
         # update the model with any changes from GUI
         self.update_model()
         

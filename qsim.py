@@ -38,21 +38,22 @@ def filterchange_ob(ob, total_time):
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
                        inscfg=ob.inscfg, envcfg=ob.envcfg,
-                       total_time=total_time)
-    new_ob.comment = "Filter change for %s" % (ob)
+                       total_time=total_time, derived=True,
+                       comment="Filter change for %s" % (ob))
     return new_ob
 
         
 def longslew_ob(prev_ob, ob, total_time):
     if prev_ob == None:
+        # TODO: this won't always be a SPCAM config!!!
         inscfg = entity.SPCAMConfiguration(filter=None)
     else:
         inscfg = prev_ob.inscfg
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
                        inscfg=inscfg, envcfg=ob.envcfg,
-                       total_time=total_time)
-    new_ob.comment = "Long slew for %s" % (ob)
+                       total_time=total_time, derived=True,
+                       comment="Long slew for %s" % (ob))
     return new_ob
 
         
@@ -60,8 +61,8 @@ def delay_ob(ob, total_time):
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
                        inscfg=ob.inscfg, envcfg=ob.envcfg,
-                       total_time=total_time)
-    new_ob.comment = "Delay for %s visibility" % (ob)
+                       total_time=total_time, derived=True,
+                       comment="Delay for %s visibility" % (ob))
     return new_ob
 
         
@@ -76,9 +77,9 @@ def precheck_slot(site, slot, ob):
         return False
 
     # Check whether OB will fit in this slot
-    ## delta = (slot.stop_time - slot.start_time).total_seconds()
-    ## if ob.total_time > delta:
-    ##     return False
+    delta = (slot.stop_time - slot.start_time).total_seconds()
+    if ob.total_time > delta:
+        return False
 
     min_el, max_el = ob.telcfg.get_el_minmax()
 
