@@ -7,17 +7,14 @@ import time
 import re
 import StringIO
 from datetime import timedelta
-import pickle
 
 from PyQt4 import QtGui, QtCore
 import PlBase
 
 from ginga.misc import Bunch
 from ginga.misc import Widgets
-from ginga.qtw import QtHelp
 
 import qsim
-import SPCAM
 
 
 class Report(PlBase.Plugin):
@@ -48,16 +45,6 @@ class Report(PlBase.Plugin):
         self.tw = tw
         
         vbox.add_widget(self.tw, stretch=1)
-
-        captions = (('Send', 'button', 'Resolve', 'button'),
-                    )
-        w, b = Widgets.build_info(captions, orientation='vertical')
-        self.w = b
-
-        b.send.add_callback('activated', self.send_cb)
-        b.resolve.add_callback('activated', self.resolve_cb)
-
-        vbox.add_widget(w, stretch=0)
 
         layout = QtGui.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -207,44 +194,5 @@ class Report(PlBase.Plugin):
             self.logger.error("Error selecting OBs: %s" % (str(e)))
             return []
 
-
-    def send_cb(self, w):
-
-        oblist = self._get_selected_obs()
-
-        try:
-            converter = SPCAM.Converter(self.logger)
-
-            # buffer for OPE output
-            out_f = StringIO.StringIO()
-
-            # write preamble
-            converter.write_ope_header(out_f)
-
-            # convert each OB
-            for ob in oblist:
-                converter.ob_to_ope(ob, out_f)
-
-            # here's the OPE file
-            ope_buf = out_f.getvalue()
-            print(ope_buf)
-
-        except Exception as e:
-            self.logger.error("Error sending OBs: %s" % (str(e)))
-
-        return True
-
-
-    def resolve_cb(self, w):
-        oblist = self._get_selected_obs()
-
-        try:
-            obj = self.view.get_plugin('Resolution')
-            obj.resolve_obs(oblist)
-
-        except Exception as e:
-            self.logger.error("Error resolving OBs: %s" % (str(e)))
-
-        return True
 
 #END
