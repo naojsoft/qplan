@@ -7,6 +7,7 @@ import time
 import re
 import StringIO
 from datetime import timedelta
+import pickle
 
 from PyQt4 import QtGui, QtCore
 import PlBase
@@ -233,12 +234,17 @@ class Report(PlBase.Plugin):
 
         return True
 
+
     def resolve_cb(self, w):
         oblist = self._get_selected_obs()
 
-        obj = self.view.get_plugin('Resolution')
-        obj.resolve_obs(oblist)
-        
+        try:
+            obj = self.view.get_plugin('Resolution')
+            obj.resolve_obs(oblist)
+
+        except Exception as e:
+            self.logger.error("Error resolving OBs: %s" % (str(e)))
+
         return True
 
 #END

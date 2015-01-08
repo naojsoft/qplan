@@ -349,10 +349,10 @@ class QueueModel(Callback.Callbacks):
         # build a lookup table of programs -> OBs
         props = {}
         for key in self.programs:
-            totaltime = self.programs[key].total_time
+            total_time = self.programs[key].total_time
             props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[],
                                      obcount=0, sched_time=0.0,
-                                     total_time=totaltime)
+                                     total_time=total_time)
 
         # count OBs in each program
         for ob in self.oblist:

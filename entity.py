@@ -263,12 +263,14 @@ class OB(object):
     """
     count = 1
     
-    def __init__(self, program=None, target=None, telcfg=None,
+    def __init__(self, id=None, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, total_time=None,
                  priority=1.0, name=None, derived=False, comment=''):
         super(OB, self).__init__()
-        self.id = "ob%04d" % (OB.count)
-        OB.count += 1
+        if id is None:
+            id = "ob%04d" % (OB.count)
+            OB.count += 1
+        self.id = id
         
         self.program = program
         self.priority = priority
@@ -391,7 +393,19 @@ class StaticTarget(object):
                           az_deg=math.degrees(az))
         return res
 
+    # for pickling
+    
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        # ephem objects can't be pickled
+        d['body'] = None
+        return d
+        
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.body = ephem.readdb(self.xeph_line)
 
+        
 class Observer(object):
     """
     Observer
@@ -662,7 +676,8 @@ class InstrumentConfiguration(object):
 class SPCAMConfiguration(InstrumentConfiguration):
     
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
-                 mode='IMAGE'):
+                 mode='IMAGE', offset_ra=0, offset_dec=0, pa=90,
+                 dith1=60, dith2=None):
         super(SPCAMConfiguration, self).__init__()
 
         self.insname = 'SPCAM'
@@ -673,6 +688,12 @@ class SPCAMConfiguration(InstrumentConfiguration):
         self.num_exp = num_exp
         self.exp_time = exp_time
         self.mode = mode
+        self.offset_ra = offset_ra
+        self.offset_dec = offset_dec
+        self.pa = pa
+        self.dith1 = dith1
+        # TODO: defaults for this depends on mode
+        self.dith2 = 0
 
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate

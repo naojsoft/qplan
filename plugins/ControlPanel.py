@@ -41,6 +41,7 @@ class ControlPanel(PlBase.Plugin):
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w = b
 
+        b.input_dir.set_length(128)
         b.load_info.add_callback('activated', self.initialize_model_cb)
         b.build_schedule.add_callback('activated', self.build_schedule_cb)
 
