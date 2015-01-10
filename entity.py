@@ -289,6 +289,7 @@ class OB(object):
         self.derived = derived
         self.comment = comment
         self.status = ''
+        self.data_quality = ''
 
     def __repr__(self):
         return self.id

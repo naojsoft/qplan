@@ -81,7 +81,7 @@ class Execute(Report.Report):
         oblist = self._get_selected_obs()
 
         try:
-            pInfo = self.view.get_plugin('Resolution')
+            pInfo = self.view.get_plugin('resolution')
             pInfo.obj.resolve_obs(oblist)
 
         except Exception as e:

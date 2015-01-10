@@ -68,6 +68,7 @@ plugins = [
     ('execute', 'Execute', 'Execute', 'report', 'Execute'),
     ('logger', 'Logger', 'Logger', 'report', 'Log'),
     ('cp', 'ControlPanel', 'ControlPanel', 'right', 'Control Panel'),
+    ('resolution', 'Resolution', 'Resolution', 'right', 'OB Resolution'),
     ]
 
 class QueuePlanner(Controller, Viewer):
