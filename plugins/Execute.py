@@ -3,6 +3,7 @@
 # 
 # Eric Jeschke (eric@naoj.org)
 #
+import os
 import StringIO
 
 from ginga.misc import Widgets
@@ -61,8 +62,14 @@ class Execute(Report.Report):
             # here's the OPE file
             ope_buf = out_f.getvalue()
 
-            # send to integgui2
-            self.ig.queue_load_ope(ope_buf)
+            # write buffer to a file
+            filepath = os.path.join(os.environ['HOME'], 'Procedure', 'OCS',
+                                    'Queue.ope')
+            with open(filepath, 'w') as out_f:
+                out_f.write(ope_buf)
+
+            # tell integgui2 to reload this file
+            self.ig.load_page(filepath)
 
         except Exception as e:
             self.logger.error("Error sending OBs: %s" % (str(e)))
@@ -74,8 +81,8 @@ class Execute(Report.Report):
         oblist = self._get_selected_obs()
 
         try:
-            obj = self.view.get_plugin('Resolution')
-            obj.resolve_obs(oblist)
+            pInfo = self.view.get_plugin('Resolution')
+            pInfo.obj.resolve_obs(oblist)
 
         except Exception as e:
             self.logger.error("Error resolving OBs: %s" % (str(e)))

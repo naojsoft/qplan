@@ -162,9 +162,9 @@ class Report(PlBase.Plugin):
                     if start == 0:
                         break
                     
-            # back up to beginning of line if selection doesn't
-            # start from a line
-            length = len(buf)
+            # find the end of line if selection doesn't
+            # end on a line
+            length, end = len(buf), end - 1
             if end >= length:
                 end = length
             else:
