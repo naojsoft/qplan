@@ -746,7 +746,7 @@ class FOCASConfiguration(InstrumentConfiguration):
 
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
-        filter_change_time_sec = 10.0 * 60.0
+        filter_change_time_sec = 30.0
         return filter_change_time_sec
 
 class EnvironmentConfiguration(object):
