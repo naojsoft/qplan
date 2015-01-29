@@ -24,6 +24,11 @@ class Converter(BaseConverter):
                       offset_dec=ob.inscfg.offset_dec,
                       dith1=ob.inscfg.dith1, dith2=ob.inscfg.dith2,
                       filter=ob.inscfg.filter))
+
+        # prepare target parameters substring common to all SETUPFIELD
+        # and GETOBJECT commands
+        tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"' % d
+        d.update(dict(tgtstr=tgtstr))
         
     def write_ope_header(self, out_f):
 
@@ -96,15 +101,17 @@ Z=7.00
                 return
                 
             elif ob.comment.startswith('Long slew'):
+                out("\n# %s" % (ob.comment))
                 d = {}
                 self._setup_target(d, ob)
-                cmd_str = '''SetupField $DEF_IMAGE OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"''' % d
+                cmd_str = 'SetupField $DEF_IMAGE %(tgtstr)s' % d
                 out(cmd_str)
                 return
 
             elif ob.comment.startswith('Delay for'):
+                out("\n# %s" % (ob.comment))
                 d = dict(sleep_time=int(ob.total_time))
-                cmd_str = '''EXEC OBS TIMER SLEEP_TIME=%(sleep_time)d''' % d
+                cmd_str = 'EXEC OBS TIMER SLEEP_TIME=%(sleep_time)d' % d
                 out(cmd_str)
                 return
 
@@ -122,30 +129,30 @@ Z=7.00
             if ob.inscfg.guiding:
                 pass
             else:
-                cmd_str = '''SetupField $DEF_IMAGE OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"''' % d
+                cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s"''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGE OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f EXPTIME=%(exptime)d OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"''' % d
+                cmd_str = '''GetObject $DEF_IMAGE %(tgtstr)s EXPTIME=%(exptime)d''' % d
                 out(cmd_str)
 
         elif ob.inscfg.mode == '5':
             if ob.inscfg.guiding:
                 pass
             else:
-                cmd_str = '''SetupField $DEF_IMAGE5 OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s" DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGE5 OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f EXPTIME=%(exptime)d OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s" DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                cmd_str = '''GetObject $DEF_IMAGE5 %(tgtstr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
                 out(cmd_str)
 
         elif ob.inscfg.mode == 'N':
             if ob.inscfg.guiding:
                 pass
             else:
-                cmd_str = '''SetupField $DEF_IMAGEN OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s" NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGEN OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f EXPTIME=%(exptime)d OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s" NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
                 out(cmd_str)
 
         else:

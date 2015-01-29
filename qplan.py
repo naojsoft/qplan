@@ -112,6 +112,7 @@ def main(options, args):
     
     # Start up the control/display engine
     qplanner = QueuePlanner(logger, threadPool, mm, prefs, ev_quit, model)
+    qplanner.set_input_dir(options.input_dir)
 
     # Build desired layout
     qplanner.build_toplevel(default_layout)
@@ -182,7 +183,7 @@ if __name__ == "__main__":
     optprs.add_option("-g", "--geometry", dest="geometry",
                       metavar="GEOM", default="+20+100",
                       help="X geometry for initial size and placement")
-    optprs.add_option("-i", "--input", dest="input_dir", default="input",
+    optprs.add_option("-i", "--input", dest="input_dir", default=".",
                       metavar="DIRECTORY",
                       help="Read input files from DIRECTORY")
     optprs.add_option("--log", dest="logfile", metavar="FILE",

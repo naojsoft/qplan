@@ -27,4 +27,9 @@ class Controller(Callback.Callbacks):
         self.tag = 'master'
         self.shares = ['threadPool', 'logger']
 
+        self.input_dir = '.'
+
+    def set_input_dir(self, path):
+        self.input_dir = path
+        
 #END

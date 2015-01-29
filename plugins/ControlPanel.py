@@ -10,7 +10,7 @@ from ginga.misc import Widgets
 from PyQt4 import QtGui, QtCore
 
 import PlBase
-import entity
+import filetypes
 import misc
 
 class ControlPanel(PlBase.Plugin):
@@ -42,6 +42,7 @@ class ControlPanel(PlBase.Plugin):
         self.w = b
 
         b.input_dir.set_length(128)
+        b.input_dir.set_text(self.controller.input_dir)
         b.load_info.add_callback('activated', self.initialize_model_cb)
         b.build_schedule.add_callback('activated', self.build_schedule_cb)
 
@@ -80,7 +81,7 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (weights_file))
                 return
             self.logger.info("reading weights from %s" % (weights_file))
-            self.weights_qf = entity.WeightsFile(weights_file, self.logger)
+            self.weights_qf = filetypes.WeightsFile(weights_file, self.logger)
             # Load "Weights" Tab
             if 'weightstab' not in self.view.plugins:
                 self.view.load_plugin('weightstab', 'WeightsTab', 'WeightsTab', 'report', 'Weights')
@@ -92,7 +93,7 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (schedule_file))
                 return
             self.logger.info("reading schedule from %s" % (schedule_file))
-            self.schedule_qf = entity.ScheduleFile(schedule_file, self.logger)
+            self.schedule_qf = filetypes.ScheduleFile(schedule_file, self.logger)
             # Load "Schedule" Tab
             if 'scheduletab' not in self.view.plugins:
                 self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
@@ -104,7 +105,7 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.error("File not readable: %s" % (proposal_file))
                 return
             self.logger.info("reading proposals from %s" % (proposal_file))
-            self.programs_qf = entity.ProgramsFile(proposal_file, self.logger)
+            self.programs_qf = filetypes.ProgramsFile(proposal_file, self.logger)
             if 'programstab' not in self.view.plugins:
                 self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
             self.model.set_programs_qf(self.programs_qf)
@@ -116,16 +117,57 @@ class ControlPanel(PlBase.Plugin):
             propnames = list(self.programs_qf.programs_info.keys())
             propnames.sort()
 
-            #for propname in self.programs_qf.programs_info:
             for propname in propnames:
-                obfile = os.path.join(self.input_dir, propname+".csv")
+                obdir = os.path.join(self.input_dir, propname)
+                if not os.path.isdir(obdir):
+                    self.logger.error("Directory not readable: %s" % (obdir))
+                    continue
+
+                # Read telcfg
+                csvfile = os.path.join(obdir, "telcfg.csv")
+                if not os.path.exists(csvfile):
+                    self.logger.error("File not readable: %s" % (csvfile))
+                    continue
+                self.logger.info("loading telescope configuration file %s" % (csvfile))
+                telcfg_qf = filetypes.TelCfgFile(csvfile, self.logger)
+                
+                # Read inscfg
+                csvfile = os.path.join(obdir, "inscfg.csv")
+                if not os.path.exists(csvfile):
+                    self.logger.error("File not readable: %s" % (csvfile))
+                    continue
+                self.logger.info("loading instrument configuration file %s" % (csvfile))
+                inscfg_qf = filetypes.InsCfgFile(csvfile, self.logger)
+                
+                # Read envcfg
+                csvfile = os.path.join(obdir, "envcfg.csv")
+                if not os.path.exists(csvfile):
+                    self.logger.error("File not readable: %s" % (csvfile))
+                    continue
+                self.logger.info("loading environment configuration file %s" % (csvfile))
+                envcfg_qf = filetypes.EnvCfgFile(csvfile, self.logger)
+                
+                # Read targets
+                csvfile = os.path.join(obdir, "targets.csv")
+                if not os.path.exists(csvfile):
+                    self.logger.error("File not readable: %s" % (csvfile))
+                    continue
+                self.logger.info("loading targets configuration file %s" % (csvfile))
+                tgtcfg_qf = filetypes.TgtCfgFile(csvfile, self.logger)
+                
+                # Finally, read OBs
+                obfile = os.path.join(obdir, "ob.csv")
                 if not os.path.exists(obfile):
                     self.logger.error("File not readable: %s" % (obfile))
                     continue
-                self.logger.info("loading observing blocks from file %s" % obfile)
-                self.ob_qf_dict[propname] = entity.OBListFile(obfile, self.logger,
-                                                          propname,
-                                                          self.programs_qf.programs_info)
+                self.ob_qf_dict[propname] = filetypes.OBListFile(obfile,
+                                                                 self.logger,
+                                                                 propname,
+                                                                 self.programs_qf.programs_info,
+                                                                 telcfg_qf.tel_cfgs,
+                                                                 tgtcfg_qf.tgt_cfgs,
+                                                                 inscfg_qf.ins_cfgs,
+                                                                 envcfg_qf.env_cfgs)
                 #self.oblist_info.extend(self.oblist[propname].obs_info)
             self.model.set_ob_qf_dict(self.ob_qf_dict)
 
