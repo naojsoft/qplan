@@ -712,8 +712,8 @@ class HSCConfiguration(InstrumentConfiguration):
             filter = filter.lower()
         self.filter = filter
         self.guiding = guiding
-        self.num_exp = num_exp
-        self.exp_time = exp_time
+        self.num_exp = int(num_exp)
+        self.exp_time = float(exp_time)
         self.mode = mode
     
     def calc_filter_change_time(self):
@@ -728,21 +728,20 @@ class FOCASConfiguration(InstrumentConfiguration):
                  pa=0, dither_ra=10, dither_dec=10):
         super(FOCASConfiguration, self).__init__()
 
-        self.insname = 'SPCAM'
+        self.insname = 'FOCAS'
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
         self.guiding = guiding
-        self.num_exp = num_exp
-        self.exp_time = exp_time
+        self.num_exp = int(num_exp)
+        self.exp_time = float(exp_time)
         self.mode = mode
-        self.pa = pa
+        self.pa = float(pa)
         self.binning = binning
-        self.offset_ra = offset_ra
-        self.offset_dec = offset_dec
-        self.dither_ra = dither_ra
-        # TODO: defaults for this depends on mode
-        self.dither_dec = dither_dec
+        self.offset_ra = float(offset_ra)
+        self.offset_dec = float(offset_dec)
+        self.dither_ra = float(dither_ra)
+        self.dither_dec = float(dither_dec)
 
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate

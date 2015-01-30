@@ -21,7 +21,7 @@ import ssdlog
 # Local imports
 import entity
 from Model import QueueModel
-import SPCAM
+#import SPCAM
 
 version = '20150105.0'
 
