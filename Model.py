@@ -428,8 +428,8 @@ class QueueModel(Callback.Callbacks):
             ## unschedulable.sort(cmp=lambda ob1, ob2: cmp(ob1.program.proposal,
             ##                                             ob2.program.proposal))
             
-            ## for ob in unschedulable:
-            ##     out_f.write("%s (%s)\n" % (ob.name, ob.program.proposal))
+            for ob in unschedulable:
+                out_f.write("%s (%s)\n" % (ob.name, ob.program.proposal))
             out_f.write("\n")
 
         completed, uncompleted = [], []

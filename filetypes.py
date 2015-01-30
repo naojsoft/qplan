@@ -480,6 +480,7 @@ class InsCfgFile(QueueFile):
             'offset_dec': 'offset_dec',
             'dither_ra': 'dither_ra',
             'dither_dec': 'dither_dec',
+            'dither_theta': 'dither_theta',
             'binning': 'binning',
             'comment': 'comment',
             }
@@ -535,6 +536,7 @@ class InsCfgFile(QueueFile):
                                                 offset_dec=rec.offset_dec,
                                                 dither_ra=rec.dither_ra,
                                                 dither_dec=rec.dither_dec,
+                                                dither_theta=rec.dither_theta,
                                                 binning=rec.binning)
                 else:
                     raise ValueError("No valid instruments listed")

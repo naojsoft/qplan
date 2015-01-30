@@ -725,7 +725,7 @@ class FOCASConfiguration(InstrumentConfiguration):
     
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
                  mode='IMAGE', binning='1x1', offset_ra=0, offset_dec=0,
-                 pa=0, dither_ra=10, dither_dec=10):
+                 pa=0, dither_ra=5, dither_dec=5, dither_theta=0.0):
         super(FOCASConfiguration, self).__init__()
 
         self.insname = 'FOCAS'
@@ -742,6 +742,7 @@ class FOCASConfiguration(InstrumentConfiguration):
         self.offset_dec = float(offset_dec)
         self.dither_ra = float(dither_ra)
         self.dither_dec = float(dither_dec)
+        self.dither_theta = float(dither_theta)
 
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
