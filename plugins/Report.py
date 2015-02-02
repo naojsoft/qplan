@@ -77,7 +77,6 @@ class Report(PlBase.Plugin):
         except KeyError:
             pass
 
-
     def add_schedule(self, schedule):
         res = qsim.eval_schedule(schedule)
 
@@ -91,7 +90,7 @@ class Report(PlBase.Plugin):
             ndate, filters))
         out_f.write("Queue prepared at: %s\n" % (
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-        out_f.write("%-16.16s  %-6.6s  %-6.6s  %12.12s  %5.5s %7.7s %-6.6s  %3.3s  %s\n" % (
+        out_f.write("%-16.16s  %-6.6s  %-10.10s %12.12s  %5.5s %7.7s %-6.6s  %3.3s  %s\n" % (
             'Date', 'ObsBlk', 'Status', 'Program', 'Rank', 'Time', 'Filter', 'AM', 'Comment'))
 
         targets = {}
@@ -109,7 +108,7 @@ class Report(PlBase.Plugin):
                     key = (ob.target.ra, ob.target.dec)
                     targets[key] = ob.target
 
-                out_f.write("%-16.16s  %-6.6s  %-6.6s  %12.12s  %5.2f %7.2f %-6.6s  %3.1f  %s\n" % (
+                out_f.write("%-16.16s  %-6.6s  %-10.10s %12.12s  %5.2f %7.2f %-6.6s  %3.1f  %s\n" % (
                     date, str(ob), ob.status, ob.program, ob.program.rank,
                     ob.total_time / 60,
                     ob.inscfg.filter, ob.envcfg.airmass,

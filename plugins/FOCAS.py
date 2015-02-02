@@ -19,7 +19,13 @@ class Converter(BaseConverter):
         autoguide = 'NO'
         if ob.inscfg.guiding:
             autoguide = 'YES'
-        
+
+        if ob.inscfg.filter is None:
+            # TODO: what should this be?
+            filtername = 'B'
+        else:
+            filtername = ob.inscfg.filter.upper()
+            
         d.update(dict(object=ob.target.name,
                       ra="%010.3f" % funky_ra, dec="%+010.2f" % funky_dec,
                       equinox=ob.target.equinox, pa=ob.inscfg.pa,
@@ -30,7 +36,7 @@ class Converter(BaseConverter):
                       dither_theta=ob.inscfg.dither_theta,
                       binning=ob.inscfg.binning,
                       offset_sec=ob.inscfg.offset_ra,
-                      filter=ob.inscfg.filter.upper(),
+                      filter=filtername,
                       autoguide=autoguide))
 
         # prepare target parameters substring common to all SETUPFIELD
@@ -90,6 +96,24 @@ OBSERVATION_FILE_TYPE=OPE
                 out("\n# %s" % (ob.comment))
                 d = dict(sleep_time=int(ob.total_time))
                 cmd_str = 'EXEC OBS TIMER SLEEP_TIME=%(sleep_time)d' % d
+                out(cmd_str)
+                return
+
+        tgtname = ob.target.name.lower()
+
+        if tgtname == 'domeflat':
+                out("\n# %s" % (ob.comment))
+                d = {}
+                self._setup_target(d, ob)
+                cmd_str = 'GetDomeflat $DEF_IMAG $DEF_DOMEFLAT $MASK_NONE $FILTER_BB_%(filter)s $CCD_%(binning)s ExpTime=7 VOLT=20' % d
+                out(cmd_str)
+                return
+
+        elif tgtname == 'bias':
+                out("\n# %s" % (ob.comment))
+                d = {}
+                self._setup_target(d, ob)
+                cmd_str = 'GetBias $DEF_IMAG $CCD_%(binning)s OBJECT=BIAS' % d
                 out(cmd_str)
                 return
 

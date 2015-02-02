@@ -137,6 +137,7 @@ class ScheduleFile(QueueFile):
             'filters': 'filters',
             'sky': 'skycond',
             'avg_seeing': 'seeing',
+            'dome': 'dome',
             'note': 'note',
             }
         super(ScheduleFile, self).__init__(filepath, logger, column_map)
@@ -174,6 +175,7 @@ class ScheduleFile(QueueFile):
             seeing = float(rec.seeing)
             categories = rec.categories.replace(' ', '').lower().split(',')
             skycond = rec.skycond.lower()
+            dome = rec.dome.lower()
 
             # TEMP: skip non-OPEN categories
             if not 'open' in categories:
@@ -182,7 +184,8 @@ class ScheduleFile(QueueFile):
             rec2 = Bunch.Bunch(date=rec.date, starttime=rec.starttime,
                                stoptime=rec.stoptime,
                                categories=categories, filters=filters,
-                               seeing=seeing, skycond=skycond, note=rec.note)
+                               seeing=seeing, skycond=skycond,
+                               dome=dome, note=rec.note)
             self.schedule_info.append(rec2)
 
 
@@ -308,6 +311,7 @@ class TelCfgFile(QueueFile):
         column_map = {
             'id': 'id',
             'foci': 'focus',
+            'dome': 'dome',
             'comment': 'comment',
             }
         super(TelCfgFile, self).__init__(filepath, logger, column_map)
@@ -336,7 +340,8 @@ class TelCfgFile(QueueFile):
 
                 rec = self.parse_row(row)
                 cfgid = rec.id.strip()
-                telcfg = entity.TelescopeConfiguration(focus=rec.focus)
+                telcfg = entity.TelescopeConfiguration(focus=rec.focus,
+                                                       dome=rec.dome)
 
                 self.tel_cfgs[cfgid] = telcfg
 

@@ -286,8 +286,8 @@ class OB(object):
         # other fields
         self.derived = derived
         self.comment = comment
-        self.status = ''
-        self.data_quality = ''
+        self.status = 'new'
+        self.data_quality = 0
 
     def __repr__(self):
         return self.id
@@ -658,9 +658,14 @@ class HST(tzinfo):
 
 class TelescopeConfiguration(object):
 
-    def __init__(self, focus=None):
+    def __init__(self, focus=None, dome=None):
         super(TelescopeConfiguration, self).__init__()
         self.focus = focus
+        if dome is None:
+            dome = 'open'
+        else:
+            dome = dome.lower()
+        self.dome = dome
         self.min_el = 15.0
         self.max_el = 89.0
     

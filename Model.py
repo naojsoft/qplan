@@ -325,7 +325,7 @@ class QueueModel(Callback.Callbacks):
             # associate available filters and other items with this schedule
             data = Bunch.Bunch(filters=rec.filters, seeing=rec.seeing,
                                skycond=rec.skycond, categories=rec.categories,
-                               note=rec.note)
+                               dome=rec.dome, note=rec.note)
             schedules.append(entity.Schedule(night_start, night_stop,
                                              data=data))
             delta = (night_stop - night_start).total_seconds()

@@ -45,8 +45,8 @@ def filterchange_ob(ob, total_time):
         
 def longslew_ob(prev_ob, ob, total_time):
     if prev_ob == None:
-        # TODO: this won't always be a SPCAM config!!!
-        inscfg = entity.SPCAMConfiguration(filter=None)
+        klass = ob.inscfg.__class__
+        inscfg = klass(filter=None)
     else:
         inscfg = prev_ob.inscfg
     new_ob = entity.OB(program=ob.program, target=ob.target,
@@ -68,6 +68,10 @@ def delay_ob(ob, total_time):
         
 def precheck_slot(site, slot, ob):
 
+    # check OB status
+    if ob.status == 'complete':
+        return False
+
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
         return False
@@ -81,6 +85,13 @@ def precheck_slot(site, slot, ob):
     if ob.total_time > delta:
         return False
 
+    # check dome status
+    if slot.data.dome != ob.telcfg.dome:
+        return False
+    
+    if slot.data.dome == 'closed':
+        return True
+    
     min_el, max_el = ob.telcfg.get_el_minmax()
 
     # find the time that this object begins to be visible
@@ -108,8 +119,7 @@ def obs_to_slots(slots, site, obs):
 
 def check_slot(site, prev_slot, slot, ob):
 
-    start_time = time.time()
-    res = Bunch.Bunch(ob=ob)
+    res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
     
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
@@ -123,6 +133,55 @@ def check_slot(site, prev_slot, slot, ob):
                     reason="Slot cannot take category '%s'" % (
             ob.program.category))
         return res
+
+    filterchange = False
+    filterchange_sec = 0.0
+
+    # get immediately previous ob
+    if (prev_slot == None) or (prev_slot.ob == None):
+        prev_ob = None
+        filterchange = True
+
+    else:
+        prev_ob = prev_slot.ob
+
+    # calculate cost of filter exchange
+    if filterchange or (prev_ob.inscfg.filter != ob.inscfg.filter):
+        # filter exchange necessary
+        filterchange = True
+        filterchange_sec = ob.inscfg.calc_filter_change_time()
+    #print "filter change time for new ob is %f sec" % (filterchange_sec)
+
+    # for adding up total preparation time for new OB
+    prep_sec = filterchange_sec
+
+    # check dome status
+    if slot.data.dome != ob.telcfg.dome:
+        res.setvals(obs_ok=False, reason="Dome status OB(%s) != slot(%s)" % (
+            ob.telcfg.dome, slot.data.dome))
+        return res
+
+    if slot.data.dome == 'closed':
+        # <-- dome closed
+
+        start_time = slot.start_time + timedelta(0, prep_sec)
+        stop_time = start_time + timedelta(0, ob.total_time)
+        
+        # Check whether OB will fit in this slot
+        if slot.stop_time < stop_time:
+            res.setvals(obs_ok=False, reason="Not enough time in slot")
+            return res
+        
+        res.setvals(obs_ok=True, prev_ob=prev_ob,
+                    prep_sec=prep_sec, slew_sec=0.0,
+                    delta_az=0.0, delta_alt=0.0,
+                    filterchange=filterchange,
+                    filterchange_sec=filterchange_sec,
+                    start_time=start_time, stop_time=stop_time,
+                    delay_sec=0.0)
+        return res
+
+    # <-- dome open, need to check visibility and other criteria
 
     # check seeing on the slot is acceptable to this ob
     if (slot.data.seeing > ob.envcfg.seeing):
@@ -145,9 +204,7 @@ def check_slot(site, prev_slot, slot, ob):
                 slot.data.skycond, ob.envcfg.sky))
             return res
 
-    split1_time = time.time()
     c1 = ob.target.calc(site, slot.start_time)
-    split2_time = time.time()
 
     # if observer specified a moon phase, check it now
     if ob.envcfg.moon == 'dark':
@@ -160,43 +217,26 @@ def check_slot(site, prev_slot, slot, ob):
             return res
 
     # TODO: check moon separation from target here
-    
-    filterchange = False
-    filterchange_sec = 0.0
-    prev_ob = None
 
     # calculate cost of slew to this target
-    if (prev_slot == None) or (prev_slot.ob == None):
+    if prev_ob == None:
         # no previous target--calculate cost from telescope parked position
         delta_alt, delta_az = parked_alt_deg - c1.alt_deg, parked_az_deg - c1.az_deg
 
-        filterchange = True
-
     else:
-        c0 = prev_slot.ob.target.calc(site, slot.start_time)
+        c0 = prev_ob.target.calc(site, slot.start_time)
         delta_alt, delta_az = c0.alt_deg - c1.alt_deg, c0.az_deg - c1.az_deg
-        prev_ob = prev_slot.ob
-        
+
     #print "print delta alt,az=%f,%f sec" % (delta_alt, delta_az)
     slew_sec = misc.calc_slew_time(delta_az, delta_alt)
     #print "slew time for new ob is %f sec" % (slew_sec)
 
-    split3_time = time.time()
-
-    # calculate cost of filter exchange
-    if filterchange or (prev_slot.ob.inscfg.filter != ob.inscfg.filter):
-        # filter exchange necessary
-        filterchange = True
-        filterchange_sec = ob.inscfg.calc_filter_change_time()
-    #print "filter change time for new ob is %f sec" % (filterchange_sec)
-
-    # add up total preparation time for new OB
-    prep_sec = slew_sec + filterchange_sec
+    prep_sec += slew_sec
     #print "total delay is %f sec" % (prep_sec)
 
     # adjust slot start time
     start_time = slot.start_time + timedelta(0, prep_sec)
-    
+
     # Check whether OB will fit in this slot
     ## delta = (slot.stop_time - slot.start_time).total_seconds()
     ## if ob.total_time > delta:
@@ -204,17 +244,12 @@ def check_slot(site, prev_slot, slot, ob):
 
     min_el, max_el = ob.telcfg.get_el_minmax()
 
-    split4_time = time.time()
-
     # find the time that this object begins to be visible
     # TODO: figure out the best place to split the slot
     (obs_ok, t_start, t_stop) = site.observable(ob.target,
                                                 start_time, slot.stop_time,
                                                 min_el, max_el, ob.total_time,
                                                 airmass=ob.envcfg.airmass)
-
-    split5_time = time.time()
-    # TODO: time dump here
 
     if not obs_ok:
         res.setvals(obs_ok=False,

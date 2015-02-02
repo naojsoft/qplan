@@ -43,7 +43,7 @@ class Resolution(PlBase.Plugin):
         # Set the inital text for the program and OB ID to N/A
         b.program.set_text('N/A')
         b.ob_id.set_text('N/A')
-        b.dup_all_ob.set_state(True)
+        b.dup_all_ob.set_state(False)
 
         # Place the label widgets into the frame
         prog_ob_frame.set_widget(w)
@@ -66,19 +66,25 @@ class Resolution(PlBase.Plugin):
         # Create a frame for the data quality buttons
         data_button_frame = Widgets.Frame()
         # Create some radio buttons to describe the data quality
-        captions = (('Data Quality:', 'label',
+        captions = (('Data Quality:', 'label'),
+                    ('Excellent', 'radiobutton',
                      'Good', 'radiobutton',
+                     'Fair', 'radiobutton',
                      'Questionable', 'radiobutton',
                      'Bad', 'radiobutton'),)
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w_data_buttons = b
 
-        b.good.add_callback('activated', self.good_cb);
-        b.questionable.add_callback('activated', self.questionable_cb);
-        b.bad.add_callback('activated', self.bad_cb);
+        b.excellent.add_callback('activated', self.rate_cb, 5);
+        b.good.add_callback('activated', self.rate_cb, 4);
+        b.fair.add_callback('activated', self.rate_cb, 3);
+        b.questionable.add_callback('activated', self.rate_cb, 2);
+        b.bad.add_callback('activated', self.rate_cb, 1);
 
         self.data_bg = QtGui.QButtonGroup()
+        self.data_bg.addButton(self.w_data_buttons.excellent.get_widget())
         self.data_bg.addButton(self.w_data_buttons.good.get_widget())
+        self.data_bg.addButton(self.w_data_buttons.fair.get_widget())
         self.data_bg.addButton(self.w_data_buttons.questionable.get_widget())
         self.data_bg.addButton(self.w_data_buttons.bad.get_widget())
 
@@ -163,42 +169,49 @@ class Resolution(PlBase.Plugin):
         # created for the supplied container
         layout.addWidget(top_w, stretch=1)
 
-    def set_data_quality(self, button, value):
+    def set_data_quality(self, rating, value):
         try:
             if self.oblist_index is not None:
                 if self.w_prog_ob.dup_all_ob.get_state():
                     for ob in self.oblist:
-                        self.ob_resolution[str(ob)][button] = value
-                        self.logger.debug('ob %s %s is %s' % (str(ob), button, self.ob_resolution[str(ob)][button]))
+                        ob_str = str(ob)
+                        self.ob_resolution[ob_str]['dq'] = rating
+                        self.logger.debug('ob %s dq=%d' % (ob_str, rating))
                         if value:
-                            ob.data_quality = button
+                            ob.data_quality = rating
+                            if rating > 2:
+                                ob.status = 'complete'
+                            elif rating > 0:
+                                ob.status = 'incomplete'
+                            else:
+                                ob.status = 'new'
                 else:
-                    ob = str(self.oblist[self.oblist_index])
-                    self.ob_resolution[ob][button] = value
-                    self.logger.debug('ob %s %s is %s' % (ob, button, self.ob_resolution[ob][button]))
+                    ob = self.oblist[self.oblist_index]
+                    ob_str = str(ob)
+                    self.ob_resolution[ob_str]['dq'] = rating
+                    self.logger.debug('ob %s dq=%d' % (ob_str, rating))
                     if value:
-                        self.oblist[self.oblist_index].data_quality = button
+                        ob.data_quality = rating
+                        if rating > 2:
+                            ob.status = 'complete'
+                        elif rating > 0:
+                            ob.status = 'incomplete'
+                        else:
+                            ob.status = 'new'
         except Exception as e:
             self.logger.error('Error in set_data_quality: %s %s %s' % (button, value, str(e)))
 
-    def good_cb(self, widget, value):
-        self.set_data_quality('Good', value)
-
-    def questionable_cb(self, widget, value):
-        self.set_data_quality('Questionable', value)
-
-    def bad_cb(self, widget, value):
-        self.set_data_quality('Bad', value)
+    def rate_cb(self, widget, value, rating):
+        self.set_data_quality(rating, value)
 
     def save_cb(self, widget):
         try:
             self.save_comments()
             for ob in self.ob_resolution:
                 cmt_text = self.ob_resolution[ob]['OB_Comments']
-                good = self.ob_resolution[ob]['Good']
-                questionable = self.ob_resolution[ob]['Questionable']
-                bad = self.ob_resolution[ob]['Bad']
-                self.logger.debug('ob %s cmt_text %s good %s quest %s bad %s' % (ob, cmt_text, good, questionable, bad))
+                dq = self.ob_resolution[ob]['dq']
+                self.logger.debug('ob %s cmt_text %s iq %d' % (
+                    ob, cmt_text, dq))
             for ob in self.oblist:
                 self.logger.debug('ob %s comment %s data_quality %s' % (ob, ob.comment, ob.data_quality))
         except Exception as e:
@@ -207,19 +220,24 @@ class Resolution(PlBase.Plugin):
     def clear_cb(self, widget):
         self.logger.info('clear clicked')
         try:
-            if not self.ob_resolution[str(self.oblist[self.oblist_index])]['Special_Comment']:
+            if self.oblist_index is None:
+                return
+            ob = self.oblist[self.oblist_index]
+            ob_str = str(ob)
+            if not self.ob_resolution[ob_str]['Special_Comment']:
                 self.w_comments.comment_entry.clear()
             self.data_bg.setExclusive(False)
+            self.w_data_buttons.excellent.set_state(False)
             self.w_data_buttons.good.set_state(False)
+            self.w_data_buttons.fair.set_state(False)
             self.w_data_buttons.questionable.set_state(False)
             self.w_data_buttons.bad.set_state(False)
             self.data_bg.setExclusive(True)
-            if self.oblist_index is not None:
-                ob = str(self.oblist[self.oblist_index])
-                if not self.ob_resolution[str(self.oblist[self.oblist_index])]['Special_Comment']:
-                    self.ob_resolution[ob]['OB_Comments'] = ''
-                for button in ('Good', 'Questionable', 'Bad'):
-                    self.ob_resolution[ob][button] = False
+            if not self.ob_resolution[ob_str]['Special_Comment']:
+                self.ob_resolution[ob_str]['OB_Comments'] = ''
+                self.ob_resolution[ob_str]['dq'] = 0
+            ob.data_quality = 0
+            ob.status = 'new'
         except Exception as e:
             self.logger.error('Error in clear_cb: %s' % str(e))
 
@@ -236,14 +254,18 @@ class Resolution(PlBase.Plugin):
     def show_ob(self):
         try:
             ob = self.oblist[self.oblist_index]
+            ob_str = str(ob)
             self.w_prog_ob.program.set_text(ob.program.proposal)
             self.w_prog_ob.ob_id.set_text(ob.id)
-            resolution = self.ob_resolution[str(ob)]
+            resolution = self.ob_resolution[ob_str]
             self.w_comments.comment_entry.set_text(resolution['OB_Comments'])
             self.data_bg.setExclusive(False)
-            self.w_data_buttons.good.set_state(resolution['Good'])
-            self.w_data_buttons.questionable.set_state(resolution['Questionable'])
-            self.w_data_buttons.bad.set_state(resolution['Bad'])
+            dq = resolution['dq']
+            self.w_data_buttons.excellent.set_state(dq == 5)
+            self.w_data_buttons.good.set_state(dq == 4)
+            self.w_data_buttons.fair.set_state(dq == 3)
+            self.w_data_buttons.questionable.set_state(dq == 2)
+            self.w_data_buttons.bad.set_state(dq == 1)
             self.data_bg.setExclusive(True)
         except Exception as e:
             self.logger.error(str(e))
@@ -304,8 +326,7 @@ class Resolution(PlBase.Plugin):
                     self.ob_resolution[str(ob)]['Special_Comment'] = True
                 else:
                     self.ob_resolution[str(ob)]['Special_Comment'] = False
-                for button in ('Good', 'Questionable', 'Bad'):
-                    self.ob_resolution[str(ob)][button] = False
+                self.ob_resolution[str(ob)]['dq'] = ob.data_quality
             self.show_ob()
         else:
             self.w_prog_ob.program.set_text('N/A')

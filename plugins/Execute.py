@@ -24,17 +24,20 @@ class Execute(Report.Report):
         self.svcname = 'integgui0'
         self.ig = None
         self.refresh_ig()
+        self.debug_mode = True
 
     def build_gui(self, container):
         super(Execute, self).build_gui(container)
 
-        captions = (('Send', 'button', 'Resolve', 'button'),
+        captions = (('Send', 'button', 'Resolve', 'button',
+                     'Refresh', 'button'),
                     )
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w = b
 
         b.send.add_callback('activated', self.send_cb)
         b.resolve.add_callback('activated', self.resolve_cb)
+        b.refresh.add_callback('activated', self.refresh_cb)
 
         self.vbox.add_widget(w, stretch=0)
 
@@ -63,7 +66,6 @@ class Execute(Report.Report):
 
             # here's the OPE file
             ope_buf = out_f.getvalue()
-            #print(ope_buf)
 
             # write buffer to a file
             filepath = os.path.join(os.environ['HOME'], 'Procedure', 'OCS',
@@ -71,8 +73,9 @@ class Execute(Report.Report):
             with open(filepath, 'w') as out_f:
                 out_f.write(ope_buf)
 
-            # tell integgui2 to reload this file
-            self.ig.load_page(filepath)
+            if not self.debug_mode:
+                # tell integgui2 to reload this file
+                self.ig.load_page(filepath)
             
         except Exception as e:
             self.logger.error("Error sending OBs: %s" % (str(e)))
@@ -91,5 +94,19 @@ class Execute(Report.Report):
             self.logger.error("Error resolving OBs: %s" % (str(e)))
 
         return True
+
+
+    def refresh_cb(self, w):
+        try:
+            self.add_schedule(self.cur_schedule)
+            info = self.schedules[self.cur_schedule]
+
+            if self.gui_up:
+                self.view.gui_do(self.set_text, info.report)
+
+        except KeyError:
+            pass
+
+
 
 #END
