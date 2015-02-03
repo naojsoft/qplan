@@ -263,7 +263,7 @@ class OB(object):
     
     def __init__(self, id=None, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, total_time=None,
-                 priority=1.0, name=None, derived=False, comment=''):
+                 priority=1.0, name=None, derived=None, comment=''):
         super(OB, self).__init__()
         if id is None:
             id = "ob%04d" % (OB.count)

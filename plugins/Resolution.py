@@ -18,6 +18,7 @@ class Resolution(PlBase.Plugin):
         self.oblist = []
         self.oblist_index = None
         self.ob_resolution = {}
+        self.oblist_indices = []
 
     def build_gui(self, container):
         # Create a scrollable area
@@ -170,14 +171,14 @@ class Resolution(PlBase.Plugin):
         layout.addWidget(top_w, stretch=1)
 
     def set_data_quality(self, rating, value):
-        try:
-            if self.oblist_index is not None:
-                if self.w_prog_ob.dup_all_ob.get_state():
-                    for ob in self.oblist:
-                        ob_str = str(ob)
-                        self.ob_resolution[ob_str]['dq'] = rating
-                        self.logger.debug('ob %s dq=%d' % (ob_str, rating))
-                        if value:
+        if value:
+            try:
+                if self.oblist_index is not None:
+                    if self.w_prog_ob.dup_all_ob.get_state():
+                        for ob in self.oblist:
+                            ob_str = str(ob)
+                            self.ob_resolution[ob_str]['dq'] = rating
+                            self.logger.debug('ob %s dq=%d' % (ob_str, rating))
                             ob.data_quality = rating
                             if rating > 2:
                                 ob.status = 'complete'
@@ -185,12 +186,11 @@ class Resolution(PlBase.Plugin):
                                 ob.status = 'incomplete'
                             else:
                                 ob.status = 'new'
-                else:
-                    ob = self.oblist[self.oblist_index]
-                    ob_str = str(ob)
-                    self.ob_resolution[ob_str]['dq'] = rating
-                    self.logger.debug('ob %s dq=%d' % (ob_str, rating))
-                    if value:
+                    else:
+                        ob = self.oblist[self.oblist_indices[self.oblist_index]]
+                        ob_str = str(ob)
+                        self.ob_resolution[ob_str]['dq'] = rating
+                        self.logger.info('ob %s dq=%d' % (ob_str, rating))
                         ob.data_quality = rating
                         if rating > 2:
                             ob.status = 'complete'
@@ -198,8 +198,8 @@ class Resolution(PlBase.Plugin):
                             ob.status = 'incomplete'
                         else:
                             ob.status = 'new'
-        except Exception as e:
-            self.logger.error('Error in set_data_quality: %s %s %s' % (button, value, str(e)))
+            except Exception as e:
+                self.logger.error('Error in set_data_quality: %s %s %s' % (button, value, str(e)))
 
     def rate_cb(self, widget, value, rating):
         self.set_data_quality(rating, value)
@@ -212,8 +212,12 @@ class Resolution(PlBase.Plugin):
                 dq = self.ob_resolution[ob]['dq']
                 self.logger.debug('ob %s cmt_text %s iq %d' % (
                     ob, cmt_text, dq))
+            for index in self.oblist_indices:
+                ob = self.oblist[index]
+                ob_str = str(ob)
+                ob.comment = self.ob_resolution[ob_str]['OB_Comments']
             for ob in self.oblist:
-                self.logger.debug('ob %s comment %s data_quality %s' % (ob, ob.comment, ob.data_quality))
+                self.logger.info('ob %s comment %s data_quality %s' % (ob, ob.comment, ob.data_quality))
         except Exception as e:
             self.logger.error('Error in save_cb: %s' % str(e))
 
@@ -222,10 +226,9 @@ class Resolution(PlBase.Plugin):
         try:
             if self.oblist_index is None:
                 return
-            ob = self.oblist[self.oblist_index]
+            ob = self.oblist[self.oblist_indices[self.oblist_index]]
             ob_str = str(ob)
-            if not self.ob_resolution[ob_str]['Special_Comment']:
-                self.w_comments.comment_entry.clear()
+            self.w_comments.comment_entry.clear()
             self.data_bg.setExclusive(False)
             self.w_data_buttons.excellent.set_state(False)
             self.w_data_buttons.good.set_state(False)
@@ -233,9 +236,8 @@ class Resolution(PlBase.Plugin):
             self.w_data_buttons.questionable.set_state(False)
             self.w_data_buttons.bad.set_state(False)
             self.data_bg.setExclusive(True)
-            if not self.ob_resolution[ob_str]['Special_Comment']:
-                self.ob_resolution[ob_str]['OB_Comments'] = ''
-                self.ob_resolution[ob_str]['dq'] = 0
+            self.ob_resolution[ob_str]['OB_Comments'] = ''
+            self.ob_resolution[ob_str]['dq'] = 0
             ob.data_quality = 0
             ob.status = 'new'
         except Exception as e:
@@ -244,16 +246,16 @@ class Resolution(PlBase.Plugin):
     def save_comments(self):
         if self.oblist_index is not None:
             current_comment = self.w_comments.comment_entry.get_text()
-            if not self.ob_resolution[str(self.oblist[self.oblist_index])]['Special_Comment']:
-                if self.w_prog_ob.dup_all_ob.get_state():
-                    for ob in self.oblist:
-                        self.ob_resolution[str(ob)]['OB_Comments'] = current_comment
+            if self.w_prog_ob.dup_all_ob.get_state():
+                for index in self.oblist_indices:
+                    ob = self.oblist[index]
+                    self.ob_resolution[str(ob)]['OB_Comments'] = current_comment
             else:
-                self.ob_resolution[str(self.oblist[self.oblist_index])]['OB_Comments'] = current_comment
+                self.ob_resolution[str(self.oblist[self.oblist_indices[self.oblist_index]])]['OB_Comments'] = current_comment
 
     def show_ob(self):
         try:
-            ob = self.oblist[self.oblist_index]
+            ob = self.oblist[self.oblist_indices[self.oblist_index]]
             ob_str = str(ob)
             self.w_prog_ob.program.set_text(ob.program.proposal)
             self.w_prog_ob.ob_id.set_text(ob.id)
@@ -282,12 +284,12 @@ class Resolution(PlBase.Plugin):
                         self.oblist_index -= 1
                         self.w_slider.ob_list_index.set_value(self.oblist_index)
                 elif position == 'next':
-                    if self.oblist_index < len(self.oblist) - 1:
+                    if self.oblist_index < len(self.oblist_indices) - 1:
                         self.oblist_index += 1
                         self.w_slider.ob_list_index.set_value(self.oblist_index)
                 elif position == 'last':
                     if len(self.oblist) > 0:
-                        self.oblist_index = len(self.oblist) - 1
+                        self.oblist_index = len(self.oblist_indices) - 1
                         self.w_slider.ob_list_index.set_value(self.oblist_index)
                 else:
                     self.oblist_index = position
@@ -314,19 +316,22 @@ class Resolution(PlBase.Plugin):
         self.logger.debug('resolve_obs called oblist is %s len is %d' % (oblist, len(oblist)))
         self.oblist = oblist
         self.ob_resolution = {}
+        self.oblist_indices = []
         if len(oblist) > 0:
-            self.w_slider.ob_list_index.set_limits(0, len(oblist) - 1) 
+            # Make a list of the indices of OB's that are not
+            # "derived", i.e., not "Filter Change", "Long slew",
+            # "Delay for"
+            for i, ob in enumerate(self.oblist):
+                if ob.derived is None:
+                    self.oblist_indices.append(i)
+                    self.ob_resolution[str(ob)] = {}
+                    self.ob_resolution[str(ob)]['OB_Comments'] = ob.comment
+                    self.ob_resolution[str(ob)]['dq'] = ob.data_quality
+
+            self.logger.debug('oblist_indices %s' % self.oblist_indices)
             self.oblist_index = 0
-            for ob in self.oblist:
-                self.ob_resolution[str(ob)] = {}
-                self.ob_resolution[str(ob)]['OB_Comments'] = ob.comment
-                if ob.comment.startswith('Filter change') or \
-                   ob.comment.startswith('Long slew') or \
-                   ob.comment.startswith('Delay for'):
-                    self.ob_resolution[str(ob)]['Special_Comment'] = True
-                else:
-                    self.ob_resolution[str(ob)]['Special_Comment'] = False
-                self.ob_resolution[str(ob)]['dq'] = ob.data_quality
+            self.w_slider.ob_list_index.set_limits(0, len(self.oblist_indices) - 1)
+            self.w_slider.ob_list_index.set_value(self.oblist_index)
             self.show_ob()
         else:
             self.w_prog_ob.program.set_text('N/A')
