@@ -175,7 +175,8 @@ class Resolution(PlBase.Plugin):
             try:
                 if self.oblist_index is not None:
                     if self.w_prog_ob.dup_all_ob.get_state():
-                        for ob in self.oblist:
+                        for index in self.oblist_indices:
+                            ob = self.oblist[index]
                             ob_str = str(ob)
                             self.ob_resolution[ob_str]['dq'] = rating
                             self.logger.debug('ob %s dq=%d' % (ob_str, rating))
