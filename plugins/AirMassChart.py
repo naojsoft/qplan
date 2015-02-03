@@ -3,6 +3,7 @@
 # 
 # Eric Jeschke (eric@naoj.org)
 #
+from datetime import timedelta
 
 from PyQt4 import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
@@ -77,6 +78,11 @@ class AirMassChart(PlBase.Plugin):
         
         start_time = schedule.start_time
         t = start_time.astimezone(self.model.timezone)
+        # if schedule starts after midnight, change start date to the
+        # day before, this is due to the way the Observer module charts
+        # airmass
+        if 0 <= t.hour < 12:
+            t -= timedelta(0, 3600*12)
         ndate = t.strftime("%Y/%m/%d")
 
         targets = []
