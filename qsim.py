@@ -48,7 +48,8 @@ def longslew_ob(prev_ob, ob, total_time):
         klass = ob.inscfg.__class__
         inscfg = klass(filter=None)
     else:
-        inscfg = prev_ob.inscfg
+        #inscfg = prev_ob.inscfg
+        inscfg = ob.inscfg
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
                        inscfg=inscfg, envcfg=ob.envcfg,

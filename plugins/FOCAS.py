@@ -35,13 +35,21 @@ class Converter(BaseConverter):
                       dither_dec=ob.inscfg.dither_dec,
                       dither_theta=ob.inscfg.dither_theta,
                       binning=ob.inscfg.binning,
-                      offset_sec=ob.inscfg.offset_ra,
+                      offset_sec=0.0,
+                      offset_ra=ob.inscfg.offset_ra,
+                      offset_dec=ob.inscfg.offset_dec,
                       filter=filtername,
                       autoguide=autoguide))
 
         # prepare target parameters substring common to all SETUPFIELD
         # and GETOBJECT commands
-        tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f $FILTER_BB_%(filter)s' % d
+        if filtername.startswith('N'):
+            fcsname = 'NB_%s' % (filtername[1:])
+        else:
+            fcsname = 'BB_%s' % (filtername)
+        d['filter'] = fcsname
+            
+        tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f $FILTER_%(filter)s' % d
         d.update(dict(tgtstr=tgtstr))
 
     def write_ope_header(self, out_f):
@@ -76,7 +84,7 @@ OBSERVATION_FILE_TYPE=OPE
         out = self._mk_out(out_f)
 
         # special cases: filter change, long slew, calibrations, etc.
-        if ob.comment != '':
+        if ob.derived != None:
             if ob.comment.startswith('Filter change'):
                 #self.out_filterchange(ob, out_f)
                 return
@@ -85,10 +93,9 @@ OBSERVATION_FILE_TYPE=OPE
                 out("\n# %s" % (ob.comment))
                 d = {}
                 self._setup_target(d, ob)
-                cmd_str = 'SetupField $DEF_IMAG %(tgtstr)s $MASK_NONE Shift_Sec=%(offset_sec)d' % d
+                cmd_str = 'SetupField $DEF_IMAG %(tgtstr)s $MASK_NONE Shift_Sec=%(offset_sec)d Delta_Ra=%(offset_ra)d Delta_Dec=%(offset_dec)d' % d
         
-                if ob.inscfg.guiding:
-                    cmd_str = cmd_str + (' AUTOGUIDE=%(autoguide)s' % d)
+                cmd_str = cmd_str + (' AUTOGUIDE=%(autoguide)s' % d)
                 out(cmd_str)
                 return
 
@@ -102,20 +109,22 @@ OBSERVATION_FILE_TYPE=OPE
         tgtname = ob.target.name.lower()
 
         if tgtname == 'domeflat':
-                out("\n# %s" % (ob.comment))
-                d = {}
-                self._setup_target(d, ob)
-                cmd_str = 'GetDomeflat $DEF_IMAG $DEF_DOMEFLAT $MASK_NONE $FILTER_BB_%(filter)s $CCD_%(binning)s ExpTime=7 VOLT=20' % d
+            out("\n# %s" % (ob.comment))
+            d = {}
+            self._setup_target(d, ob)
+            cmd_str = 'GetDomeflat $DEF_IMAG $DEF_DOMEFLAT $MASK_NONE $FILTER_%(filter)s $CCD_%(binning)s ExpTime=7 VOLT=20' % d
+            for i in xrange(ob.inscfg.num_exp):
                 out(cmd_str)
-                return
+            return
 
         elif tgtname == 'bias':
-                out("\n# %s" % (ob.comment))
-                d = {}
-                self._setup_target(d, ob)
-                cmd_str = 'GetBias $DEF_IMAG $CCD_%(binning)s OBJECT=BIAS' % d
+            out("\n# %s" % (ob.comment))
+            d = {}
+            self._setup_target(d, ob)
+            cmd_str = 'GetBias $DEF_IMAG $CCD_%(binning)s OBJECT=BIAS' % d
+            for i in xrange(ob.inscfg.num_exp):
                 out(cmd_str)
-                return
+            return
 
         # <-- normal OBs
         out = self._mk_out(out_f)
@@ -127,7 +136,7 @@ OBSERVATION_FILE_TYPE=OPE
         d = {}
         self._setup_target(d, ob)
 
-        cmd_str = 'SetupField $DEF_IMAG %(tgtstr)s $MASK_NONE Shift_Sec=%(offset_sec)d' % d
+        cmd_str = 'SetupField $DEF_IMAG %(tgtstr)s $MASK_NONE Shift_Sec=%(offset_sec)d Delta_Ra=%(offset_ra)d Delta_Dec=%(offset_dec)d' % d
         
         if ob.inscfg.guiding:
             dith_cmd = "MoveGuide0"
@@ -150,26 +159,30 @@ OBSERVATION_FILE_TYPE=OPE
         # 5 dither sequence
         d['mask'] = 'NONE'
 
-        for i in xrange(5):
-            out("# Dither point %d" % (i+1))
+        if ob.inscfg.num_exp == 1:
             cmd_str = 'GetObject $DEF_IMAG $MASK_%(mask)s %(tgtstr)s $CCD_%(binning)s EXPTIME=%(exptime)d' % d
             out(cmd_str)
+        else:
+            for i in xrange(5):
+                out("# Dither point %d" % (i+1))
+                cmd_str = 'GetObject $DEF_IMAG $MASK_%(mask)s %(tgtstr)s $CCD_%(binning)s EXPTIME=%(exptime)d' % d
+                out(cmd_str)
 
-            # calculate deltas for positioning at next dither pos
-            cur_off_ra, cur_off_dec = abs_off[i]
-            #print("current off ra, dec=%.3f,%.3f" % (cur_off_ra, cur_off_dec))
-            next_off_ra, next_off_dec = abs_off[i+1]
-            #print("next off ra, dec=%.3f,%.3f" % (next_off_ra, next_off_dec))
-            delta_ra = next_off_ra - cur_off_ra
-            delta_dec = next_off_dec - cur_off_dec
+                # calculate deltas for positioning at next dither pos
+                cur_off_ra, cur_off_dec = abs_off[i]
+                #print("current off ra, dec=%.3f,%.3f" % (cur_off_ra, cur_off_dec))
+                next_off_ra, next_off_dec = abs_off[i+1]
+                #print("next off ra, dec=%.3f,%.3f" % (next_off_ra, next_off_dec))
+                delta_ra = next_off_ra - cur_off_ra
+                delta_dec = next_off_dec - cur_off_dec
 
-            # issue command for offsetting to next dither pos
-            cmd_str = '%s $DEF_TOOL Delta_RA=%.3f Delta_DEC=%.3f' % (
-                dith_cmd, delta_ra, delta_dec)
-            out(cmd_str)
+                # issue command for offsetting to next dither pos
+                cmd_str = '%s $DEF_TOOL Delta_RA=%.3f Delta_DEC=%.3f' % (
+                    dith_cmd, delta_ra, delta_dec)
+                out(cmd_str)
 
-            d['mask'] = 'NOP'
-            #cur_off_ra, cur_off_dec = next_off_ra, next_off_dec
+                d['mask'] = 'NOP'
+                #cur_off_ra, cur_off_dec = next_off_ra, next_off_dec
 
 '''
 # Broad Band (BB) #
