@@ -542,7 +542,7 @@ class Observer(object):
 
     def observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
-                   airmass=None):
+                   airmass=None, moon_sep=None):
         """
         Return True if `target` is observable between `time_start` and
         `time_stop`, defined by whether it is between elevation `el_min`
@@ -561,10 +561,6 @@ class Observer(object):
         site = self.get_site(date=time_start, horizon_deg=min_alt_deg)
 
         d1 = self.calc(target, time_start)
-        #print d1
-        #d2 = self.calc(target, time_stop)
-        #print d2
-        #print "---"
 
         # TODO: worry about el_max_deg
 
@@ -621,7 +617,6 @@ class Observer(object):
         #print "can_obs=%s duration=%f needed=%f diff=%f" % (
         #    can_obs, duration, time_needed, diff)
 
-        # TODO: return time end as well
         # convert time_rise back to a datetime
         time_rise = self.tz_utc.localize(time_rise.datetime())
         return (can_obs, time_rise, time_end)
@@ -756,15 +751,15 @@ class FOCASConfiguration(InstrumentConfiguration):
 
 class EnvironmentConfiguration(object):
 
-    def __init__(self, seeing=None, airmass=None, moon='any', sky='any'):
+    def __init__(self, seeing=None, airmass=None, moon='any', 
+                 transparency=None, moon_sep=None):
         super(EnvironmentConfiguration, self).__init__()
         self.seeing = seeing
         self.airmass = airmass
+        self.transparency = transparency
+        self.moon_sep = moon_sep
         if (moon == None) or (len(moon) == 0):
             moon = 'any'
         self.moon = moon.lower()
-        if (sky == None) or (len(sky) == 0):
-            sky = 'any'
-        self.sky = sky.lower()
 
 #END

@@ -192,17 +192,23 @@ def check_slot(site, prev_slot, slot, ob):
         return res
 
     # check sky condition on the slot is acceptable to this ob
-    if ob.envcfg.sky == 'clear':
-        if slot.data.skycond != 'clear':
+    ## if ob.envcfg.sky == 'clear':
+    ##     if slot.data.skycond != 'clear':
+    ##         res.setvals(obs_ok=False,
+    ##                     reason="Sky condition '%s' not acceptable ('%s' specified)" % (
+    ##             slot.data.skycond, ob.envcfg.sky))
+    ##         return res
+    ## elif ob.envcfg.sky == 'cirrus':
+    ##     if slot.data.skycond == 'any':
+    ##         res.setvals(obs_ok=False,
+    ##                     reason="Sky condition '%s' not acceptable ('%s' specified)" % (
+    ##             slot.data.skycond, ob.envcfg.sky))
+    ##         return res
+    if ob.envcfg.transparency is not None:
+        if slot.data.transparency < ob.envcfg.transparency:
             res.setvals(obs_ok=False,
-                        reason="Sky condition '%s' not acceptable ('%s' specified)" % (
-                slot.data.skycond, ob.envcfg.sky))
-            return res
-    elif ob.envcfg.sky == 'cirrus':
-        if slot.data.skycond == 'any':
-            res.setvals(obs_ok=False,
-                        reason="Sky condition '%s' not acceptable ('%s' specified)" % (
-                slot.data.skycond, ob.envcfg.sky))
+                        reason="Transparency (%f < %f) not acceptable" % (
+                slot.data.transparency, ob.envcfg.transparency))
             return res
 
     c1 = ob.target.calc(site, slot.start_time)
@@ -217,7 +223,15 @@ def check_slot(site, prev_slot, slot, ob):
                 c1.moon_pct))
             return res
 
-    # TODO: check moon separation from target here
+    # if observer specified a moon separation from target, check it now
+    # TODO: do we need to check this at the end of the exposure as well?
+    # If so, then we may need to do it in observable() method
+    if ob.envcfg.moon_sep is not None:
+        if c1.moon_sep < ob.envcfg.moon_sep:
+            res.setvals(obs_ok=False,
+                        reason="Moon-target separation (%f < %f) not acceptable" % (
+                c1.moon_sep, ob.envcfg.moon_sep))
+            return res
 
     # calculate cost of slew to this target
     if prev_ob == None:
@@ -250,7 +264,8 @@ def check_slot(site, prev_slot, slot, ob):
     (obs_ok, t_start, t_stop) = site.observable(ob.target,
                                                 start_time, slot.stop_time,
                                                 min_el, max_el, ob.total_time,
-                                                airmass=ob.envcfg.airmass)
+                                                airmass=ob.envcfg.airmass,
+                                                moon_sep=ob.envcfg.moon_sep)
 
     if not obs_ok:
         res.setvals(obs_ok=False,

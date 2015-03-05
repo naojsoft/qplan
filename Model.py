@@ -323,14 +323,11 @@ class QueueModel(Callback.Callbacks):
             night_stop = site.get_date("%s %s" % (next_day_s, rec.stoptime))
 
             # associate available filters and other items with this schedule
-            data = Bunch.Bunch(filters=rec.filters, seeing=rec.seeing,
-                               skycond=rec.skycond, categories=rec.categories,
-                               dome=rec.dome, note=rec.note)
             schedules.append(entity.Schedule(night_start, night_stop,
-                                             data=data))
+                                             data=rec.data))
             delta = (night_stop - night_start).total_seconds()
             night_slots.append(entity.Slot(night_start, delta,
-                                           data=data))
+                                           data=rec.data))
 
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights")

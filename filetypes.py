@@ -135,7 +135,7 @@ class ScheduleFile(QueueFile):
             'end_time': 'stoptime',
             'categories': 'categories',
             'filters': 'filters',
-            'sky': 'skycond',
+            'transparency': 'transparency',
             'avg_seeing': 'seeing',
             'dome': 'dome',
             'note': 'note',
@@ -174,18 +174,25 @@ class ScheduleFile(QueueFile):
             filters = list(map(string.strip, rec.filters.lower().split(',')))
             seeing = float(rec.seeing)
             categories = rec.categories.replace(' ', '').lower().split(',')
-            skycond = rec.skycond.lower()
+            transparency = float(rec.transparency)
             dome = rec.dome.lower()
 
             # TEMP: skip non-OPEN categories
             if not 'open' in categories:
                 continue
 
+            # data record of current conditions
+            # All OBs for this schedule slot should end up pointing to this
+            # static record
+            data = Bunch.Bunch(filters=filters,
+                               seeing=seeing, transparency=transparency,
+                               dome=dome, categories=categories)
+            
             rec2 = Bunch.Bunch(date=rec.date, starttime=rec.starttime,
                                stoptime=rec.stoptime,
-                               categories=categories, filters=filters,
-                               seeing=seeing, skycond=skycond,
-                               dome=dome, note=rec.note)
+                               #categories=categories,
+                               note=rec.note,
+                               data=data)
             self.schedule_info.append(rec2)
 
 
@@ -358,7 +365,9 @@ class EnvCfgFile(QueueFile):
             'seeing': 'seeing',
             'airmass': 'airmass',
             'moon': 'moon',
-            'sky': 'sky',
+            'moon_sep': 'moon_sep',
+            #'sky': 'sky',
+            'transparency': 'transparency',
             'comment': 'comment',
             }
         super(EnvCfgFile, self).__init__(filepath, logger, column_map)
@@ -401,11 +410,14 @@ class EnvCfgFile(QueueFile):
                     airmass = None
 
                 moon = rec.moon
-                sky = rec.sky
+                moon_sep = float(rec.moon_sep)
+                transparency = float(rec.transparency)
 
                 envcfg = entity.EnvironmentConfiguration(seeing=seeing,
                                                          airmass=airmass,
-                                                         moon=moon, sky=sky)
+                                                         moon=moon,
+                                                         moon_sep=moon_sep,
+                                                         transparency=transparency)
                 self.env_cfgs[code] = envcfg
 
             except Exception as e:
