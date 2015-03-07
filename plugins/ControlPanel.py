@@ -24,6 +24,10 @@ class ControlPanel(PlBase.Plugin):
         self.schedule_qf = None
         self.programs_qf = None
         self.ob_qf_dict = None
+        self.tgtcfg_qf_dict = None
+        self.envcfg_qf_dict = None
+        self.inscfg_qf_dict = None
+        self.telcfg_qf_dict = None
 
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -112,6 +116,10 @@ class ControlPanel(PlBase.Plugin):
 
             # read observing blocks
             self.ob_qf_dict = {}
+            self.tgtcfg_qf_dict = {}
+            self.envcfg_qf_dict = {}
+            self.inscfg_qf_dict = {}
+            self.telcfg_qf_dict = {}
             self.oblist_info = []
 
             propnames = list(self.programs_qf.programs_info.keys())
@@ -130,6 +138,8 @@ class ControlPanel(PlBase.Plugin):
                     continue
                 self.logger.info("loading telescope configuration file %s" % (csvfile))
                 telcfg_qf = filetypes.TelCfgFile(csvfile, self.logger)
+                self.telcfg_qf_dict[propname] = telcfg_qf
+                self.model.set_telcfg_qf_dict(self.telcfg_qf_dict)
                 
                 # Read inscfg
                 csvfile = os.path.join(obdir, "inscfg.csv")
@@ -138,6 +148,8 @@ class ControlPanel(PlBase.Plugin):
                     continue
                 self.logger.info("loading instrument configuration file %s" % (csvfile))
                 inscfg_qf = filetypes.InsCfgFile(csvfile, self.logger)
+                self.inscfg_qf_dict[propname] = inscfg_qf
+                self.model.set_inscfg_qf_dict(self.inscfg_qf_dict)
                 
                 # Read envcfg
                 csvfile = os.path.join(obdir, "envcfg.csv")
@@ -146,7 +158,9 @@ class ControlPanel(PlBase.Plugin):
                     continue
                 self.logger.info("loading environment configuration file %s" % (csvfile))
                 envcfg_qf = filetypes.EnvCfgFile(csvfile, self.logger)
-                
+                self.envcfg_qf_dict[propname] = envcfg_qf
+                self.model.set_envcfg_qf_dict(self.envcfg_qf_dict)
+
                 # Read targets
                 csvfile = os.path.join(obdir, "targets.csv")
                 if not os.path.exists(csvfile):
@@ -154,6 +168,8 @@ class ControlPanel(PlBase.Plugin):
                     continue
                 self.logger.info("loading targets configuration file %s" % (csvfile))
                 tgtcfg_qf = filetypes.TgtCfgFile(csvfile, self.logger)
+                self.tgtcfg_qf_dict[propname] = tgtcfg_qf
+                self.model.set_tgtcfg_qf_dict(self.tgtcfg_qf_dict)
                 
                 # Finally, read OBs
                 obfile = os.path.join(obdir, "ob.csv")
