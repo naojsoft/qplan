@@ -84,9 +84,19 @@ class Schedule(PlBase.Plugin):
     def select_row_cb(self, midx_to, midx_from):
         """This method is called when the user selects a row(s) from the table.
         """
-        row = midx_to.row()
-        schedule = self.schedules[row]
-        self.model.select_schedule(schedule)
+        # First make sure that the supplied index is valid. This
+        # callback gets called when a user clicks on a row. However,
+        # it also gets called when the user clicks on "Build Schedule"
+        # and the self.schedules data structure gets set to an empty
+        # list and the TableModel gets cleared out (see the
+        # clear_table method above and the GenericTableModel.clear
+        # method below). In that case, the index will be invalid, and
+        # trying to select the supplied row from self.schedules will
+        # result in an error.
+        if midx_to.isValid():
+            row = midx_to.row()
+            schedule = self.schedules[row]
+            self.model.select_schedule(schedule)
         return True
     
 
