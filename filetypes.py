@@ -1,5 +1,5 @@
 #
-# entity.py -- various entities used by queue system
+# filetypes.py -- CSV file interfaces
 #
 # Russell Kackley (rkackley@naoj.org)
 # Eric Jeschke (eric@naoj.org)
@@ -17,14 +17,13 @@ class QueueFile(object):
     # Default format parameters for reading/writing CSV files.
     fmtparams = {'delimiter':',', 'quotechar':'"', 'quoting': csv.QUOTE_MINIMAL}
 
-    def __init__(self, filepath, logger, column_map, **parse_kwdargs):
+    def __init__(self, filepath, logger, **parse_kwdargs):
         self.filepath = filepath
         self.logger = logger
         self.queue_file = None
         self.columnNames = []
         self.rows = []
         self.parse_kwdargs = parse_kwdargs
-        self.column_map = column_map
 
         # Read the supplied filepath into a StringIO object. This
         # makes it easier to process and parse the file contents with
@@ -105,21 +104,26 @@ class QueueFile(object):
         # We are done with the StringIO object, so close it.
         self.queue_file.close()
 
-    def parse_row(self, row):
-        # Parse a row of values (tup or list) into a record that can
-        # be accessed by attribute or map key
+    def parse_row(self, row, column_names, column_map):
+        """
+        Parse a row of values (tup or list) into a record that can
+        be accessed by attribute or map key.
+        column_names is a list of column names matching the sequence of
+        values in a row.  column_map is a dictionary mapping column names
+        to the names that should be assigned in the resulting record.
+        """
         rec = Bunch.Bunch()
         for i in range(len(row)):
-            if i >= len(self.columnNames):
+            if i >= len(column_names):
                 break
             # mangle header to get column->attribute mapping key
-            colname = self.columnNames[i]
+            colname = column_names[i]
             key = colname.strip().lower().replace(' ', '_')
             # get attr key
-            if not key in self.column_map:
-                self.logger.warn("No column->record map entry for column '%s' (%s); skipping..." % (colname, key))
+            if not key in column_map:
+                #self.logger.warn("No column->record map entry for column '%s' (%s); skipping..." % (colname, key))
                 continue
-            attrkey = self.column_map[key]
+            attrkey = column_map[key]
             rec[attrkey] = row[i]
         return rec
 
@@ -129,18 +133,19 @@ class ScheduleFile(QueueFile):
         # schedule_info is the list of tuples that will be used by the
         # observing block scheduling functions.
         self.schedule_info = []
-        column_map = {
+        self.column_map = {
             'date': 'date',
             'start_time': 'starttime',
             'end_time': 'stoptime',
             'categories': 'categories',
+            'instruments': 'instruments',
             'filters': 'filters',
             'transparency': 'transparency',
             'avg_seeing': 'seeing',
             'dome': 'dome',
             'note': 'note',
             }
-        super(ScheduleFile, self).__init__(filepath, logger, column_map)
+        super(ScheduleFile, self).__init__(filepath, logger)
 
 
     def parse_input(self):
@@ -164,7 +169,8 @@ class ScheduleFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
                 self.logger.debug('ScheduleFile.parse_input rec %s' % (rec))
 
             except Exception as e:
@@ -172,6 +178,8 @@ class ScheduleFile(QueueFile):
                     lineNum, str(e)))
 
             filters = list(map(string.strip, rec.filters.lower().split(',')))
+            instruments = list(map(string.strip,
+                                   rec.instruments.upper().split(',')))
             seeing = float(rec.seeing)
             categories = rec.categories.replace(' ', '').lower().split(',')
             transparency = float(rec.transparency)
@@ -186,7 +194,8 @@ class ScheduleFile(QueueFile):
             # static record
             data = Bunch.Bunch(filters=filters,
                                seeing=seeing, transparency=transparency,
-                               dome=dome, categories=categories)
+                               dome=dome, categories=categories,
+                               instruments=instruments)
             
             rec2 = Bunch.Bunch(date=rec.date, starttime=rec.starttime,
                                stoptime=rec.stoptime,
@@ -201,7 +210,7 @@ class ProgramsFile(QueueFile):
         # programs_info is the dictionary of Program objects that will
         # be used by the observing block scheduling functions.
         self.programs_info = {}
-        column_map = {
+        self.column_map = {
             'proposal': 'proposal',
             'propid': 'propid',
             'rank': 'rank',
@@ -212,7 +221,7 @@ class ProgramsFile(QueueFile):
             'partner': 'partner',
             'skip': 'skip',
             }
-        super(ProgramsFile, self).__init__(filepath, logger, column_map)
+        super(ProgramsFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -236,7 +245,8 @@ class ProgramsFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
                 if rec.skip.strip() != '':
                     continue
 
@@ -268,14 +278,14 @@ class WeightsFile(QueueFile):
     def __init__(self, filepath, logger):
 
         self.weights = Bunch.Bunch()
-        column_map = {
+        self.column_map = {
             'slew': 'w_slew',
             'delay': 'w_delay',
             'filter': 'w_filterchange',
             'rank': 'w_rank',
             'priority': 'w_priority',
             }
-        super(WeightsFile, self).__init__(filepath, logger, column_map)
+        super(WeightsFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -298,7 +308,8 @@ class WeightsFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
                 ## if rec.skip.strip() != '':
                 ##     continue
 
@@ -315,13 +326,13 @@ class WeightsFile(QueueFile):
 class TelCfgFile(QueueFile):
     def __init__(self, filepath, logger):
         self.tel_cfgs = {}
-        column_map = {
-            'id': 'id',
+        self.column_map = {
+            'code': 'code',
             'foci': 'focus',
             'dome': 'dome',
             'comment': 'comment',
             }
-        super(TelCfgFile, self).__init__(filepath, logger, column_map)
+        super(TelCfgFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -345,12 +356,12 @@ class TelCfgFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
-                cfgid = rec.id.strip()
-                telcfg = entity.TelescopeConfiguration(focus=rec.focus,
-                                                       dome=rec.dome)
-
-                self.tel_cfgs[cfgid] = telcfg
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
+                telcfg = entity.TelescopeConfiguration()
+                code = telcfg.import_record(rec)
+                
+                self.tel_cfgs[code] = telcfg
 
             except Exception as e:
                 raise ValueError("Error reading line %d of telcfgs from file %s: %s" % (
@@ -360,7 +371,7 @@ class TelCfgFile(QueueFile):
 class EnvCfgFile(QueueFile):
     def __init__(self, filepath, logger):
         self.env_cfgs = {}
-        column_map = {
+        self.column_map = {
             'code': 'code',
             'seeing': 'seeing',
             'airmass': 'airmass',
@@ -370,7 +381,7 @@ class EnvCfgFile(QueueFile):
             'transparency': 'transparency',
             'comment': 'comment',
             }
-        super(EnvCfgFile, self).__init__(filepath, logger, column_map)
+        super(EnvCfgFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -394,41 +405,22 @@ class EnvCfgFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
-                code = rec.code.strip()
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
+                envcfg = entity.EnvironmentConfiguration()
+                code = envcfg.import_record(rec)
 
-                seeing = rec.seeing.strip()
-                if len(seeing) != 0:
-                    seeing = float(seeing)
-                else:
-                    seeing = None
-
-                airmass = rec.airmass.strip()
-                if len(airmass) != 0:
-                    airmass = float(airmass)
-                else:
-                    airmass = None
-
-                moon = rec.moon
-                moon_sep = float(rec.moon_sep)
-                transparency = float(rec.transparency)
-
-                envcfg = entity.EnvironmentConfiguration(seeing=seeing,
-                                                         airmass=airmass,
-                                                         moon=moon,
-                                                         moon_sep=moon_sep,
-                                                         transparency=transparency)
                 self.env_cfgs[code] = envcfg
 
             except Exception as e:
-                raise ValueError("Error reading line %d of oblist from file %s: %s" % (
+                raise ValueError("Error reading line %d of envcfg from file %s: %s" % (
                     lineNum, self.filepath, str(e)))
 
 
 class TgtCfgFile(QueueFile):
     def __init__(self, filepath, logger):
         self.tgt_cfgs = {}
-        column_map = {
+        self.column_map = {
             'code': 'code',
             'target_name': 'name',
             'ra': 'ra',
@@ -436,7 +428,7 @@ class TgtCfgFile(QueueFile):
             'equinox': 'eq',
             'comment': 'comment',
             }
-        super(TgtCfgFile, self).__init__(filepath, logger, column_map)
+        super(TgtCfgFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -460,19 +452,10 @@ class TgtCfgFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
-                code = rec.code.strip()
-
-                # transform equinox, e.g. "J2000" -> 2000
-                eq = rec.eq
-                if isinstance(eq, str):
-                    eq = eq.upper()
-                    if eq[0] in ('B', 'J'):
-                        eq = eq[1:]
-                        eq = float(eq)
-                eq = int(eq)
-
-                target = entity.StaticTarget(rec.name, rec.ra, rec.dec, eq)
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
+                target = entity.StaticTarget()
+                code = target.import_record(rec)
                 self.tgt_cfgs[code] = target
 
             except Exception as e:
@@ -483,25 +466,65 @@ class TgtCfgFile(QueueFile):
 class InsCfgFile(QueueFile):
     def __init__(self, filepath, logger):
         self.ins_cfgs = {}
-        column_map = {
-            'code': 'code',
-            'instrument': 'inst',
-            'mode': 'mode',
-            'filter': 'filter',
-            'exp_time': 'exp_time',
-            'num_exp': 'num_exp',
-            'dither': 'dither',
-            'guiding': 'guiding',
-            'pa': 'pa',
-            'offset_ra': 'offset_ra',
-            'offset_dec': 'offset_dec',
-            'dither_ra': 'dither_ra',
-            'dither_dec': 'dither_dec',
-            'dither_theta': 'dither_theta',
-            'binning': 'binning',
-            'comment': 'comment',
+
+        # All instrument configs should have at least these 
+        self.column_map = { 'code': 'code',
+                            'instrument': 'insname',
+                            'mode': 'mode',
+                            };
+        self.configs = {
+            'HSC': (entity.HSCConfiguration,
+                      { 'code': 'code',
+                        'instrument': 'insname',
+                        'mode': 'mode',
+                        'filter': 'filter',
+                        'exp_time': 'exp_time',
+                        'num_exp': 'num_exp',
+                        'dither': 'dither',
+                        'guiding': 'guiding',
+                        'pa': 'pa',
+                        'offset_ra': 'offset_ra',
+                        'offset_dec': 'offset_dec',
+                        'dith1': 'dith1',
+                        'dith2': 'dith2',
+                        'comment': 'comment',
+                        }),
+            'FOCAS': (entity.FOCASConfiguration,
+                      { 'code': 'code',
+                        'instrument': 'insname',
+                        'mode': 'mode',
+                        'filter': 'filter',
+                        'exp_time': 'exp_time',
+                        'num_exp': 'num_exp',
+                        'dither': 'dither',
+                        'guiding': 'guiding',
+                        'pa': 'pa',
+                        'offset_ra': 'offset_ra',
+                        'offset_dec': 'offset_dec',
+                        'dither_ra': 'dither_ra',
+                        'dither_dec': 'dither_dec',
+                        'dither_theta': 'dither_theta',
+                        'binning': 'binning',
+                        'comment': 'comment',
+                        }),
+            'SPCAM': (entity.SPCAMConfiguration,
+                      { 'code': 'code',
+                        'instrument': 'insname',
+                        'mode': 'mode',
+                        'filter': 'filter',
+                        'exp_time': 'exp_time',
+                        'num_exp': 'num_exp',
+                        'dither': 'dither',
+                        'guiding': 'guiding',
+                        'pa': 'pa',
+                        'offset_ra': 'offset_ra',
+                        'offset_dec': 'offset_dec',
+                        'dith1': 'dith1',
+                        'dith2': 'dith2',
+                        'comment': 'comment',
+                        }),
             }
-        super(InsCfgFile, self).__init__(filepath, logger, column_map)
+        super(InsCfgFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -525,39 +548,15 @@ class InsCfgFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
-                code = rec.code.strip()
-                
-                filtername = rec.filter
-                if 'SPCAM' in rec.inst.upper():
-                    guiding = ('Y' == rec.guiding)
-                    mode = rec.mode
-                    inscfg = entity.SPCAMConfiguration(filter=filtername,
-                                                mode=mode, guiding=guiding,
-                                                num_exp=int(rec.num_exp),
-                                                exp_time=int(rec.exp_time),
-                                                pa=rec.pa,
-                                                offset_ra=rec.offset_ra,
-                                                offset_dec=rec.offset_dec,
-                                                dith1=rec.dither_ra,
-                                                dith2=rec.dither_dec)
-                elif 'FOCAS' in rec.inst.upper():
-                    guiding = ('Y' == rec.guiding)
-                    mode = rec.mode
-                    inscfg = entity.FOCASConfiguration(filter=filtername,
-                                                mode=mode, guiding=guiding,
-                                                num_exp=int(rec.num_exp),
-                                                exp_time=int(rec.exp_time),
-                                                pa=float(rec.pa),
-                                                offset_ra=rec.offset_ra,
-                                                offset_dec=rec.offset_dec,
-                                                dither_ra=rec.dither_ra,
-                                                dither_dec=rec.dither_dec,
-                                                dither_theta=rec.dither_theta,
-                                                binning=rec.binning)
-                else:
-                    raise ValueError("No valid instruments listed")
-
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
+                insname = rec.insname.upper()
+                klass, col_map = self.configs[insname]
+                # reparse row now that we know what kind of items to expect
+                rec = self.parse_row(row, self.columnNames,
+                                     col_map)
+                inscfg = klass()
+                code = inscfg.import_record(rec)
                 self.ins_cfgs[code] = inscfg
 
             except Exception as e:
@@ -580,7 +579,7 @@ class OBListFile(QueueFile):
         self.inscfgs = inscfgs
         self.envcfgs = envcfgs
 
-        column_map = {
+        self.column_map = {
             'id': 'id',
             'code': 'code',
             'tgtcfg': 'tgt_code',
@@ -591,7 +590,7 @@ class OBListFile(QueueFile):
             'total_time': 'total_time',
             'comment': 'comment',
             }
-        super(OBListFile, self).__init__(filepath, logger, column_map)
+        super(OBListFile, self).__init__(filepath, logger)
 
     def parse_input(self):
         """
@@ -615,7 +614,8 @@ class OBListFile(QueueFile):
                 if len(row[0].strip()) == 0:
                     continue
 
-                rec = self.parse_row(row)
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
                 code = rec.code.strip()
 
                 program = self.propdict[self.proposal]

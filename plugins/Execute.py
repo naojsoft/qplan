@@ -24,7 +24,8 @@ class Execute(Report.Report):
         self.svcname = 'integgui0'
         self.ig = None
         self.refresh_ig()
-        self.debug_mode = False
+        #self.debug_mode = False
+        self.debug_mode = True
 
     def build_gui(self, container):
         super(Execute, self).build_gui(container)
@@ -66,6 +67,7 @@ class Execute(Report.Report):
 
             # here's the OPE file
             ope_buf = out_f.getvalue()
+            self.logger.debug("Conversion produced:\n" + ope_buf)
 
             # write buffer to a file
             filepath = os.path.join(os.environ['HOME'], 'Procedure', 'OCS',

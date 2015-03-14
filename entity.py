@@ -299,16 +299,40 @@ class BaseTarget(object):
     pass
     
 class StaticTarget(object):
-    def __init__(self, name, ra, dec, equinox=2000.0):
+    def __init__(self, name=None, ra=None, dec=None, equinox=2000.0):
         super(StaticTarget, self).__init__()
         self.name = name
         self.ra = ra
         self.dec = dec
         self.equinox = equinox
 
-        self.xeph_line = "%s,f|A,%s,%s,0.0,%s" % (name[:20], ra, dec, equinox)
+        if self.ra is not None:
+            self._recalc_body()
+
+    def _recalc_body(self):
+        self.xeph_line = "%s,f|A,%s,%s,0.0,%s" % (
+            self.name[:20], self.ra, self.dec, self.equinox)
         self.body = ephem.readdb(self.xeph_line)
-    
+
+    def import_record(self, rec):
+        code = rec.code.strip()
+        self.name = rec.name
+        self.ra = rec.ra
+        self.dec = rec.dec
+        
+        # transform equinox, e.g. "J2000" -> 2000
+        eq = rec.eq
+        if isinstance(eq, str):
+            eq = eq.upper()
+            if eq[0] in ('B', 'J'):
+                eq = eq[1:]
+                eq = float(eq)
+        eq = int(eq)
+        self.equinox = eq
+
+        self._recalc_body()
+        return code
+
     def calc_GMST(self, date):
         """Compute Greenwich Mean Sidereal Time"""
         jd = ephem.julian_date(date)
@@ -666,11 +690,20 @@ class TelescopeConfiguration(object):
     
     def get_el_minmax(self):
         return (self.min_el, self.max_el)
+
+    def import_record(self, rec):
+        code = rec.code.lower()
+        self.focus = rec.focus.upper()
+        self.dome = rec.dome.lower()
+        return code
         
 class InstrumentConfiguration(object):
 
     def __init__(self):
         super(InstrumentConfiguration, self).__init__()
+
+        self.insname = None
+        self.mode = None
 
 class SPCAMConfiguration(InstrumentConfiguration):
     
@@ -704,22 +737,46 @@ class SPCAMConfiguration(InstrumentConfiguration):
 class HSCConfiguration(InstrumentConfiguration):
     
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
-                 mode='IMAGE'):
+                 mode='IMAGE', offset_ra=0, offset_dec=0, pa=90,
+                 dith1=60, dith2=None):
         super(HSCConfiguration, self).__init__()
 
         self.insname = 'HSC'
+        self.mode = mode
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
         self.guiding = guiding
         self.num_exp = int(num_exp)
         self.exp_time = float(exp_time)
-        self.mode = mode
+        self.offset_ra = offset_ra
+        self.offset_dec = offset_dec
+        self.pa = pa
+        self.dith1 = dith1
+        if dith2 == None:
+            # TODO: defaults for this depends on mode
+            dith2 = 0
+        self.dith2 = dith2
     
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
         filter_change_time_sec = 35.0 * 60.0
         return filter_change_time_sec
+
+    def import_record(self, rec):
+        code = rec.code.lower()
+        self.insname = 'HSC'
+        self.filter = rec.filter.lower()
+        self.mode = rec.mode
+        self.guiding = rec.guiding in ('y', 'Y', 'yes', 'YES')
+        self.num_exp = int(rec.num_exp)
+        self.exp_time = float(rec.exp_time)
+        self.pa = float(rec.pa)
+        self.offset_ra = float(rec.offset_ra)
+        self.offset_dec = float(rec.offset_dec)
+        self.dith1 = float(rec.dith1)
+        self.dith2 = float(rec.dith2)
+        return code
 
 class FOCASConfiguration(InstrumentConfiguration):
     
@@ -729,13 +786,13 @@ class FOCASConfiguration(InstrumentConfiguration):
         super(FOCASConfiguration, self).__init__()
 
         self.insname = 'FOCAS'
+        self.mode = mode
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
         self.guiding = guiding
         self.num_exp = int(num_exp)
         self.exp_time = float(exp_time)
-        self.mode = mode
         self.pa = float(pa)
         self.binning = binning
         self.offset_ra = float(offset_ra)
@@ -749,6 +806,23 @@ class FOCASConfiguration(InstrumentConfiguration):
         filter_change_time_sec = 30.0
         return filter_change_time_sec
 
+    def import_record(self, rec):
+        code = rec.code.lower()
+        self.insname = 'FOCAS'
+        self.mode = rec.mode
+        self.filter = rec.filter.lower()
+        self.guiding = rec.guiding in ('y', 'Y', 'yes', 'YES')
+        self.num_exp = int(rec.num_exp)
+        self.exp_time = float(rec.exp_time)
+        self.pa = float(rec.pa)
+        self.offset_ra = float(rec.offset_ra)
+        self.offset_dec = float(rec.offset_dec)
+        self.dither_ra = float(rec.dither_ra)
+        self.dither_dec = float(rec.dither_dec)
+        self.dither_theta = float(rec.dither_theta)
+        self.binning = rec.binning
+        return code
+
 class EnvironmentConfiguration(object):
 
     def __init__(self, seeing=None, airmass=None, moon='any', 
@@ -761,5 +835,25 @@ class EnvironmentConfiguration(object):
         if (moon == None) or (len(moon) == 0):
             moon = 'any'
         self.moon = moon.lower()
+
+    def import_record(self, rec):
+        code = rec.code.strip()
+
+        seeing = rec.seeing.strip()
+        if len(seeing) != 0:
+            self.seeing = float(seeing)
+        else:
+            self.seeing = None
+
+        airmass = rec.airmass.strip()
+        if len(airmass) != 0:
+            self.airmass = float(airmass)
+        else:
+            self.airmass = None
+
+        self.moon = rec.moon
+        self.moon_sep = float(rec.moon_sep)
+        self.transparency = float(rec.transparency)
+        return code
 
 #END

@@ -67,42 +67,6 @@ def delay_ob(ob, total_time):
     return new_ob
 
         
-def precheck_slot(site, slot, ob):
-
-    # check OB status
-    if ob.status == 'complete':
-        return False
-
-    # check if filter will be installed
-    if not (ob.inscfg.filter in slot.data.filters):
-        return False
-
-    # check if this slot can take this category
-    if not ob.program.category in slot.data.categories:
-        return False
-
-    # Check whether OB will fit in this slot
-    delta = (slot.stop_time - slot.start_time).total_seconds()
-    if ob.total_time > delta:
-        return False
-
-    # check dome status
-    if slot.data.dome != ob.telcfg.dome:
-        return False
-    
-    if slot.data.dome == 'closed':
-        return True
-    
-    min_el, max_el = ob.telcfg.get_el_minmax()
-
-    # find the time that this object begins to be visible
-    # TODO: figure out the best place to split the slot
-    (obs_ok, t_start, t_stop) = site.observable(ob.target,
-                                                slot.start_time, slot.stop_time,
-                                                min_el, max_el, ob.total_time,
-                                                airmass=ob.envcfg.airmass)
-    return obs_ok
-
 def obs_to_slots(slots, site, obs):
     obmap = {}
     for slot in slots:
@@ -112,8 +76,12 @@ def obs_to_slots(slots, site, obs):
             continue
         for ob in obs:
             # this OB OK for this slot at this site?
-            if precheck_slot(site, slot, ob):
+            res = check_slot(site, None, slot, ob)
+            if res.obs_ok:
                 obmap[key].append(ob)
+            else:
+                print("OB %s no good for slot because: %s" % (
+                    ob, res.reason))
 
     return obmap
 
@@ -122,10 +90,16 @@ def check_slot(site, prev_slot, slot, ob):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
     
+    # check if instrument will be installed
+    if not (ob.inscfg.insname in slot.data.instruments):
+        res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
+            ob.inscfg.insname))
+        return res
+
     # check if filter will be installed
     if not (ob.inscfg.filter in slot.data.filters):
-        res.setvals(obs_ok=False, reason="Filter '%s' not installed" % (
-            ob.inscfg.filter))
+        res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
+            ob.inscfg.filter, slot.data.filters))
         return res
 
     # check if this slot can take this category
