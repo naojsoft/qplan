@@ -339,6 +339,7 @@ class TelCfgFile(QueueFile):
         Read all telescope configurations from a CSV file.
         """
         self.queue_file.seek(0)
+        old_cfgs = self.tel_cfgs
         self.tel_cfgs = Bunch.caselessDict()
         reader = csv.reader(self.queue_file, **self.fmtparams)
         # skip header
@@ -361,6 +362,13 @@ class TelCfgFile(QueueFile):
                 telcfg = entity.TelescopeConfiguration()
                 code = telcfg.import_record(rec)
                 
+                # update existing old record if it exists
+                # since OBs may be pointing to it
+                if code in old_cfgs:
+                    new_cfg = telcfg
+                    telcfg = old_cfgs[code]
+                    telcfg.__dict__.update(new_cfg.__dict__)
+
                 self.tel_cfgs[code] = telcfg
 
             except Exception as e:
@@ -388,6 +396,7 @@ class EnvCfgFile(QueueFile):
         Read all environment configurations from a CSV file.
         """
         self.queue_file.seek(0)
+        old_cfgs = self.env_cfgs
         self.env_cfgs = Bunch.caselessDict()
         reader = csv.reader(self.queue_file, **self.fmtparams)
         # skip header
@@ -409,6 +418,13 @@ class EnvCfgFile(QueueFile):
                                      self.column_map)
                 envcfg = entity.EnvironmentConfiguration()
                 code = envcfg.import_record(rec)
+                
+                # update existing old record if it exists
+                # since OBs may be pointing to it
+                if code in old_cfgs:
+                    new_cfg = envcfg
+                    envcfg = old_cfgs[code]
+                    envcfg.__dict__.update(new_cfg.__dict__)
 
                 self.env_cfgs[code] = envcfg
 
@@ -435,6 +451,7 @@ class TgtCfgFile(QueueFile):
         Read all target configurations from a CSV file.
         """
         self.queue_file.seek(0)
+        old_cfgs = self.tgt_cfgs
         self.tgt_cfgs = Bunch.caselessDict()
         reader = csv.reader(self.queue_file, **self.fmtparams)
         # skip header
@@ -456,6 +473,14 @@ class TgtCfgFile(QueueFile):
                                      self.column_map)
                 target = entity.StaticTarget()
                 code = target.import_record(rec)
+                
+                # update existing old record if it exists
+                # since OBs may be pointing to it
+                if code in old_cfgs:
+                    new_cfg = target
+                    target = old_cfgs[code]
+                    target.__dict__.update(new_cfg.__dict__)
+
                 self.tgt_cfgs[code] = target
 
             except Exception as e:
@@ -531,6 +556,7 @@ class InsCfgFile(QueueFile):
         Read all instrument configurations from a CSV file.
         """
         self.queue_file.seek(0)
+        old_cfgs = self.ins_cfgs
         self.ins_cfgs = Bunch.caselessDict()
         reader = csv.reader(self.queue_file, **self.fmtparams)
         # skip header
@@ -557,6 +583,14 @@ class InsCfgFile(QueueFile):
                                      col_map)
                 inscfg = klass()
                 code = inscfg.import_record(rec)
+                
+                # update existing old record if it exists
+                # since OBs may be pointing to it
+                if code in old_cfgs:
+                    new_cfg = inscfg
+                    inscfg = old_cfgs[code]
+                    inscfg.__dict__.update(new_cfg.__dict__)
+
                 self.ins_cfgs[code] = inscfg
 
             except Exception as e:
