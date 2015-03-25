@@ -3,17 +3,19 @@
 # 
 # Eric Jeschke (eric@naoj.org)
 #
+from __future__ import print_function
 from datetime import timedelta
+#import pytz
 
 from PyQt4 import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib
 
-import PlBase
-
 from ginga.misc import Bunch
-# for printing target trajectory graphs
-import observer
+
+import PlBase
+from plots.airmass import plot_airmass
+
 
 class AirMassChartCanvas(FigureCanvas):
     def __init__(self, figure, parent=None):
@@ -41,6 +43,9 @@ class AirMassChart(PlBase.Plugin):
         super(AirMassChart, self).__init__(model, view, controller, logger)
 
         self.schedules = {}
+        # Set preferred timezone for plot
+        #self.tz = pytz.utc
+        self.tz = model.timezone
         
         model.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
@@ -65,11 +70,12 @@ class AirMassChart(PlBase.Plugin):
                 self.view.gui_do(self.fig.clf)
             else:
                 self.logger.debug("plotting airmass")
-                self.view.gui_do(observer.plots.do_plot_airmass,
-                                 info.obs, self.fig)
+                self.view.gui_do(plot_airmass, self.fig, info, self.tz)
             self.view.gui_do(self.canvas.draw)
-        except KeyError:
-            pass
+        ## except KeyError:
+        ##     pass
+        except Exception as e:
+            self.logger.error("Error plotting airmass: %s" % (str(e)))
 
         return True
 
@@ -86,27 +92,37 @@ class AirMassChart(PlBase.Plugin):
         ndate = t.strftime("%Y/%m/%d")
 
         targets = []
-        obs = observer.Observer('subaru')
+        site = self.model.site
+        site.set_date(start_time)
 
         for slot in schedule.slots:
-
             ob = slot.ob
-            if ob != None:
-                if len(ob.comment) == 0:
-                    # not an OB generated to serve another OB
-                    tgt = ob.target
-                    targets.append(obs.target(tgt.name, tgt.ra, tgt.dec))
+            print((slot, ob))
+            if (ob is not None) and (not ob.derived):
+                # not an OB generated to serve another OB
+                # TODO: make sure targets are unique in pointing
+                targets.append(ob.target)
 
         # make airmass plot
         num_tgts = len(targets)
+        target_data = []
+        lengths = []
         if num_tgts > 0:
-            obs.almanac(ndate)
-            #print obs.almanac_data
-            obs.airmass(*targets)
+            for tgt in targets:
+                info_list = site.get_target_info(tgt)
+                target_data.append(Bunch.Bunch(history=info_list, target=tgt))
+                lengths.append(len(info_list))
 
-        self.schedules[schedule] = Bunch.Bunch(obs=obs, num_tgts=num_tgts)
+        # clip all arrays to same length
+        min_len = min(*lengths)
+        for il in target_data:
+            il.history = il.history[:min_len]
+
+        self.schedules[schedule] = Bunch.Bunch(site=site, num_tgts=num_tgts,
+                                               target_data=target_data)
 
     def new_schedule_cb(self, qmodel, schedule):
         self.add_schedule(schedule)
+
 
 #END

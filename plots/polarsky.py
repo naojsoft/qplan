@@ -130,5 +130,6 @@ class AZELPlot(object):
 if __name__ == '__main__':
     app = QtGui.QApplication([])
     plot = AZELPlot(10, 10)
+    plot.setup()
     plot.plot_azel([(-210.0, 60.43, "telescope")])
     app.exec_()

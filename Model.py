@@ -18,7 +18,6 @@ from ginga.misc import Callback, Bunch
 import misc
 import entity
 import qsim
-import azelplot
 import filetypes
 
 # maximum rank for a program
@@ -45,7 +44,8 @@ class QueueModel(Callback.Callbacks):
                                     temperature=0,
                                     timezone=HST)
 
-        self.timezone = pytz.timezone('US/Hawaii')
+        #self.timezone = pytz.timezone('US/Hawaii')
+        self.timezone = HST
 
         self.weights_qf = None
         self.programs_qf = None

@@ -7,10 +7,11 @@
 from PyQt4 import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 
-import PlBase
-
 from ginga.misc import Bunch
-import azelplot as azelplot
+
+import PlBase
+from plots.polarsky import AZELPlot
+
 
 class SlewChartCanvas(FigureCanvas):
     def __init__(self, figure, parent=None):
@@ -45,10 +46,8 @@ class SlewChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        print "making figure"
-        self.plot = azelplot.AZELPlot(6, 6)
+        self.plot = AZELPlot(6, 6)
 
-        print "making canvas"
         canvas = SlewChartCanvas(self.plot.get_figure())
 
         layout = QtGui.QVBoxLayout()
@@ -57,7 +56,6 @@ class SlewChart(PlBase.Plugin):
         container.setLayout(layout)
 
         layout.addWidget(canvas, stretch=1)
-        print "GUI done"
 
 
     def show_schedule_cb(self, model, schedule):

@@ -447,8 +447,18 @@ class Observer(object):
         self.date = date
         self.horizon = -1 * numpy.sqrt(2 * elevation / ephem.earth_radius)
 
+        #self.tz_local = pytz.timezone(self.timezone)
+        self.tz_local = timezone
         self.tz_utc = pytz.timezone('UTC')
         self.site = self.get_site(date=date)
+
+        # used for sunset, sunrise calculations
+        self.horizon12 = -1.0*ephem.degrees('12:00:00.0')
+        self.horizon18 = -1.0*ephem.degrees('18:00:00.0')
+        self.sun = ephem.Sun()
+        self.moon = ephem.Moon()
+        self.sun.compute(self.site)
+        self.moon.compute(self.site)
 
     def get_site(self, date=None, horizon_deg=None):
         site = ephem.Observer()
@@ -472,6 +482,7 @@ class Observer(object):
             date = date.astimezone(self.tz_utc)
         except Exception:
             date = self.tz_utc.localize(date)
+        self.date = date
         self.site.date = ephem.Date(date)
         
     def calc(self, body, time_start):
@@ -479,7 +490,7 @@ class Observer(object):
     
     def get_date(self, date_str, timezone=None):
         if timezone == None:
-            timezone = self.timezone
+            timezone = self.tz_local
 
         formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d %H',
                    '%Y-%m-%d']
@@ -653,7 +664,208 @@ class Observer(object):
         d_az = c1.az_deg - c2.az_deg
         return (d_alt, d_az)
     
+    def sunset(self, date=None):
+        """Sunset in UTC"""
+        self.site.horizon = self.horizon
+        if date is None:
+            date = self.date
+        self.site.date = date
+        r_date = self.site.next_setting(self.sun)
+        return r_date
+
+    def sunrise(self, date=None):
+        """Sunrise in UTC"""
+        self.site.horizon = self.horizon
+        if date is None:
+            date = self.date
+        self.site.date = date
+        r_date = self.site.next_rising(self.sun)
+        return r_date
         
+    def evening_twilight_12(self, date=None):
+        """Evening 12 degree (nautical) twilight in UTC"""
+        self.site.horizon = self.horizon12
+        if date is None:
+            date = self.date
+        self.site.date = date
+        r_date = self.site.next_setting(self.sun)
+        return r_date
+
+    def evening_twilight_18(self, date=None):
+        """Evening 18 degree (civil) twilight"""
+        self.site.horizon = self.horizon18
+        if date is None:
+            date = self.date
+        self.site.date = date
+        r_date = self.site.next_setting(self.sun)
+        return r_date
+
+    def morning_twilight_12(self, date=None):
+        """Morning 12 degree (nautical) twilight in UTC"""
+        self.site.horizon = self.horizon12
+        if date is None:
+            date = self.date
+        self.site.date = date
+        r_date = self.site.next_rising(self.sun)
+        return r_date
+
+    def morning_twilight_18(self, date=None):
+        """Morning 18 degree (civil) twilight in UTC"""
+        self.site.horizon = self.horizon18
+        if date is None:
+            date = self.date
+        self.site.date = date
+        r_date = self.site.next_rising(self.sun)
+        return r_date
+
+    def sun_set_rise_times(self, date=None, local=False):
+        """Sunset, sunrise and twilight times. Returns a tuple with (sunset, 12d, 18d, 18d, 12d, sunrise).
+        Default times in UTC. If local=True returns times in local timezone"""
+        if local:
+            rstimes =  (self.utc2local(self.sunset(date=date)),
+                        self.utc2local(self.evening_twilight_12(date=date)),
+                        self.utc2local(self.evening_twilight_18(date=date)), 
+                        self.utc2local(self.morning_twilight_18(date=date)),
+                        self.utc2local(self.morning_twilight_12(date=date)),
+                        self.utc2local(self.sunrise(date=date)))
+        else:
+            rstimes =  (self.sunset(date=date),
+                        self.evening_twilight_12(date=date),
+                        self.evening_twilight_18(date=date), 
+                        self.morning_twilight_18(date=date),
+                        self.morning_twilight_12(date=date),
+                        self.sunrise(date=date))
+        return rstimes
+
+    def moon_rise(self, date=None):
+        """Moon rise time in UTC"""
+        if date is None:
+            date = self.date
+        self.site.date = date
+        moonrise = self.site.next_rising(self.moon)
+        if moonrise < self.sunset():
+            None
+        return moonrise
+
+    def moon_set(self, date=None):
+        """Moon set time in UTC"""
+        if date is None:
+            date = self.date
+        self.site.date = date
+        moonset = self.site.next_setting(self.moon)
+        if moonset > self.sunrise():
+            moonset = None
+        return moonset
+    
+    def moon_phase(self, date=None):
+        """Moon percentage of illumination"""
+        if date is None:
+            date = self.date
+        self.site.date = date
+        return self.moon.moon_phase
+
+    def night_center(self, date=None):
+        """Compute night center"""
+        return (self.sunset(date=date) + self.sunrise(date=date))/2.0
+            
+    def local2utc(self, date_s):
+        """Convert local time to UTC"""
+        y, m, d = date_s.split('/')
+        tlocal = datetime(int(y), int(m), int(d), 12, 0, 0,
+                          tzinfo=self.tz_local)
+        r_date = ephem.Date(tlocal.astimezone(self.tz_utc))
+        return r_date
+        
+    def utc2local(self, date_time):
+        """Convert UTC to local time"""
+        if date_time != None:
+            dt = date_time.datetime()
+            utc_dt = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                              dt.second, dt.microsecond, tzinfo=self.tz_utc)
+            r_date = ephem.Date(utc_dt.astimezone(self.tz_local))
+            return r_date
+        else:
+            return None
+    
+    def get_text_almanac(self, date):
+        date_s = date.strftime("%Y-%m-%d")
+        text = ''
+        text += 'Almanac for the night of %s\n' % date_s.split()[0]
+        text += '\nEvening\n'
+        text += '_'*30 + '\n'
+        rst = self.sun_set_rise_times(date=date, local=True)
+        rst = [t.datetime().strftime('%H:%M') for t in rst]
+        text += 'Sunset: %s\n12d: %s\n18d: %s\n' % (rst[0], rst[1], rst[2])
+        text += '\nMorning\n'
+        text += '_'*30 + '\n'
+        text += '18d: %s\n12d: %s\nSunrise: %s\n' % (rst[3], rst[4], rst[5])
+        return text
+        
+    def get_target_info(self, target, time_start=None, time_stop=None,
+                        time_interval=5):
+        """Compute various values for a target from sunrise to sunset"""
+
+        def _set_time(dtime):
+            # Sets time to nice rounded value
+            y, m ,d, hh, mm, ss = dtime.tuple()
+            mm = mm - (mm % 5)
+            return ephem.Date(datetime(y, m , d, hh, mm, 5, 0))
+
+        def _set_data_range(sunset, sunrise, tint):
+            # Returns numpy array of dates 15 minutes before sunset
+            # and after sunrise
+            ss = _set_time(ephem.Date(sunset - 15*ephem.minute))
+            sr = _set_time(ephem.Date(sunrise + 15*ephem.minute))
+            return numpy.arange(ss, sr, tint)
+    
+        if time_start == None:
+            # default for start time is sunset on the current date
+            time_start = self.sunset()
+        if time_stop == None:
+            # default for stop time is sunrise on the current date
+            time_stop = self.sunrise(date=time_start)
+            
+        t_range = _set_data_range(time_start, time_stop,
+                                  time_interval*ephem.minute)
+        #print('computing airmass history...')
+        history = []
+
+        # TODO: this should probably return a generator
+        for ut in t_range:
+            # ugh
+            tup = ephem.Date(ut).tuple()
+            args = tup[:-1] + (int(tup[-1]),)
+            ut_with_tz = datetime(*args,
+                                  tzinfo=self.tz_utc)
+            info = target.calc(self, ut_with_tz)
+            history.append(info)
+        #print(('computed airmass history', self.history))
+        return history
+
+    def get_target_info_table(self, target, time_start=None, time_stop=None):
+        """Prints a table of hourly airmass data"""
+        history = self.get_target_info(target, time_start=time_start,
+                                       time_stop=time_stop)
+        text = ''
+        format = '%-16s  %-5s  %-5s  %-5s  %-5s  %-5s %-5s\n'
+        header = ('Date       Local', 'UTC', 'LMST', 'HA', 'PA', 'AM', 'Moon')
+        hstr = format % header
+        text += hstr
+        text += '_'*len(hstr) + '\n'
+        for info in history:
+            s_lt = info.lt.datetime().strftime('%d%b%Y  %H:%M')
+            s_utc = info.ut.datetime().strftime('%H:%M')
+            s_ha = ':'.join(str(ephem.hours(info.ha)).split(':')[:2])
+            s_lst = ':'.join(str(ephem.hours(info.lst)).split(':')[:2])
+            s_pa = round(info.pang*180.0/numpy.pi, 1)
+            s_am = round(info.airmass, 2)
+            s_ma = round(info.moon_alt*180.0/numpy.pi, 1)
+            if s_ma < 0:
+                s_ma = ''
+            s_data = format % (s_lt, s_utc, s_lst, s_ha, s_pa, s_am, s_ma)
+            text += s_data
+        return text
+
     def __repr__(self):
         return self.name
 
@@ -671,8 +883,11 @@ class HST(tzinfo):
     def dst(self, dt):
         return timedelta(0)
 
-    def tzname(self,dt):
-         return "HST"
+    def tzname(self, dt):
+         return 'HST'
+
+    def upper(self):
+         return 'HST'
 
 
 class TelescopeConfiguration(object):
