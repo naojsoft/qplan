@@ -14,7 +14,7 @@ import matplotlib
 from ginga.misc import Bunch
 
 import PlBase
-from plots.airmass import plot_airmass
+from plots.airmass import AirMassPlot
 
 
 class AirMassChartCanvas(FigureCanvas):
@@ -43,6 +43,8 @@ class AirMassChart(PlBase.Plugin):
         super(AirMassChart, self).__init__(model, view, controller, logger)
 
         self.schedules = {}
+        self.initialized = False
+
         # Set preferred timezone for plot
         #self.tz = pytz.utc
         self.tz = model.timezone
@@ -52,8 +54,9 @@ class AirMassChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        self.fig = matplotlib.figure.Figure((8, 8))
-        self.canvas = AirMassChartCanvas(self.fig)
+        self.plot = AirMassPlot(8, 6)
+
+        self.canvas = AirMassChartCanvas(self.plot.get_figure())
 
         layout = QtGui.QVBoxLayout()
         layout.setContentsMargins(2, 2, 2, 2)
@@ -65,12 +68,18 @@ class AirMassChart(PlBase.Plugin):
     def show_schedule_cb(self, qmodel, schedule):
         try:
             info = self.schedules[schedule]
+
+            if not self.initialized:
+                self.plot.setup()
+                self.initialized = True
+            
             if info.num_tgts == 0:
                 self.logger.debug("no targets for plotting airmass")
-                self.view.gui_do(self.fig.clf)
+                self.view.gui_do(self.plot.clear)
             else:
                 self.logger.debug("plotting airmass")
-                self.view.gui_do(plot_airmass, self.fig, info, self.tz)
+                self.view.gui_do(self.plot.clear)
+                self.view.gui_do(self.plot.plot_airmass, info, self.tz)
             self.view.gui_do(self.canvas.draw)
         ## except KeyError:
         ##     pass
@@ -97,7 +106,6 @@ class AirMassChart(PlBase.Plugin):
 
         for slot in schedule.slots:
             ob = slot.ob
-            print((slot, ob))
             if (ob is not None) and (not ob.derived):
                 # not an OB generated to serve another OB
                 # TODO: make sure targets are unique in pointing

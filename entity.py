@@ -395,7 +395,7 @@ class StaticTarget(object):
         
     def calc(self, observer, time_start):
         observer.set_date(time_start)
-        self.body = ephem.readdb(self.xeph_line)
+        #self._recalc_body()
         self.body.compute(observer.site)
         
         ut = time_start.astimezone(pytz.utc)
@@ -473,7 +473,8 @@ class Observer(object):
             site.horizon = self.horizon
         site.epoch = 2000.0
         if date == None:
-            date = self.tz_utc.localize(datetime.now())
+            date = datetime.now()
+            date.replace(tzinfo=self.tz_utc)
         site.date = ephem.Date(date)
         return site
         

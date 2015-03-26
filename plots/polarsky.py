@@ -5,7 +5,6 @@ import ephem
 
 import matplotlib
 from matplotlib import rc, figure
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt4 import QtGui
 
@@ -23,11 +22,17 @@ class AZELPlot(object):
         # create matplotlib figure
         self.fig = figure.Figure(figsize=(width, height), dpi=dpi)
 
+        # colors used for successive points
+        self.colors = ['r', 'b', 'g', 'c', 'm', 'y']
+
     def setup(self):
         ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8],
                                projection='polar', axisbg='#d5de9c')
         self.ax = ax
+        # don't clear plot when we call plot()
+        ax.hold(True)
         #ax.set_title("Slew order", fontsize=14)
+        self.orient_plot()
 
     def get_figure(self):
         return self.fig
@@ -41,6 +46,7 @@ class AZELPlot(object):
         
     def clear(self):
         self.ax.cla()
+        self.redraw()
 
     def map_azalt(self, az, alt):
         return (math.radians(az), 90.0 - alt)
@@ -49,8 +55,8 @@ class AZELPlot(object):
         ax = self.ax
         # Orient plot for Subaru telescope
         ax.set_theta_zero_location("S")
-        #ax.set_theta_direction(-1)
-        ax.set_theta_direction(1)
+        ax.set_theta_direction(-1)
+        #ax.set_theta_direction(1)
 
         # standard polar projection has radial plot running 0 to 90,
         # inside to outside.
@@ -81,40 +87,35 @@ class AZELPlot(object):
         ax.annotate('S', (0.5, -0.08), textcoords='axes fraction',
                     fontsize=16)
 
+    def redraw(self):
+        self.orient_plot()
+
+        canvas = self.fig.canvas
+        if canvas is not None:
+            canvas.draw()
+
     def plot_coords(self, coords):
 
         ax = self.ax
-        az = map(lambda pt: math.radians(pt[0]), coords)
-        # invert the radial axis
-        alt = map(lambda pt: (90.0 - pt[1]), coords)
-        tgts = map(lambda pt: pt[2], coords)
+        lstyle = 'o'
 
-        ax.plot(az, alt, 'ro-') 
+        for i, tup in enumerate(coords):
+            color = self.colors[i % len(self.colors)]
+            lc = color + lstyle
 
-        self.orient_plot()
+            # alt: invert the radial axis
+            az, alt, name = math.radians(tup[0]), 90.0-tup[1], tup[2]
+            ax.plot([az], [alt], lc) 
+            ax.annotate(name, (az, alt))
 
-        for i, txt in enumerate(tgts):
-            #ax.annotate(txt, (az[i], alt[i]))
-            ax.annotate("%d"%(i+1), (az[i], alt[i]))
+        #self.orient_plot()
 
-        self.fig.canvas.draw()
+        self.redraw()
         
     def plot_azel(self, coords, outfile=None):
 
-        ax = self.ax
-        az = map(lambda pt: math.radians(pt[0]), coords)
-        # invert the radial axis
-        alt = map(lambda pt: (90.0 - pt[1]), coords)
-        tgts = map(lambda pt: pt[2], coords)
-
-        ax.plot(az, alt, 'ro-') 
-
-        self.orient_plot()
-
-        for i, txt in enumerate(tgts):
-            #ax.annotate(txt, (az[i], alt[i]))
-            ax.annotate("%d"%(i+1), (az[i], alt[i]))
-
+        self.plot_coords(coords)
+        
         if outfile == None:
             self.canvas = self.make_canvas()
             self.canvas.show()
@@ -122,10 +123,17 @@ class AZELPlot(object):
             self.canvas = self.make_canvas()
             self.fig.savefig(outfile)
 
-    def plot_moon(self, obs, time_start):
-        obs.date = datetime.datetime.utcnow()
-        az, el = azel_calc(obs, ephem.Moon())
-        self.ax.plot(az, 90.0-el, color='#bf7033')
+    def plot_target(self, observer, target, time_start, color):
+        try:
+            info = target.calc(observer, time_start)
+        except Exception as e:
+            print str(e)
+        print(info)
+        az, alt = math.radians(info.az_deg), 90.0 - info.alt_deg
+        self.ax.plot([az], [alt], 'o', color=color)
+        self.ax.annotate(target.name, (az, alt))
+        self.redraw()
+        print("drew moon")
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])
@@ -133,3 +141,5 @@ if __name__ == '__main__':
     plot.setup()
     plot.plot_azel([(-210.0, 60.43, "telescope")])
     app.exec_()
+
+#END
