@@ -80,8 +80,9 @@ def obs_to_slots(slots, site, obs):
             if res.obs_ok:
                 obmap[key].append(ob)
             else:
-                print("OB %s no good for slot because: %s" % (
-                    ob, res.reason))
+                ## print("OB %s no good for slot because: %s" % (
+                ##     ob, res.reason))
+                pass
 
     return obmap
 

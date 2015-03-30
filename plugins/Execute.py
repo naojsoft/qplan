@@ -13,8 +13,8 @@ from ginga.qtw import QtHelp
 import remoteObjects as ro
 
 import Report
-#import SPCAM
-import FOCAS
+#import FOCAS
+import HSC
 
 class Execute(Report.Report):
 
@@ -52,8 +52,8 @@ class Execute(Report.Report):
         oblist = self._get_selected_obs()
 
         try:
-            #converter = SPCAM.Converter(self.logger)
-            converter = FOCAS.Converter(self.logger)
+            #converter = FOCAS.Converter(self.logger)
+            converter = HSC.Converter(self.logger)
 
             # buffer for OPE output
             out_f = StringIO.StringIO()
@@ -75,10 +75,11 @@ class Execute(Report.Report):
             with open(filepath, 'w') as out_f:
                 out_f.write(ope_buf)
 
+            self.logger.debug("Ope result:\n" + ope_buf + "\n")
             if not self.debug_mode:
                 # tell integgui2 to reload this file
                 self.ig.load_page(filepath)
-            
+
         except Exception as e:
             self.logger.error("Error sending OBs: %s" % (str(e)))
 

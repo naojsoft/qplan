@@ -13,8 +13,7 @@ from ginga.misc import Bunch
 
 import PlBase
 from plots.polarsky import AZELPlot
-import entity
-import ephem
+import common
 
 class SlewChartCanvas(FigureCanvas):
     def __init__(self, figure, parent=None):
@@ -47,6 +46,13 @@ class SlewChart(PlBase.Plugin):
         model.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
+        # the solar system objects
+        self.ss = [ common.moon, common.sun, common.mercury, common.venus,
+                    common.mars, common.jupiter, common.saturn,
+                    common.uranus, common.neptune, common.pluto ]
+        self.ss_colors = [ 'white', 'yellow', 'orange', 'lightgreen', 'red',
+                           'white', 'turquoise', 'salmon', 'plum' ]
+
     def build_gui(self, container):
 
         self.plot = AZELPlot(6, 6)
@@ -60,9 +66,9 @@ class SlewChart(PlBase.Plugin):
 
         layout.addWidget(canvas, stretch=1)
 
-        win = container.window()
-        toolbar = NavigationToolbar(canvas, win)
-        layout.addWidget(toolbar, stretch=0)
+        ## win = container.window()
+        ## toolbar = NavigationToolbar(canvas, win)
+        ## layout.addWidget(toolbar, stretch=0)
         
         
     def show_schedule_cb(self, model, schedule):
@@ -79,31 +85,19 @@ class SlewChart(PlBase.Plugin):
         # make slew plot
         self.logger.debug("plotting slew map")
         self.view.gui_do(self.plot.clear)
-        self.view.gui_do(self.plot.plot_coords, info.targets)
 
-        # plot the moon current location
-        moon = entity.StaticTarget(name="moon")
-        moon.body = ephem.Moon()
-        mars = entity.StaticTarget(name="mars")
-        mars.body = ephem.Mars()
-        jupiter = entity.StaticTarget(name="jupiter")
-        jupiter.body = ephem.Jupiter()
-        venus = entity.StaticTarget(name="venus")
-        venus.body = ephem.Venus()
+        # plot a subset of the targets
+        num_tgts = self.controller.num_tgt_plots
+        idx = self.controller.idx_tgt_plots
+        targets = info.targets[idx:idx+num_tgts]
+        self.view.gui_do(self.plot.plot_coords, targets)
+
+        # plot the current location of solar system objects
         site = model.site
         print("getting current time")
         dt = datetime.now(site.tz_local)
-        print("plotting moon")
-        ## self.view.gui_do(self.plot.plot_moon, site,
-        ##                  schedule.start_time, schedule.stop_time)
-        self.view.gui_do(self.plot.plot_target, site,
-                         moon, dt, 'white')
-        self.view.gui_do(self.plot.plot_target, site,
-                         mars, dt, 'red')
-        self.view.gui_do(self.plot.plot_target, site,
-                         jupiter, dt, 'purple')
-        self.view.gui_do(self.plot.plot_target, site,
-                         venus, dt, 'green')
+        self.view.gui_do(self.plot.plot_targets, site,
+                         self.ss, dt, self.ss_colors)
         
         return True
 

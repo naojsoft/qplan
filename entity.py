@@ -428,7 +428,7 @@ class StaticTarget(object):
         self.__dict__.update(state)
         self.body = ephem.readdb(self.xeph_line)
 
-        
+
 class Observer(object):
     """
     Observer
@@ -932,6 +932,7 @@ class SPCAMConfiguration(InstrumentConfiguration):
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
+        self.dither = dither
         self.guiding = guiding
         self.num_exp = num_exp
         self.exp_time = exp_time
@@ -953,7 +954,7 @@ class SPCAMConfiguration(InstrumentConfiguration):
 class HSCConfiguration(InstrumentConfiguration):
     
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
-                 mode='IMAGE', offset_ra=0, offset_dec=0, pa=90,
+                 mode='IMAGE', dither=1, offset_ra=0, offset_dec=0, pa=90,
                  dith1=60, dith2=None):
         super(HSCConfiguration, self).__init__()
 
@@ -962,6 +963,7 @@ class HSCConfiguration(InstrumentConfiguration):
         if filter is not None:
             filter = filter.lower()
         self.filter = filter
+        self.dither = dither
         self.guiding = guiding
         self.num_exp = int(num_exp)
         self.exp_time = float(exp_time)
@@ -984,6 +986,7 @@ class HSCConfiguration(InstrumentConfiguration):
         self.insname = 'HSC'
         self.filter = rec.filter.lower()
         self.mode = rec.mode
+        self.dither = rec.dither
         self.guiding = rec.guiding in ('y', 'Y', 'yes', 'YES')
         self.num_exp = int(rec.num_exp)
         self.exp_time = float(rec.exp_time)

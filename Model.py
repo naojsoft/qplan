@@ -90,7 +90,6 @@ class QueueModel(Callback.Callbacks):
 
     def set_weights(self, weights):
         self.weights = weights
-        print(weights)
 
     def update_weights(self, row, colHeader, value, parse_flag):
         self.logger.debug('row %d colHeader %s value %s' % (row, colHeader, value))

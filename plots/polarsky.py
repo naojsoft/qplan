@@ -1,12 +1,12 @@
 import math
-import datetime
-
-import ephem
+from datetime import datetime
 
 import matplotlib
 from matplotlib import rc, figure
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt4 import QtGui
+
+import zoompan as zp
 
 class AZELPlot(object):
 
@@ -28,6 +28,9 @@ class AZELPlot(object):
     def setup(self):
         ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8],
                                projection='polar', axisbg='#d5de9c')
+        ## self.zp = zp.ZoomPan()
+        ## self.zp.zoom_factory(ax, base_scale=1.5)
+        ## self.zp.pan_factory(ax)
         self.ax = ax
         # don't clear plot when we call plot()
         ax.hold(True)
@@ -49,14 +52,14 @@ class AZELPlot(object):
         self.redraw()
 
     def map_azalt(self, az, alt):
-        return (math.radians(az), 90.0 - alt)
+        return (math.radians(az - 180.0), 90.0 - alt)
     
     def orient_plot(self):
         ax = self.ax
         # Orient plot for Subaru telescope
         ax.set_theta_zero_location("S")
-        ax.set_theta_direction(-1)
-        #ax.set_theta_direction(1)
+        #ax.set_theta_direction(-1)
+        ax.set_theta_direction(1)
 
         # standard polar projection has radial plot running 0 to 90,
         # inside to outside.
@@ -104,7 +107,8 @@ class AZELPlot(object):
             lc = color + lstyle
 
             # alt: invert the radial axis
-            az, alt, name = math.radians(tup[0]), 90.0-tup[1], tup[2]
+            az, alt = self.map_azalt(tup[0], tup[1])
+            name = tup[2]
             ax.plot([az], [alt], lc) 
             ax.annotate(name, (az, alt))
 
@@ -123,23 +127,46 @@ class AZELPlot(object):
             self.canvas = self.make_canvas()
             self.fig.savefig(outfile)
 
-    def plot_target(self, observer, target, time_start, color):
+    def _plot_target(self, observer, target, time_start, color):
         try:
             info = target.calc(observer, time_start)
         except Exception as e:
             print str(e)
-        print(info)
-        az, alt = math.radians(info.az_deg), 90.0 - info.alt_deg
+        #print(info)
+        az, alt = self.map_azalt(info.az_deg, info.alt_deg)
         self.ax.plot([az], [alt], 'o', color=color)
         self.ax.annotate(target.name, (az, alt))
         self.redraw()
-        print("drew moon")
+
+    def plot_target(self, observer, target, time_start, color):
+        self._plot_target(observer, target, time_start, color)
+        self.redraw()
+
+    def plot_targets(self, observer, targets, time_start, colors):
+        i = 0
+        for target in targets:
+            self._plot_target(observer, target, time_start, colors[i])
+            i = (i+1) % len(colors)
+        self.redraw()
 
 if __name__ == '__main__':
+    import entity, common
+    import pytz
+
     app = QtGui.QApplication([])
     plot = AZELPlot(10, 10)
     plot.setup()
-    plot.plot_azel([(-210.0, 60.43, "telescope")])
+    plot.plot_azel([(-210.0, 60.43, "telescope"),])
+    tgt3 = entity.StaticTarget(name="Bootes", ra="14:31:45.40",
+                               dec="+32:28:38.50")
+    tz = pytz.timezone('US/Hawaii')
+    site = common.subaru
+
+    start_time = datetime.strptime("2015-03-27 20:05:00",
+                                   "%Y-%m-%d %H:%M:%S")
+    start_time = start_time.replace(tzinfo=tz)
+    plot.plot_targets(site, [common.moon, common.sun, tgt3],
+                      start_time, ['white', 'yellow', 'green'])
     app.exec_()
 
 #END

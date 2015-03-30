@@ -19,6 +19,8 @@ from PyQt4 import QtGui
 
 from ginga.misc import Bunch
 
+import zoompan as zp
+
 class AirMassPlot(object):
 
     def __init__(self, width, height, dpi=96):
@@ -147,7 +149,7 @@ class AirMassPlot(object):
 
 if __name__ == '__main__':
     import sys
-    import entity
+    import entity, common
 
     app = QtGui.QApplication([])
     plot = AirMassPlot(10, 6)
@@ -157,17 +159,12 @@ if __name__ == '__main__':
         outfile = sys.argv[1]
 
     tz = pytz.timezone('US/Hawaii')
-    site = entity.Observer('subaru',
-                           longitude='-155:28:48.900',
-                           latitude='+19:49:42.600',
-                           elevation=4163,
-                           pressure=615,
-                           temperature=0,
-                           timezone=tz)
+    site = common.subaru
 
     start_time = datetime.strptime("2015-03-30 18:30:00",
                                    "%Y-%m-%d %H:%M:%S")
-    t = start_time.replace(tzinfo=tz)
+    start_time = start_time.replace(tzinfo=tz)
+    t = start_time
     # if schedule starts after midnight, change start date to the
     # day before
     if 0 <= t.hour < 12:
@@ -175,7 +172,7 @@ if __name__ == '__main__':
     ndate = t.strftime("%Y/%m/%d")
 
     targets = []
-    site.set_date(start_time)
+    site.set_date(t)
     tgt = entity.StaticTarget(name='S5', ra='14:20:00.00', dec='48:00:00.00')
     targets.append(tgt)
     tgt = entity.StaticTarget(name='Sf', ra='09:40:00.00', dec='43:00:00.00')
