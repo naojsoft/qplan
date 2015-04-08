@@ -50,17 +50,17 @@ class AirMassPlot(object):
         #self.ax.cla()
         self.fig.clf()
 
-    def plot_airmass(self, info, tz):
-        self._plot_airmass(self.fig, info, tz)
+    def plot_airmass(self, site, tgt_data, tz):
+        self._plot_airmass(self.fig, site, tgt_data, tz)
 
     
-    def _plot_airmass(self, figure, info, tz):
+    def _plot_airmass(self, figure, site, tgt_data, tz):
         """
         Plot into `figure` an airmass chart using target data from `info`
         with time plotted in timezone `tz` (a tzinfo instance).
         """
-        site = info.site
-        tgt_data = info.target_data
+        ## site = info.site
+        ## tgt_data = info.target_data
         # Urk! This seems to be necessary even though we are plotting
         # python datetime objects with timezone attached and setting
         # date formatters with the timezone
@@ -129,7 +129,7 @@ class AirMassPlot(object):
         ax2 = ax1.twinx()
         moon_data = numpy.array(map(lambda info: info.moon_alt,
                                     tgt_data[0].history))
-        moon_illum = site.moon_phase()
+        #moon_illum = site.moon_phase()
         ax2.plot_date(lt_data, moon_data, '#666666', linewidth=2.0,
                       alpha=0.5, aa=True, tz=tz)
         mxs, mys = mpl.mlab.poly_between(lt_data, 0, moon_data)
@@ -197,9 +197,9 @@ if __name__ == '__main__':
     for il in target_data:
         il.history = il.history[:min_len]
 
-    info = Bunch.Bunch(site=site, num_tgts=num_tgts,
-                       target_data=target_data)
-    plot.plot_airmass(info, tz)
+    ## info = Bunch.Bunch(site=site, num_tgts=num_tgts,
+    ##                    target_data=target_data)
+    plot.plot_airmass(site, target_data, tz)
 
     if outfile == None:
         canvas = plot.make_canvas()

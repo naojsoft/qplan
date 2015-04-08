@@ -6,7 +6,6 @@
 from datetime import timedelta
 import math
 import csv
-import yaml
 
 # gen2 imports
 #from astro import radec

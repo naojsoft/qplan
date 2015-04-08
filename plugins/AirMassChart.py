@@ -79,7 +79,16 @@ class AirMassChart(PlBase.Plugin):
             else:
                 self.logger.debug("plotting airmass")
                 self.view.gui_do(self.plot.clear)
-                self.view.gui_do(self.plot.plot_airmass, info, self.tz)
+                site = info.site
+                target_data = info.target_data
+
+                # Plot a subset of the targets
+                idx = int((self.controller.idx_tgt_plots / 100.0) * len(target_data))
+                num_tgts = self.controller.num_tgt_plots
+                target_data = target_data[idx:idx+num_tgts]
+
+                self.view.gui_do(self.plot.plot_airmass, site, target_data,
+                                 self.tz)
             self.view.gui_do(self.canvas.draw)
         ## except KeyError:
         ##     pass

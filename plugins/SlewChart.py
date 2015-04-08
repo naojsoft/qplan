@@ -87,8 +87,8 @@ class SlewChart(PlBase.Plugin):
         self.view.gui_do(self.plot.clear)
 
         # plot a subset of the targets
+        idx = int((self.controller.idx_tgt_plots / 100.0) * len(info.targets))
         num_tgts = self.controller.num_tgt_plots
-        idx = self.controller.idx_tgt_plots
         targets = info.targets[idx:idx+num_tgts]
         self.view.gui_do(self.plot.plot_coords, targets)
 

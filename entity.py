@@ -24,7 +24,7 @@ class Program(object):
     Defines a program that has been accepted for observation.
     """
     def __init__(self, proposal, pi='', observers='', rank=1.0, 
-                 propid=None, band=3, partner=None, hours=None,
+                 propid=None, grade=None, partner=None, hours=None,
                  category=None, instruments=[], description=None):
         super(Program, self).__init__()
         
@@ -37,7 +37,7 @@ class Program(object):
         self.pi = pi
         self.observers = observers
         self.rank = rank
-        self.band = band
+        self.grade = grade
         self.partner = partner
         self.category = category.lower()
         self.instruments = map(string.upper, instruments)
@@ -314,6 +314,7 @@ class StaticTarget(object):
             self.name[:20], self.ra, self.dec, self.equinox)
         self.body = ephem.readdb(self.xeph_line)
 
+
     def import_record(self, rec):
         code = rec.code.strip()
         self.name = rec.name
@@ -333,88 +334,8 @@ class StaticTarget(object):
         self._recalc_body()
         return code
 
-    def calc_GMST(self, date):
-        """Compute Greenwich Mean Sidereal Time"""
-        jd = ephem.julian_date(date)
-        T = (jd - 2451545.0)/36525.0
-        gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
-        gmst = ephem.degrees(gmstdeg*numpy.pi/180.0)
-        return gmst
-    
-    def calc_LMST(self, date, longitude):
-        """Compute Local Mean Sidereal Time"""
-        gmst = self.calc_GMST(date)
-        lmst = ephem.degrees(gmst + longitude)
-        return lmst.norm
-    
-    def calc_HA(self, lmst, ra):
-        """Compute Hour Angle"""
-        return lmst - ra 
-    
-    def calc_parallactic(self, dec, ha, lat, az):
-        """Compute parallactic angle"""
-        if numpy.cos(dec) != 0.0:
-            sinp = -1.0*numpy.sin(az)*numpy.cos(lat)/numpy.cos(dec)
-            cosp = -1.0*numpy.cos(az)*numpy.cos(ha)-numpy.sin(az)*numpy.sin(ha)*numpy.sin(lat)
-            parang = ephem.degrees(numpy.arctan2(sinp, cosp))
-        else:
-            if lat > 0.0:
-                parang = numpy.pi
-            else:
-                parang = 0.0
-        return parang
-
-    def calc_airmass(self, alt):
-        """Compute airmass"""
-        if alt < ephem.degrees('03:00:00'):
-            alt = ephem.degrees('03:00:00')
-        sz = 1.0/numpy.sin(alt) - 1.0
-        xp = 1.0 + sz*(0.9981833 - sz*(0.002875 + 0.0008083*sz))
-        return xp
-    
-    def calc_moon_alt(self, site):
-        """Compute Moon altitude"""
-        moon = ephem.Moon()
-        moon.compute(site)
-        moon_alt = math.degrees(float(moon.alt))
-        # moon.phase is % of moon that is illuminated
-        moon_pct = moon.moon_phase
-        # calculate distance from target
-        moon_sep = ephem.separation(moon, self.body)
-        moon_sep = math.degrees(float(moon_sep))
-        return (moon_alt, moon_pct, moon_sep)
-        
-    def calc_separation_alt_az(self, target):
-        """Compute deltas for azimuth and altitude from another target"""
-        self.body.compute(self.site)
-        target.compute(self.site)
-
-        delta_az = float(self.body.az) - float(target.az)
-        delta_alt = float(self.body.alt) - float(target.alt)
-        return (delta_alt, delta_az)
-        
     def calc(self, observer, time_start):
-        observer.set_date(time_start)
-        #self._recalc_body()
-        self.body.compute(observer.site)
-        
-        ut = time_start.astimezone(pytz.utc)
-        lst = self.calc_LMST(ut, observer.site.long)
-        ha = self.calc_HA(lst, self.body.ra)
-        alt = float(self.body.alt)
-        az = float(self.body.az)
-        pang = self.calc_parallactic(float(self.body.dec), float(ha),
-                                     float(observer.site.lat),
-                                     az)
-        amass = self.calc_airmass(alt)
-        moon_alt, moon_pct, moon_sep = self.calc_moon_alt(observer.site)
-
-        res = Bunch.Bunch(ut=ut, lt=time_start, lst=lst, ha=ha,
-                          pang=pang, airmass=amass, moon_alt=moon_alt,
-                          moon_pct=moon_pct, moon_sep=moon_sep,
-                          alt=alt, az=az, alt_deg=math.degrees(alt),
-                          az_deg=math.degrees(az))
-        return res
+        return CalculationResult(self, observer, time_start)
 
     # for pickling
     
@@ -1075,4 +996,170 @@ class EnvironmentConfiguration(object):
         self.transparency = float(rec.transparency)
         return code
 
+
+class CalculationResult(object):
+
+    def __init__(self, target, observer, date):
+        # TODO: make a COPY of observer.site
+        self.observer = observer
+        self.site = observer.site
+        self.body = target.body
+        self.date = date
+
+        # Can/should this calculation be postponed?
+        observer.set_date(date)
+        self.body.compute(self.site)
+
+        self.lt = self.date.astimezone(observer.tz_local)
+        self.ra = self.body.ra
+        self.dec = self.body.dec
+        self.alt = float(self.body.alt)
+        self.az = float(self.body.az)
+        # TODO: deprecate
+        self.alt_deg = math.degrees(self.alt)
+        self.az_deg = math.degrees(self.az)        
+
+        # properties
+        self._ut = None
+        self._gmst = None
+        self._lmst = None
+        self._ha = None
+        self._pang = None
+        self._am = None
+        self._moon_alt = None
+        self._moon_pct = None
+        self._moon_sep = None
+
+        
+    @property
+    def ut(self):
+        if self._ut is None:
+            self._ut = self.lt.astimezone(pytz.utc)
+        return self._ut
+
+    @property
+    def gmst(self):
+        if self._gmst is None:
+            jd = ephem.julian_date(self.ut)
+            T = (jd - 2451545.0)/36525.0
+            gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
+            self._gmst = ephem.degrees(gmstdeg*numpy.pi/180.0)
+        return self._gmst
+
+    @property
+    def lmst(self):
+        if self._lmst is None:
+            lmst = ephem.degrees(self.gmst + self.site.long)
+            self._lmst = lmst.norm
+        return self._lmst
+
+    @property
+    def ha(self):
+        if self._ha is None:
+            self._ha = self.lmst - self.ra 
+        return self._ha
+
+    @property
+    def pang(self):
+        if self._pang is None:
+            self._pang = self.calc_parallactic(float(self.dec),
+                                               float(self.ha),
+                                               float(self.site.lat),
+                                               self.az)
+        return self._pang
+
+    @property
+    def airmass(self):
+        if self._am is None:
+            self._am = self.calc_airmass(self.alt)
+        return self._am
+
+    @property
+    def moon_alt(self):
+        if self._moon_alt is None:
+            moon_alt, moon_pct, moon_sep = self.calc_moon(self.site, self.body)
+            self._moon_alt = moon_alt
+            self._moon_pct = moon_pct
+            self._moon_sep = moon_sep
+        return self._moon_alt
+
+    @property
+    def moon_pct(self):
+        if self._moon_pct is None:
+            moon_alt, moon_pct, moon_sep = self.calc_moon(self.site, self.body)
+            self._moon_alt = moon_alt
+            self._moon_pct = moon_pct
+            self._moon_sep = moon_sep
+        return self._moon_pct
+
+    @property
+    def moon_sep(self):
+        if self._moon_sep is None:
+            moon_alt, moon_pct, moon_sep = self.calc_moon(self.site, self.body)
+            self._moon_alt = moon_alt
+            self._moon_pct = moon_pct
+            self._moon_sep = moon_sep
+        return self._moon_sep
+
+    def calc_GMST(self, date):
+        """Compute Greenwich Mean Sidereal Time"""
+        jd = ephem.julian_date(date)
+        T = (jd - 2451545.0)/36525.0
+        gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
+        gmst = ephem.degrees(gmstdeg*numpy.pi/180.0)
+        return gmst
+    
+    def calc_LMST(self, date, longitude):
+        """Compute Local Mean Sidereal Time"""
+        gmst = self.calc_GMST(date)
+        lmst = ephem.degrees(gmst + longitude)
+        return lmst.norm
+    
+    def calc_HA(self, lmst, ra):
+        """Compute Hour Angle"""
+        return lmst - ra 
+    
+    def calc_parallactic(self, dec, ha, lat, az):
+        """Compute parallactic angle"""
+        if numpy.cos(dec) != 0.0:
+            sinp = -1.0*numpy.sin(az)*numpy.cos(lat)/numpy.cos(dec)
+            cosp = -1.0*numpy.cos(az)*numpy.cos(ha)-numpy.sin(az)*numpy.sin(ha)*numpy.sin(lat)
+            parang = ephem.degrees(numpy.arctan2(sinp, cosp))
+        else:
+            if lat > 0.0:
+                parang = numpy.pi
+            else:
+                parang = 0.0
+        return parang
+
+    def calc_airmass(self, alt):
+        """Compute airmass"""
+        if alt < ephem.degrees('03:00:00'):
+            alt = ephem.degrees('03:00:00')
+        sz = 1.0/numpy.sin(alt) - 1.0
+        xp = 1.0 + sz*(0.9981833 - sz*(0.002875 + 0.0008083*sz))
+        return xp
+    
+    def calc_moon(self, site, body):
+        """Compute Moon altitude"""
+        moon = ephem.Moon()
+        self.observer.set_date(self.date)
+        moon.compute(site)
+        moon_alt = math.degrees(float(moon.alt))
+        # moon.phase is % of moon that is illuminated
+        moon_pct = moon.moon_phase
+        # calculate distance from target
+        moon_sep = ephem.separation(moon, body)
+        moon_sep = math.degrees(float(moon_sep))
+        return (moon_alt, moon_pct, moon_sep)
+        
+    def calc_separation_alt_az(self, target):
+        """Compute deltas for azimuth and altitude from another target"""
+        self.target.body.compute(self.observer.site)
+        target.body.compute(self.observer.site)
+
+        delta_az = float(self.body.az) - float(target.az)
+        delta_alt = float(self.body.alt) - float(target.alt)
+        return (delta_alt, delta_az)
+        
 #END

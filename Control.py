@@ -29,8 +29,8 @@ class Controller(Callback.Callbacks):
 
         self.input_dir = '.'
 
-        self.num_tgt_plots = 10
         self.idx_tgt_plots = 0
+        self.num_tgt_plots = 10
 
     def set_input_dir(self, path):
         self.input_dir = path

@@ -56,6 +56,38 @@ class ControlPanel(PlBase.Plugin):
         spacer = Widgets.Label('')
         vbox.add_widget(spacer, stretch=1)
         
+        hbox = Widgets.HBox()
+
+        adj = Widgets.ScrollBar(orientation='horizontal')
+        adj_w = adj.get_widget()
+        adj_w.setRange(0, 100)
+        adj_w.setSingleStep(1)
+        adj_w.setPageStep(10)
+        #adj_w.setMaximum(1000)
+        idx = self.controller.idx_tgt_plots        
+        adj_w.setValue(idx)
+        #adj_w.resize(200, -1)
+        adj_w.setTracking(True)
+        adj.set_tooltip("Choose subset of targets plotted")
+        #self.w.plotgrp = adj
+        adj.add_callback('activated', self.set_plot_pct_cb)
+        hbox.add_widget(adj, stretch=1)
+
+        sb = Widgets.SpinBox()
+        sb.set_limits(1, 100)
+        sb_w = sb.get_widget()
+        num = self.controller.num_tgt_plots
+        sb_w.setValue(num)
+        ## sb_w.setSingleStep(1)
+        ## sb_w.setPageStep(10)
+        ## sb_w.setWrapping(False)
+        #self.w.plotnum = sb
+        sb.set_tooltip("Adjust size of subset of targets plotted")
+        sb.add_callback('value-changed', self.set_plot_limit_cb)
+        hbox.add_widget(sb, stretch=0)
+
+        vbox.add_widget(hbox, stretch=0)
+
         ## btns = Widgets.HBox()
         ## btns.set_spacing(3)
 
@@ -217,5 +249,17 @@ class ControlPanel(PlBase.Plugin):
         self.update_model()
         
         self.view.nongui_do(self.model.schedule_all)
+
+    def set_plot_pct_cb(self, w, val):
+        print(('pct', val))
+        self.controller.idx_tgt_plots = val
+        self.model.select_schedule(self.model.selected_schedule)
+        return True
+        
+    def set_plot_limit_cb(self, w, val):
+        print(('limit', val))
+        self.controller.num_tgt_plots = val
+        self.model.select_schedule(self.model.selected_schedule)
+        return True
         
 #END

@@ -253,7 +253,7 @@ class ProgramsFile(QueueFile):
                 key = rec.proposal.upper()
                 pgm = entity.Program(key, propid=rec.propid,
                                      rank=float(rec.rank),
-                                     band=int(rec.band),
+                                     grade=rec.band.upper(),
                                      partner=rec.partner,
                                      category=rec.category,
                                      instruments=rec.instruments.upper().split(','),

@@ -17,6 +17,7 @@ from ginga.misc import Callback, Bunch
 # local imports
 import misc
 import entity
+import common
 import qsim
 import filetypes
 
@@ -34,16 +35,9 @@ class QueueModel(Callback.Callbacks):
 
         self.logger = logger
 
+        self.site = common.subaru
         # TODO: encapsulate this
         HST = entity.HST()
-        self.site = entity.Observer('subaru',
-                                    longitude='-155:28:48.900',
-                                    latitude='+19:49:42.600',
-                                    elevation=4163,
-                                    pressure=615,
-                                    temperature=0,
-                                    timezone=HST)
-
         #self.timezone = pytz.timezone('US/Hawaii')
         self.timezone = HST
 
@@ -83,6 +77,8 @@ class QueueModel(Callback.Callbacks):
                      'tgtcfg-updated', 'envcfg-updated', 'inscfg-updated',
                      'telcfg-updated', 'weights-updated', 'show-proposal'):
             self.enable_callback(name)
+
+        self.selected_schedule = None
 
     def set_weights_qf(self, weights_qf):
         self.weights_qf = weights_qf
@@ -370,6 +366,9 @@ class QueueModel(Callback.Callbacks):
         night_slots = []
         site = self.site
 
+        # measure performance of scheduling
+        t_t1 = time.time()
+
         for rec in self.schedule_recs:
             night_start = site.get_date("%s %s" % (rec.date, rec.starttime))
             next_day = night_start + timedelta(0, 3600*14)
@@ -468,6 +467,9 @@ class QueueModel(Callback.Callbacks):
 
             self.logger.info("%d unscheduled OBs left" % (len(unscheduled_obs)))
 
+        t_elapsed = time.time() - t_t1
+        self.logger.info("%.2f sec to schedule all" % (t_elapsed))
+
         # print a summary
         out_f = StringIO.StringIO()
         num_obs = len(oblist)
@@ -520,6 +522,7 @@ class QueueModel(Callback.Callbacks):
         
 
     def select_schedule(self, schedule):
+        self.selected_schedule = schedule
         self.make_callback('schedule-selected', schedule)
         
 # END
