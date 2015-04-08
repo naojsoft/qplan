@@ -24,8 +24,8 @@ class Execute(Report.Report):
         self.svcname = 'integgui0'
         self.ig = None
         self.refresh_ig()
-        #self.debug_mode = False
-        self.debug_mode = True
+        self.debug_mode = False
+        #self.debug_mode = True
 
     def build_gui(self, container):
         super(Execute, self).build_gui(container)

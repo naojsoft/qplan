@@ -150,7 +150,7 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
         elif tgtname == 'bias':
             out("\n# %s" % (ob.comment))
             d = dict(num_exp=ob.inscfg.num_exp)
-            cmd_str = 'GetBias $DEF_IMAGE $DEF_IMAGE NUMBER=%(num_exp)d' % d
+            cmd_str = 'GetBias $DEF_IMAGE NUMBER=%(num_exp)d' % d
             out(cmd_str)
             return
 
@@ -182,25 +182,46 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
         self._setup_target(d, ob)
         
         if ob.inscfg.dither == '1':
-            cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s %(guidestr)s''' % d
-            out(cmd_str)
+            if ob.inscfg.guiding:
+                cmd_str = '''SetupField $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s''' % d
+                out(cmd_str)
 
-            cmd_str = '''GetObject $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
-            out(cmd_str)
+                cmd_str = '''GetObject $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+                out(cmd_str)
+            else:
+                cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s %(guidestr)s''' % d
+                out(cmd_str)
+
+                cmd_str = '''GetObject $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+                out(cmd_str)
 
         elif ob.inscfg.dither == '5':
-            cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
-            out(cmd_str)
+            if ob.inscfg.guiding:
+                cmd_str = '''SetupField $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                out(cmd_str)
             
-            cmd_str = '''GetObject $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
-            out(cmd_str)
+                cmd_str = '''GetObject $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                out(cmd_str)
+            else:
+                cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                out(cmd_str)
+            
+                cmd_str = '''GetObject $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                out(cmd_str)
 
         elif ob.inscfg.dither == 'N':
-            cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
-            out(cmd_str)
+            if ob.inscfg.guiding:
+                cmd_str = '''SetupField $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                out(cmd_str)
 
-            cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
-            out(cmd_str)
+                cmd_str = '''GetObject $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                out(cmd_str)
+            else:
+                cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                out(cmd_str)
+
+                cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                out(cmd_str)
 
         else:
             raise ValueError("Instrument dither must be one of {1, 5, N}")
