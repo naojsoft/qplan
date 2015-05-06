@@ -29,7 +29,7 @@ slew_breakout_limit = 30.0
 
 
 class QueueModel(Callback.Callbacks):
-    
+
     def __init__(self, logger):
         Callback.Callbacks.__init__(self)
 
@@ -207,7 +207,7 @@ class QueueModel(Callback.Callbacks):
         LOWER NUMBERS ARE BETTER!
         """
         wts = self.weights
-        
+
         r1_slew = min(res1.slew_sec, self.max_slew) / self.max_slew
         r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay
         r1_filter = min(res1.filterchange_sec, self.max_filterchange) / \
@@ -234,7 +234,7 @@ class QueueModel(Callback.Callbacks):
 
         res = int(numpy.sign(t1 - t2))
         return res
-    
+
 
     def eval_slot(self, prev_slot, slot, site, oblist):
 
@@ -260,7 +260,7 @@ class QueueModel(Callback.Callbacks):
         while not done:
             # give GUI thread a chance to run
             #time.sleep(0.0001)
-            
+
             slot = schedule.next_free_slot()
             if slot == None:
                 self.logger.debug("no more empty slots")
@@ -307,7 +307,7 @@ class QueueModel(Callback.Callbacks):
 
                 found_one = True
                 break
-                    
+
             # no OBs fit the slot?
             if not found_one:
                 self.logger.debug("can't find any OBs to fit slot %s" % (
@@ -355,7 +355,7 @@ class QueueModel(Callback.Callbacks):
 
         # return list of unused OBs
         return oblist
-       
+
 
     def schedule_all(self):
 
@@ -448,7 +448,7 @@ class QueueModel(Callback.Callbacks):
 
             self.schedules.append(schedule)
             self.make_callback('schedule-added', schedule)
-            
+
             targets = {}
             target_list = []
             for slot in schedule.slots:
@@ -481,7 +481,7 @@ class QueueModel(Callback.Callbacks):
             out_f.write("%d OBs are not schedulable:\n" % (len(unschedulable)))
             ## unschedulable.sort(cmp=lambda ob1, ob2: cmp(ob1.program.proposal,
             ##                                             ob2.program.proposal))
-            
+
             for ob in unschedulable:
                 out_f.write("%s (%s)\n" % (ob.name, ob.program.proposal))
             out_f.write("\n")
@@ -508,21 +508,21 @@ class QueueModel(Callback.Callbacks):
         out_f.write("Uncompleted programs\n")
         for bnch in uncompleted:
             pct = float(bnch.obcount-len(bnch.obs)) / float(bnch.obcount) * 100.0
-            uncompleted = ", ".join(map(lambda ob: ob.name, props[str(bnch.pgm)].obs))
+            uncompleted_s = ", ".join(map(lambda ob: ob.name, props[str(bnch.pgm)].obs))
 
             out_f.write("%-12.12s   %5.2f  %d/%d  %5.2f%%  [%s]\n" % (
                 str(bnch.pgm), bnch.pgm.rank,
                 bnch.obcount-len(bnch.obs), bnch.obcount, pct,
-                uncompleted))
+                uncompleted_s))
         out_f.write("\n")
         out_f.write("Total unscheduled time: %8.2f min\n" % (total_waste))
         self.summary_report = out_f.getvalue()
         out_f.close()
         self.logger.info(self.summary_report)
-        
+
 
     def select_schedule(self, schedule):
         self.selected_schedule = schedule
         self.make_callback('schedule-selected', schedule)
-        
+
 # END

@@ -5,7 +5,6 @@
 #
 from datetime import timedelta
 import math
-import csv
 
 # gen2 imports
 #from astro import radec
@@ -18,7 +17,7 @@ import entity
 #     dec_deg = radec.funkyDMStoDeg(dec_funky)
 #     ra = radec.raDegToString(ra_deg, format='%02d:%02d:%06.3f')
 #     dec = radec.decDegToString(dec_deg, format='%s%02d:%02d:%05.2f')
-    
+
 #     return get_body(name, ra, dec, equinox=equinox)
 
 
@@ -37,13 +36,13 @@ def make_slots(start_time, night_length_mn, min_slot_length_sc):
     for isec in range(0, night_length_mn*60, min_slot_length_sc):
         slot_start = start_time + timedelta(0, isec)
         night_slots.append(entity.Slot(slot_start, min_slot_length_sc))
-    
+
     return night_slots
 
 def alt2airmass(alt_deg):
     xp = 1.0 / math.sin(math.radians(alt_deg + 244.0/(165.0 + 47*alt_deg**1.1)))
     return xp
-    
+
 am_inv = []
 for alt in range(0, 91):
     alt_deg = float(alt)

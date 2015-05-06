@@ -100,7 +100,7 @@ class QueueFile(object):
 
         except Exception as e:
             self.logger.error("Error reparsing input: %s" % (str(e)))
-            
+
         # We are done with the StringIO object, so close it.
         self.queue_file.close()
 
@@ -196,7 +196,7 @@ class ScheduleFile(QueueFile):
                                seeing=seeing, transparency=transparency,
                                dome=dome, categories=categories,
                                instruments=instruments)
-            
+
             rec2 = Bunch.Bunch(date=rec.date, starttime=rec.starttime,
                                stoptime=rec.stoptime,
                                #categories=categories,
@@ -216,7 +216,7 @@ class ProgramsFile(QueueFile):
             'rank': 'rank',
             'category': 'category',
             'instruments': 'instruments',
-            'band': 'band',
+            'grade': 'grade',
             'hours': 'hours',
             'partner': 'partner',
             'skip': 'skip',
@@ -253,12 +253,12 @@ class ProgramsFile(QueueFile):
                 key = rec.proposal.upper()
                 pgm = entity.Program(key, propid=rec.propid,
                                      rank=float(rec.rank),
-                                     grade=rec.band.upper(),
+                                     grade=rec.grade.upper(),
                                      partner=rec.partner,
                                      category=rec.category,
                                      instruments=rec.instruments.upper().split(','),
                                      hours=float(rec.hours))
-                
+
                 # update existing old program record if it exists
                 # since OBs may be pointing to it
                 if key in old_info:
@@ -361,7 +361,7 @@ class TelCfgFile(QueueFile):
                                      self.column_map)
                 telcfg = entity.TelescopeConfiguration()
                 code = telcfg.import_record(rec)
-                
+
                 # update existing old record if it exists
                 # since OBs may be pointing to it
                 if code in old_cfgs:
@@ -418,7 +418,7 @@ class EnvCfgFile(QueueFile):
                                      self.column_map)
                 envcfg = entity.EnvironmentConfiguration()
                 code = envcfg.import_record(rec)
-                
+
                 # update existing old record if it exists
                 # since OBs may be pointing to it
                 if code in old_cfgs:
@@ -473,7 +473,7 @@ class TgtCfgFile(QueueFile):
                                      self.column_map)
                 target = entity.StaticTarget()
                 code = target.import_record(rec)
-                
+
                 # update existing old record if it exists
                 # since OBs may be pointing to it
                 if code in old_cfgs:
@@ -492,7 +492,7 @@ class InsCfgFile(QueueFile):
     def __init__(self, filepath, logger):
         self.ins_cfgs = {}
 
-        # All instrument configs should have at least these 
+        # All instrument configs should have at least these
         self.column_map = { 'code': 'code',
                             'instrument': 'insname',
                             'mode': 'mode',
@@ -583,7 +583,7 @@ class InsCfgFile(QueueFile):
                                      col_map)
                 inscfg = klass()
                 code = inscfg.import_record(rec)
-                
+
                 # update existing old record if it exists
                 # since OBs may be pointing to it
                 if code in old_cfgs:
@@ -661,7 +661,7 @@ class OBListFile(QueueFile):
                 priority = 1.0
                 if rec.priority != None:
                     priority = float(rec.priority)
-                    
+
                 ob = entity.OB(program=program,
                                target=tgtcfg,
                                inscfg=inscfg,
