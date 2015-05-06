@@ -69,6 +69,10 @@ plugins = [
     ('logger', 'Logger', 'Logger', 'report', 'Log'),
     ('cp', 'ControlPanel', 'ControlPanel', 'right', 'Control Panel'),
     ('resolution', 'Resolution', 'Resolution', 'right', 'OB Resolution'),
+    ('night_activity', 'SumChart', 'NightSumChart', 'sub1', 'Night Activity Chart'),
+    ('night_sched', 'SumChart', 'SchedSumChart', 'sub1', 'Schedules Chart'),
+    ('proposals', 'SumChart', 'ProposalSumChart', 'sub1', 'Proposals Chart'),
+    ('semester', 'SumChart', 'SemesterSumChart', 'sub1', 'Semester Chart'),
     ]
 
 class QueuePlanner(Controller, Viewer):

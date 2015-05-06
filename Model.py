@@ -69,6 +69,7 @@ class QueueModel(Callback.Callbacks):
 
         # For callbacks
         for name in ('schedule-cleared', 'schedule-added', 'schedule-selected',
+                     'schedule-completed',
                      'programs-file-loaded', 'schedule-file-loaded',
                      'weights-file-loaded',
                      'show-oblist', 'show-tgtcfg', 'show-envcfg', 'show-inscfg',
@@ -538,6 +539,8 @@ class QueueModel(Callback.Callbacks):
 
         completed = sorted(completed, key=lambda bnch: max_rank - bnch.pgm.rank)
         uncompleted = sorted(uncompleted, key=lambda bnch: max_rank - bnch.pgm.rank)
+
+        self.make_callback('schedule-completed', completed, uncompleted, self.schedules)
 
         out_f.write("Completed programs\n")
         for bnch in completed:
