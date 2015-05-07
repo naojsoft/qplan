@@ -23,11 +23,11 @@ class Program(object):
     Program
     Defines a program that has been accepted for observation.
     """
-    def __init__(self, proposal, pi='', observers='', rank=1.0, 
+    def __init__(self, proposal, pi='', observers='', rank=1.0,
                  propid=None, grade=None, partner=None, hours=None,
                  category=None, instruments=[], description=None):
         super(Program, self).__init__()
-        
+
         self.proposal = proposal
         if propid == None:
             # TODO: is there an algorithm to turn proposals
@@ -59,7 +59,7 @@ class Slot(object):
     Slot -- a period of the night that can be scheduled.
     Defined by a start time and a duration in seconds.
     """
-    
+
     def __init__(self, start_time, slot_len_sec, data=None):
         super(Slot, self).__init__()
         self.start_time = start_time
@@ -117,7 +117,7 @@ class Slot(object):
         if diff > 1.0:
             diff_sec = (self.stop_time - stop_time).total_seconds()
             slot_d = Slot(stop_time, diff_sec, data=self.data)
-            
+
         return (slot_b, slot_c, slot_d)
 
     def size(self):
@@ -126,7 +126,7 @@ class Slot(object):
         """
         diff_sec = (self.stop_time - self.start_time).total_seconds()
         return diff_sec
-    
+
     def __repr__(self):
         #s = self.start_time.strftime("%H:%M:%S")
         duration = self.size() / 60.0
@@ -140,7 +140,7 @@ class Schedule(object):
     """
     Schedule
     Defines a series of slots and operations on that series.
-    
+
     """
     def __init__(self, start_time, stop_time, data=None):
         super(Schedule, self).__init__()
@@ -154,7 +154,7 @@ class Schedule(object):
 
     def num_slots(self):
         return len(self.slots)
-    
+
     def get_free(self):
         if len(self.slots) == 0:
             return self.start_time, self.stop_time
@@ -168,7 +168,7 @@ class Schedule(object):
         if diff <= 0.0:
             return None
         return Slot(start_time, diff)
-        
+
     def _previous(self, slot):
         if len(self.slots) == 0:
             return -1, None
@@ -195,11 +195,11 @@ class Schedule(object):
                 return i, slot_i
 
         return len(self.slots), None
-    
+
     def get_next(self, slot):
         i, slot_i = self._next(slot)
         return slot_i
-    
+
     def insert_slot(self, slot):
         i, prev_slot = self._previous(slot)
         if prev_slot != None:
@@ -228,7 +228,7 @@ class Schedule(object):
 
     ##     self.slots.append(slot)
     ##     self.waste -= slot.size()
-        
+
     def copy(self):
         newsch = Schedule(self.start_time, self.stop_time)
         newsch.waste = self.waste
@@ -257,10 +257,10 @@ class OB(object):
     """
     Observing Block
     Defines an item that can be scheduled during the night.
-    
+
     """
     count = 1
-    
+
     def __init__(self, id=None, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, total_time=None,
                  priority=1.0, name=None, derived=None, comment=''):
@@ -269,7 +269,7 @@ class OB(object):
             id = "ob%04d" % (OB.count)
             OB.count += 1
         self.id = id
-        
+
         self.program = program
         self.priority = priority
         if name == None:
@@ -297,7 +297,7 @@ class OB(object):
 
 class BaseTarget(object):
     pass
-    
+
 class StaticTarget(object):
     def __init__(self, name=None, ra=None, dec=None, equinox=2000.0):
         super(StaticTarget, self).__init__()
@@ -320,7 +320,7 @@ class StaticTarget(object):
         self.name = rec.name
         self.ra = rec.ra
         self.dec = rec.dec
-        
+
         # transform equinox, e.g. "J2000" -> 2000
         eq = rec.eq
         if isinstance(eq, str):
@@ -338,13 +338,13 @@ class StaticTarget(object):
         return CalculationResult(self, observer, time_start)
 
     # for pickling
-    
+
     def __getstate__(self):
         d = self.__dict__.copy()
         # ephem objects can't be pickled
         d['body'] = None
         return d
-        
+
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.body = ephem.readdb(self.xeph_line)
@@ -398,7 +398,7 @@ class Observer(object):
             date.replace(tzinfo=self.tz_utc)
         site.date = ephem.Date(date)
         return site
-        
+
     def set_date(self, date):
         try:
             date = date.astimezone(self.tz_utc)
@@ -406,10 +406,10 @@ class Observer(object):
             date = self.tz_utc.localize(date)
         self.date = date
         self.site.date = ephem.Date(date)
-        
+
     def calc(self, body, time_start):
         return body.calc(self, time_start)
-    
+
     def get_date(self, date_str, timezone=None):
         if timezone == None:
             timezone = self.tz_local
@@ -429,73 +429,17 @@ class Observer(object):
 
         raise e
 
-    def _observable(self, target, time_start, time_stop,
-                   el_min_deg, el_max_deg,
-                   airmass=None):
-        c1 = self.calc(target, time_start)
-        c2 = self.calc(target, time_stop)
-
-        return ((el_min_deg <= c1.alt_deg <= el_max_deg) and
-                (el_min_deg <= c2.alt_deg <= el_max_deg)
-                and
-                ((airmass == None) or ((c1.airmass <= airmass) and
-                                       (c2.airmass <= airmass))))
-
-    def observable_now(self, target, time_start, time_needed,
-                       el_min_deg, el_max_deg, airmass=None):
-
-        time_stop = time_start + timedelta(0, time_needed)
-        res = self._observable(target, time_start, time_stop,
-                               el_min_deg, el_max_deg,
-                               airmass=airmass)
-        return res
-
-    ## def observable2(self, target, time_start, time_stop,
-    ##                el_min_deg, el_max_deg, time_needed,
+    ## def _observable(self, target, time_start, time_stop,
+    ##                el_min_deg, el_max_deg,
     ##                airmass=None):
-    ##     """
-    ##     Return True if `target` is observable between `time_start` and
-    ##     `time_stop`, defined by whether it is between elevation `el_min`
-    ##     and `el_max` during that period (and whether it meets the minimum
-    ##     `airmass`), for the requested amount of `time_needed`.
-    ##     """
-    ##     delta = (time_stop - time_start).total_seconds()
-    ##     if time_needed > delta:
-    ##         return (False, None)
-        
-    ##     time_off = 0
-    ##     time_inc = 300
-    ##     total_visible = 0
-    ##     cnt = 0
-    ##     pos = None
+    ##     c1 = self.calc(target, time_start)
+    ##     c2 = self.calc(target, time_stop)
 
-    ##     # TODO: need a much more efficient algorithm than this
-    ##     # should be able to use calculated rise/fall times
-    ##     while time_off < delta:
-    ##         time_s = time_start + timedelta(0, time_off)
-    ##         time_left = (time_stop - time_s).total_seconds()
-    ##         incr = min(time_inc, time_left)
-    ##         time_e = time_s + timedelta(0, incr)
-    ##         res = self._observable(target, time_s, time_e,
-    ##                                el_min_deg, el_max_deg,
-    ##                                airmass=airmass)
-    ##         if res:
-    ##             total_visible += incr
-    ##             if pos == None:
-    ##                 pos = time_s
-    ##         time_off += incr
-
-    ##     if pos == None:
-    ##         return (False, None)
-    ##     elif time_needed > total_visible:
-    ##         return (False, pos)
-    ##     elif pos + timedelta(0, time_needed) < time_stop:
-    ##         return (True, pos)
-    ##     return (False, pos)
-
-    ## def totz(self, date):
-    ##     local_tz = pytz.timezone('US/Hawaii')
-    ##     return local_tz.localize(date.datetime())
+    ##     return ((el_min_deg <= c1.alt_deg <= el_max_deg) and
+    ##             (el_min_deg <= c2.alt_deg <= el_max_deg)
+    ##             and
+    ##             ((airmass == None) or ((c1.airmass <= airmass) and
+    ##                                    (c2.airmass <= airmass))))
 
     def observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
@@ -504,7 +448,7 @@ class Observer(object):
         Return True if `target` is observable between `time_start` and
         `time_stop`, defined by whether it is between elevation `el_min`
         and `el_max` during that period, and whether it meets the minimum
-        airmass. 
+        airmass.
         """
         # set observer's horizon to elevation for el_min or to achieve
         # desired airmass
@@ -514,7 +458,7 @@ class Observer(object):
             min_alt_deg = max(alt_deg, el_min_deg)
         else:
             min_alt_deg = el_min_deg
-    
+
         site = self.get_site(date=time_start, horizon_deg=min_alt_deg)
 
         d1 = self.calc(target, time_start)
@@ -525,7 +469,7 @@ class Observer(object):
         time_start_utc = ephem.Date(time_start.astimezone(self.tz_utc))
         time_stop_utc = ephem.Date(time_stop.astimezone(self.tz_utc))
         #print "period (UT): %s to %s" % (time_start_utc, time_stop_utc)
-        
+
         if d1.alt_deg >= min_alt_deg:
             # body is above desired altitude at start of period
             # so calculate next setting
@@ -540,7 +484,7 @@ class Observer(object):
                 time_set = site.next_setting(target.body, start=time_start_utc)
             except ephem.NeverUpError:
                 return (False, None, None)
-            
+
             #print "body not up: rise=%s set=%s" % (time_rise, time_set)
             ## if time_rise < time_set:
             ##     print "body still rising, below threshold"
@@ -585,7 +529,7 @@ class Observer(object):
         d_alt = c1.alt_deg - c2.alt_deg
         d_az = c1.az_deg - c2.az_deg
         return (d_alt, d_az)
-    
+
     def sunset(self, date=None):
         """Sunset in UTC"""
         self.site.horizon = self.horizon
@@ -603,7 +547,7 @@ class Observer(object):
         self.site.date = date
         r_date = self.site.next_rising(self.sun)
         return r_date
-        
+
     def evening_twilight_12(self, date=None):
         """Evening 12 degree (nautical) twilight in UTC"""
         self.site.horizon = self.horizon12
@@ -646,14 +590,14 @@ class Observer(object):
         if local:
             rstimes =  (self.utc2local(self.sunset(date=date)),
                         self.utc2local(self.evening_twilight_12(date=date)),
-                        self.utc2local(self.evening_twilight_18(date=date)), 
+                        self.utc2local(self.evening_twilight_18(date=date)),
                         self.utc2local(self.morning_twilight_18(date=date)),
                         self.utc2local(self.morning_twilight_12(date=date)),
                         self.utc2local(self.sunrise(date=date)))
         else:
             rstimes =  (self.sunset(date=date),
                         self.evening_twilight_12(date=date),
-                        self.evening_twilight_18(date=date), 
+                        self.evening_twilight_18(date=date),
                         self.morning_twilight_18(date=date),
                         self.morning_twilight_12(date=date),
                         self.sunrise(date=date))
@@ -678,18 +622,19 @@ class Observer(object):
         if moonset > self.sunrise():
             moonset = None
         return moonset
-    
+
     def moon_phase(self, date=None):
         """Moon percentage of illumination"""
         if date is None:
             date = self.date
         self.site.date = date
+        self.moon.compute(self.site)
         return self.moon.moon_phase
 
     def night_center(self, date=None):
         """Compute night center"""
         return (self.sunset(date=date) + self.sunrise(date=date))/2.0
-            
+
     def local2utc(self, date_s):
         """Convert local time to UTC"""
         y, m, d = date_s.split('/')
@@ -697,7 +642,7 @@ class Observer(object):
                           tzinfo=self.tz_local)
         r_date = ephem.Date(tlocal.astimezone(self.tz_utc))
         return r_date
-        
+
     def utc2local(self, date_time):
         """Convert UTC to local time"""
         if date_time != None:
@@ -708,7 +653,7 @@ class Observer(object):
             return r_date
         else:
             return None
-    
+
     def get_text_almanac(self, date):
         date_s = date.strftime("%Y-%m-%d")
         text = ''
@@ -722,7 +667,7 @@ class Observer(object):
         text += '_'*30 + '\n'
         text += '18d: %s\n12d: %s\nSunrise: %s\n' % (rst[3], rst[4], rst[5])
         return text
-        
+
     def get_target_info(self, target, time_start=None, time_stop=None,
                         time_interval=5):
         """Compute various values for a target from sunrise to sunset"""
@@ -739,14 +684,14 @@ class Observer(object):
             ss = _set_time(ephem.Date(sunset - 15*ephem.minute))
             sr = _set_time(ephem.Date(sunrise + 15*ephem.minute))
             return numpy.arange(ss, sr, tint)
-    
+
         if time_start == None:
             # default for start time is sunset on the current date
             time_start = self.sunset()
         if time_stop == None:
             # default for stop time is sunrise on the current date
             time_stop = self.sunrise(date=time_start)
-            
+
         t_range = _set_data_range(time_start, time_stop,
                                   time_interval*ephem.minute)
         #print('computing airmass history...')
@@ -801,7 +746,7 @@ class HST(tzinfo):
     """
     def utcoffset(self, dt):
         return timedelta(hours=-10)
-    
+
     def dst(self, dt):
         return timedelta(0)
 
@@ -824,7 +769,7 @@ class TelescopeConfiguration(object):
         self.dome = dome
         self.min_el = 15.0
         self.max_el = 89.0
-    
+
     def get_el_minmax(self):
         return (self.min_el, self.max_el)
 
@@ -833,7 +778,7 @@ class TelescopeConfiguration(object):
         self.focus = rec.focus.upper()
         self.dome = rec.dome.lower()
         return code
-        
+
 class InstrumentConfiguration(object):
 
     def __init__(self):
@@ -843,7 +788,7 @@ class InstrumentConfiguration(object):
         self.mode = None
 
 class SPCAMConfiguration(InstrumentConfiguration):
-    
+
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
                  mode='IMAGE', offset_ra=0, offset_dec=0, pa=90,
                  dith1=60, dith2=None):
@@ -873,7 +818,7 @@ class SPCAMConfiguration(InstrumentConfiguration):
         return filter_change_time_sec
 
 class HSCConfiguration(InstrumentConfiguration):
-    
+
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
                  mode='IMAGE', dither=1, offset_ra=0, offset_dec=0, pa=90,
                  dith1=60, dith2=None):
@@ -896,7 +841,7 @@ class HSCConfiguration(InstrumentConfiguration):
             # TODO: defaults for this depends on mode
             dith2 = 0
         self.dith2 = dith2
-    
+
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
         filter_change_time_sec = 35.0 * 60.0
@@ -919,7 +864,7 @@ class HSCConfiguration(InstrumentConfiguration):
         return code
 
 class FOCASConfiguration(InstrumentConfiguration):
-    
+
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
                  mode='IMAGE', binning='1x1', offset_ra=0, offset_dec=0,
                  pa=0, dither_ra=5, dither_dec=5, dither_theta=0.0):
@@ -965,7 +910,7 @@ class FOCASConfiguration(InstrumentConfiguration):
 
 class EnvironmentConfiguration(object):
 
-    def __init__(self, seeing=None, airmass=None, moon='any', 
+    def __init__(self, seeing=None, airmass=None, moon='any',
                  transparency=None, moon_sep=None):
         super(EnvironmentConfiguration, self).__init__()
         self.seeing = seeing
@@ -1017,7 +962,7 @@ class CalculationResult(object):
         self.az = float(self.body.az)
         # TODO: deprecate
         self.alt_deg = math.degrees(self.alt)
-        self.az_deg = math.degrees(self.az)        
+        self.az_deg = math.degrees(self.az)
 
         # properties
         self._ut = None
@@ -1030,7 +975,7 @@ class CalculationResult(object):
         self._moon_pct = None
         self._moon_sep = None
 
-        
+
     @property
     def ut(self):
         if self._ut is None:
@@ -1056,7 +1001,7 @@ class CalculationResult(object):
     @property
     def ha(self):
         if self._ha is None:
-            self._ha = self.lmst - self.ra 
+            self._ha = self.lmst - self.ra
         return self._ha
 
     @property
@@ -1108,17 +1053,17 @@ class CalculationResult(object):
         gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
         gmst = ephem.degrees(gmstdeg*numpy.pi/180.0)
         return gmst
-    
+
     def calc_LMST(self, date, longitude):
         """Compute Local Mean Sidereal Time"""
         gmst = self.calc_GMST(date)
         lmst = ephem.degrees(gmst + longitude)
         return lmst.norm
-    
+
     def calc_HA(self, lmst, ra):
         """Compute Hour Angle"""
-        return lmst - ra 
-    
+        return lmst - ra
+
     def calc_parallactic(self, dec, ha, lat, az):
         """Compute parallactic angle"""
         if numpy.cos(dec) != 0.0:
@@ -1139,7 +1084,7 @@ class CalculationResult(object):
         sz = 1.0/numpy.sin(alt) - 1.0
         xp = 1.0 + sz*(0.9981833 - sz*(0.002875 + 0.0008083*sz))
         return xp
-    
+
     def calc_moon(self, site, body):
         """Compute Moon altitude"""
         moon = ephem.Moon()
@@ -1152,7 +1097,7 @@ class CalculationResult(object):
         moon_sep = ephem.separation(moon, body)
         moon_sep = math.degrees(float(moon_sep))
         return (moon_alt, moon_pct, moon_sep)
-        
+
     def calc_separation_alt_az(self, target):
         """Compute deltas for azimuth and altitude from another target"""
         self.target.body.compute(self.observer.site)
@@ -1161,5 +1106,5 @@ class CalculationResult(object):
         delta_az = float(self.body.az) - float(target.az)
         delta_alt = float(self.body.alt) - float(target.alt)
         return (delta_alt, delta_az)
-        
+
 #END

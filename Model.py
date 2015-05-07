@@ -252,11 +252,46 @@ class QueueModel(Callback.Callbacks):
         return good, bad
 
 
-    def fill_schedule(self, schedule, site, oblist, props):
+    def fill_night_schedule(self, schedule, site, oblist, props):
+
+        cantuse = []
+
+        # check all available OBs against this slot and remove those
+        # that cannot be used a priori
+        usable = []
+        for ob in oblist:
+            res = qsim.check_schedule_invariant(site, schedule, ob)
+            if res.obs_ok:
+                usable.append(ob)
+            else:
+                cantuse.append(ob)
+                ob_id = "%s/%s" % (res.ob.program, res.ob.name)
+                self.logger.debug("rejected %s (%s) because: %s" % (
+                    res.ob, ob_id, res.reason))
+
+        # reassign usable OBs
+        oblist = usable
+
+        # make a visibility map, and reject OBs that are not visible
+        # during this night
+        usable = []
+        obmap = {}
+        for ob in oblist:
+            res = qsim.check_night_visibility(site, schedule, ob)
+            if res.obs_ok:
+                usable.append(ob)
+                # record visibility window
+                obmap[str(ob)] = res
+            else:
+                cantuse.append(ob)
+                ob_id = "%s/%s" % (res.ob.program, res.ob.name)
+                self.logger.debug("rejected %s (%s) because: %s" % (
+                    res.ob, ob_id, res.reason))
+
+        # reassign usable OBs
+        oblist = usable
 
         done = False
-        oblist = list(oblist)   # work on a copy
-
         while not done:
             # give GUI thread a chance to run
             #time.sleep(0.0001)
@@ -272,7 +307,7 @@ class QueueModel(Callback.Callbacks):
                 schedule.insert_slot(slot)
                 continue
 
-            # assign filters configuration
+            # assign filters and other configuration details to new slot
             slot.data = schedule.data
 
             # get the previous slot to this one
@@ -283,10 +318,14 @@ class QueueModel(Callback.Callbacks):
             self.logger.debug("considering slot %s" % (slot))
             good, bad = self.eval_slot(prev_slot, slot, site, oblist)
 
+            # remove OBs that can't work in the slot and explain why
             for res in bad:
-                ob_id = "%s/%s" % (res.ob.program, res.ob.name)
+                ob = res.ob
+                ob_id = "%s/%s" % (ob.program, ob.name)
                 self.logger.debug("rejected %s (%s) because: %s" % (
-                    res.ob, ob_id, res.reason))
+                    ob, ob_id, res.reason))
+                cantuse.append(ob)
+                oblist.remove(ob)
 
             # insert top slot/ob into the schedule
             found_one = False
@@ -303,6 +342,8 @@ class QueueModel(Callback.Callbacks):
                 if prop_total > props[str(ob.program)].total_time:
                     self.logger.debug("rejected %s (%s) because it would exceed program allotted time" % (
                         ob, ob_id))
+                    cantuse.append(ob)
+                    oblist.remove(ob)
                     continue
 
                 found_one = True
@@ -316,7 +357,6 @@ class QueueModel(Callback.Callbacks):
                 schedule.insert_slot(slot)
                 continue
 
-            ob = res.ob
             # account this scheduled time to the program
             props[str(ob.program)].sched_time += obtime
             dur = ob.total_time / 60.0
@@ -354,6 +394,7 @@ class QueueModel(Callback.Callbacks):
             oblist.remove(ob)
 
         # return list of unused OBs
+        oblist.extend(cantuse)
         return oblist
 
 
@@ -432,17 +473,18 @@ class QueueModel(Callback.Callbacks):
 
             self.logger.info("scheduling night %s" % (ndate))
 
-            obmap = qsim.obs_to_slots(slots, site, unscheduled_obs)
-            #this_nights_obs = obmap[str(nslot)]
-            # sort to force deterministic scheduling if the same
-            # files are reloaded
-            this_nights_obs = sorted(obmap[str(nslot)],
-                                     cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2)))
-            self.logger.info("%d OBs can be executed this night" % (
-                len(this_nights_obs)))
+            ## obmap = qsim.obs_to_slots(slots, site, unscheduled_obs)
+            ## #this_nights_obs = obmap[str(nslot)]
+            ## # sort to force deterministic scheduling if the same
+            ## # files are reloaded
+            ## this_nights_obs = sorted(obmap[str(nslot)],
+            ##                          cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2)))
+            ## self.logger.info("%d OBs can be executed this night" % (
+            ##     len(this_nights_obs)))
+            this_nights_obs = unscheduled_obs
 
             # optomize and rank schedules
-            self.fill_schedule(schedule, site, this_nights_obs, props)
+            self.fill_night_schedule(schedule, site, this_nights_obs, props)
 
             res = qsim.eval_schedule(schedule)
 

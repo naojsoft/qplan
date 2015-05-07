@@ -42,7 +42,7 @@ def filterchange_ob(ob, total_time):
                        comment="Filter change for %s" % (ob))
     return new_ob
 
-        
+
 def longslew_ob(prev_ob, ob, total_time):
     if prev_ob == None:
         klass = ob.inscfg.__class__
@@ -57,7 +57,7 @@ def longslew_ob(prev_ob, ob, total_time):
                        comment="Long slew for %s" % (ob))
     return new_ob
 
-        
+
 def delay_ob(ob, total_time):
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
@@ -66,7 +66,7 @@ def delay_ob(ob, total_time):
                        comment="Delay for %s visibility" % (ob))
     return new_ob
 
-        
+
 def obs_to_slots(slots, site, obs):
     obmap = {}
     for slot in slots:
@@ -87,28 +87,98 @@ def obs_to_slots(slots, site, obs):
     return obmap
 
 
-def check_slot(site, prev_slot, slot, ob):
+def check_schedule_invariant(site, schedule, ob):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
-    
+
     # check if instrument will be installed
-    if not (ob.inscfg.insname in slot.data.instruments):
+    if not (ob.inscfg.insname in schedule.data.instruments):
         res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
             ob.inscfg.insname))
         return res
 
     # check if filter will be installed
-    if not (ob.inscfg.filter in slot.data.filters):
+    if not (ob.inscfg.filter in schedule.data.filters):
         res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
-            ob.inscfg.filter, slot.data.filters))
+            ob.inscfg.filter, schedule.data.filters))
         return res
 
-    # check if this slot can take this category
-    if not ob.program.category in slot.data.categories:
+    # check if this schedule can take this category
+    if not ob.program.category in schedule.data.categories:
         res.setvals(obs_ok=False,
                     reason="Slot cannot take category '%s'" % (
             ob.program.category))
         return res
+
+    ## # if observer specified a moon phase, check it now
+    ## if ob.envcfg.moon == 'dark':
+    ##     moon_pct = site.moon_phase(date=slot.start_time)
+    ##     if moon_pct > dark_night_moon_pct_limit:
+    ##         res.setvals(obs_ok=False,
+    ##                     reason="Moon illumination=%f not acceptable" % (
+    ##             moon_pct))
+    ##         return res
+
+    res.setvals(obs_ok=True)
+    return res
+
+
+def check_night_visibility(site, schedule, ob):
+
+    res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
+
+    # Check visibility of target
+    c1 = ob.target.calc(site, schedule.start_time)
+
+    min_el, max_el = ob.telcfg.get_el_minmax()
+
+    # is this target visible during this night, and when?
+    (obs_ok, t_start, t_stop) = site.observable(ob.target,
+                                                schedule.start_time,
+                                                schedule.stop_time,
+                                                min_el, max_el, ob.total_time,
+                                                airmass=ob.envcfg.airmass,
+                                                moon_sep=ob.envcfg.moon_sep)
+
+    if not obs_ok:
+        res.setvals(obs_ok=False,
+                    reason="Time or visibility of target")
+        return res
+
+    res.setvals(obs_ok=obs_ok, start_time=t_start, stop_time=t_stop)
+    return res
+
+
+def check_slot(site, prev_slot, slot, ob):
+
+    res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
+
+    # Check whether OB will fit in this slot
+    delta = (slot.stop_time - slot.start_time).total_seconds()
+    if ob.total_time > delta:
+        res.setvals(obs_ok=False,
+                    reason="Slot duration (%d) too short for OB (%d)" % (
+            delta, ob.total_time))
+        return res
+
+    ## # check if instrument will be installed
+    ## if not (ob.inscfg.insname in slot.data.instruments):
+    ##     res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
+    ##         ob.inscfg.insname))
+    ##     return res
+
+    ## # check if filter will be installed
+    ## if not (ob.inscfg.filter in slot.data.filters):
+    ##     res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
+    ##         ob.inscfg.filter, slot.data.filters))
+    ##     return res
+
+    ## # check if this slot can take this category
+    ## if not ob.program.category in slot.data.categories:
+    ##     res.setvals(obs_ok=False,
+    ##                 reason="Slot cannot take category '%s'" % (
+    ##         ob.program.category))
+    ##     return res
 
     filterchange = False
     filterchange_sec = 0.0
@@ -142,12 +212,12 @@ def check_slot(site, prev_slot, slot, ob):
 
         start_time = slot.start_time + timedelta(0, prep_sec)
         stop_time = start_time + timedelta(0, ob.total_time)
-        
+
         # Check whether OB will fit in this slot
         if slot.stop_time < stop_time:
             res.setvals(obs_ok=False, reason="Not enough time in slot")
             return res
-        
+
         res.setvals(obs_ok=True, prev_ob=prev_ob,
                     prep_sec=prep_sec, slew_sec=0.0,
                     delta_az=0.0, delta_alt=0.0,
@@ -167,18 +237,6 @@ def check_slot(site, prev_slot, slot, ob):
         return res
 
     # check sky condition on the slot is acceptable to this ob
-    ## if ob.envcfg.sky == 'clear':
-    ##     if slot.data.skycond != 'clear':
-    ##         res.setvals(obs_ok=False,
-    ##                     reason="Sky condition '%s' not acceptable ('%s' specified)" % (
-    ##             slot.data.skycond, ob.envcfg.sky))
-    ##         return res
-    ## elif ob.envcfg.sky == 'cirrus':
-    ##     if slot.data.skycond == 'any':
-    ##         res.setvals(obs_ok=False,
-    ##                     reason="Sky condition '%s' not acceptable ('%s' specified)" % (
-    ##             slot.data.skycond, ob.envcfg.sky))
-    ##         return res
     if ob.envcfg.transparency is not None:
         if slot.data.transparency < ob.envcfg.transparency:
             res.setvals(obs_ok=False,
@@ -267,7 +325,7 @@ def eval_schedule(schedule):
     current_filter = None
     num_filter_exchanges = 0
     time_waste_sec = 0.0
-    
+
     for slot in schedule.slots:
         ob = slot.ob
         # TODO: fix up a more solid check for delays
@@ -283,6 +341,6 @@ def eval_schedule(schedule):
     res = Bunch.Bunch(num_filter_exchanges=num_filter_exchanges,
                       time_waste_sec=time_waste_sec)
     return res
-            
+
 
 # END
