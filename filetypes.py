@@ -4,6 +4,8 @@
 # Russell Kackley (rkackley@naoj.org)
 # Eric Jeschke (eric@naoj.org)
 #
+import os
+import pandas as pd
 import csv
 import string
 import StringIO
@@ -11,28 +13,89 @@ import StringIO
 import entity
 from ginga.misc import Bunch
 
+class FileNotFoundError(Exception):
+    pass
+class UnknownFileFormatError(Exception):
+    pass
 
 class QueueFile(object):
 
     # Default format parameters for reading/writing CSV files.
     fmtparams = {'delimiter':',', 'quotechar':'"', 'quoting': csv.QUOTE_MINIMAL}
+    # The order of the file extensions in all_ext defines the
+    # preferred order of searching for files, i.e., we search for
+    # *.xlsx files first, and, if not found, proceed on to the next
+    # extension in the list.
+    excel_ext = ['xlsx', 'xls']
+    all_ext = excel_ext + ['csv']
 
-    def __init__(self, filepath, logger, **parse_kwdargs):
-        self.filepath = filepath
+    def __init__(self, input_dir, file_prefix, logger, file_ext=None, **parse_kwdargs):
+        self.input_dir = input_dir
         self.logger = logger
         self.queue_file = None
         self.columnNames = []
         self.rows = []
         self.parse_kwdargs = parse_kwdargs
 
-        # Read the supplied filepath into a StringIO object. This
-        # makes it easier to process and parse the file contents with
-        # the CSV classes.
-        with open(filepath, 'rb') as f:
-            self.queue_file = StringIO.StringIO(f.read())
+        self.file_prefix = file_prefix
+        self.file_ext = file_ext
+        self.filepath = None
+        self.stringio = {}
+
+    def find_filepath(self):
+        self.filepath = None
+        # If the file extension is specified, use it to find the
+        # file. Otherwise, use the file extensions in the all_ext list.
+        if self.file_ext:
+            filename = '.'.join([self.file_prefix, self.file_ext])
+            filepath = os.path.join(self.input_dir, filename)
+            if os.path.exists(filepath):
+                self.filepath = filepath
+            else:
+                raise FileNotFoundError('File %s not found' % filepath)
+        else:
+            for file_ext in self.all_ext:
+                filename = '.'.join([self.file_prefix, file_ext])
+                filepath = os.path.join(self.input_dir, filename)
+                if os.path.exists(filepath):
+                    self.filepath = filepath
+                    self.file_ext = file_ext
+                    break
+
+        if not self.filepath:
+            raise FileNotFoundError("File with prefix '%s' and extension %s not found" % (self.file_prefix, self.all_ext))
+
+    def read_csv_file(self):
+        if self.filepath:
+            self.logger.info('Reading file %s' % self.filepath)
+            with open(self.filepath, 'rb') as f:
+                self.stringio[self.file_prefix] = StringIO.StringIO(f.read())
+        else:
+            raise IOError('File path not defined for file prefix %s' % self.file_prefix)
+
+    def read_excel_file(self):
+        if self.filepath:
+            self.logger.info('Reading file %s' % self.filepath)
+            with pd.ExcelFile(self.filepath) as datasrc:
+                for name in datasrc.sheet_names:
+                    dataframe = datasrc.parse(name)
+                    self.stringio[name] = StringIO.StringIO()
+                    dataframe.to_csv(self.stringio[name], index=False)
+                    self.stringio[name].seek(0)
+        else:
+            raise IOError('File path not defined for file prefix %s' % self.file_prefix)
+
+    def is_excel_file(self):
+        if self.file_ext in self.excel_ext:
+            return True
+        else:
+            return False
+
+    def process_input(self, name):
 
         # Read and save the first line, which should have the column
         # titles.
+        self.queue_file = self.stringio[name]
         reader = csv.reader(self.queue_file, **self.fmtparams)
         self.columnNames = next(reader)
 
@@ -127,9 +190,8 @@ class QueueFile(object):
             rec[attrkey] = row[i]
         return rec
 
-
 class ScheduleFile(QueueFile):
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
         # schedule_info is the list of tuples that will be used by the
         # observing block scheduling functions.
         self.schedule_info = []
@@ -145,8 +207,15 @@ class ScheduleFile(QueueFile):
             'dome': 'dome',
             'note': 'note',
             }
-        super(ScheduleFile, self).__init__(filepath, logger)
-
+        super(ScheduleFile, self).__init__(input_dir, 'schedule', logger, file_ext)
+        self.find_filepath()
+        if self.file_ext == 'csv':
+            self.read_csv_file()
+        elif self.is_excel_file:
+            self.read_excel_file()
+        else:
+            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+        self.process_input('schedule')
 
     def parse_input(self):
         """
@@ -206,7 +275,7 @@ class ScheduleFile(QueueFile):
 
 
 class ProgramsFile(QueueFile):
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
         # programs_info is the dictionary of Program objects that will
         # be used by the observing block scheduling functions.
         self.programs_info = {}
@@ -221,7 +290,15 @@ class ProgramsFile(QueueFile):
             'partner': 'partner',
             'skip': 'skip',
             }
-        super(ProgramsFile, self).__init__(filepath, logger)
+        super(ProgramsFile, self).__init__(input_dir, 'programs', logger, file_ext)
+        self.find_filepath()
+        if self.file_ext == 'csv':
+            self.read_csv_file()
+        elif self.is_excel_file:
+            self.read_excel_file()
+        else:
+            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+        self.process_input('programs')
 
     def parse_input(self):
         """
@@ -275,7 +352,7 @@ class ProgramsFile(QueueFile):
 
 class WeightsFile(QueueFile):
 
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
 
         self.weights = Bunch.Bunch()
         self.column_map = {
@@ -285,7 +362,15 @@ class WeightsFile(QueueFile):
             'rank': 'w_rank',
             'priority': 'w_priority',
             }
-        super(WeightsFile, self).__init__(filepath, logger)
+        super(WeightsFile, self).__init__(input_dir, 'weights', logger, file_ext)
+        self.find_filepath()
+        if self.file_ext == 'csv':
+            self.read_csv_file()
+        elif self.is_excel_file:
+            self.read_excel_file()
+        else:
+            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+        self.process_input('weights')
 
     def parse_input(self):
         """
@@ -324,7 +409,7 @@ class WeightsFile(QueueFile):
 
 
 class TelCfgFile(QueueFile):
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
         self.tel_cfgs = {}
         self.column_map = {
             'code': 'code',
@@ -332,7 +417,7 @@ class TelCfgFile(QueueFile):
             'dome': 'dome',
             'comment': 'comment',
             }
-        super(TelCfgFile, self).__init__(filepath, logger)
+        super(TelCfgFile, self).__init__(input_dir, 'telcfg', logger, file_ext)
 
     def parse_input(self):
         """
@@ -377,7 +462,7 @@ class TelCfgFile(QueueFile):
 
 
 class EnvCfgFile(QueueFile):
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
         self.env_cfgs = {}
         self.column_map = {
             'code': 'code',
@@ -389,7 +474,7 @@ class EnvCfgFile(QueueFile):
             'transparency': 'transparency',
             'comment': 'comment',
             }
-        super(EnvCfgFile, self).__init__(filepath, logger)
+        super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
 
     def parse_input(self):
         """
@@ -434,7 +519,7 @@ class EnvCfgFile(QueueFile):
 
 
 class TgtCfgFile(QueueFile):
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
         self.tgt_cfgs = {}
         self.column_map = {
             'code': 'code',
@@ -444,7 +529,7 @@ class TgtCfgFile(QueueFile):
             'equinox': 'eq',
             'comment': 'comment',
             }
-        super(TgtCfgFile, self).__init__(filepath, logger)
+        super(TgtCfgFile, self).__init__(input_dir, 'targets', logger, file_ext)
 
     def parse_input(self):
         """
@@ -489,7 +574,7 @@ class TgtCfgFile(QueueFile):
 
 
 class InsCfgFile(QueueFile):
-    def __init__(self, filepath, logger):
+    def __init__(self, input_dir, logger, file_ext=None):
         self.ins_cfgs = {}
 
         # All instrument configs should have at least these
@@ -549,7 +634,7 @@ class InsCfgFile(QueueFile):
                         'comment': 'comment',
                         }),
             }
-        super(InsCfgFile, self).__init__(filepath, logger)
+        super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
 
     def parse_input(self):
         """
@@ -600,8 +685,8 @@ class InsCfgFile(QueueFile):
 
 
 class OBListFile(QueueFile):
-    def __init__(self, filepath, logger, propname, propdict,
-                 telcfgs, tgtcfgs, inscfgs, envcfgs):
+    def __init__(self, input_dir, logger, propname, propdict,
+                 telcfgs, tgtcfgs, inscfgs, envcfgs, file_ext=None):
         # obs_info is the list of OB objects that will be used by the
         # observing block scheduling functions.
         self.obs_info = []
@@ -624,7 +709,7 @@ class OBListFile(QueueFile):
             'total_time': 'total_time',
             'comment': 'comment',
             }
-        super(OBListFile, self).__init__(filepath, logger)
+        super(OBListFile, self).__init__(input_dir, 'ob', logger, file_ext=file_ext)
 
     def parse_input(self):
         """
@@ -676,6 +761,59 @@ class OBListFile(QueueFile):
                 raise ValueError("Error reading line %d of oblist from file %s: %s" % (
                     lineNum, self.filepath, str(e)))
 
+class ProgramFile(QueueFile):
+    def __init__(self, input_dir, logger, propname, propdict, file_ext=None):
+        super(ProgramFile, self).__init__(input_dir, propname, logger, file_ext)
 
+        self.cfg = {}
+        dir_path = os.path.join(input_dir, propname)
+        self.cfg['telcfg'] = TelCfgFile(dir_path, logger, file_ext)
+        self.cfg['inscfg'] = InsCfgFile(dir_path, logger, file_ext)
+        self.cfg['envcfg'] = EnvCfgFile(dir_path, logger, file_ext)
+        self.cfg['targets'] = TgtCfgFile(dir_path, logger, file_ext)
+
+        try:
+            self.find_filepath()
+        except FileNotFoundError, e:
+            if self.file_ext == None or self.file_ext == 'csv':
+                pass
+            else:
+                raise FileNotFoundError(e)
+
+        if self.is_excel_file():
+            self.read_excel_file()
+
+            for name, cfg in self.cfg.iteritems():
+                cfg.stringio[name] = self.stringio[name]
+                cfg.process_input(name)
+
+            self.cfg['ob'] = OBListFile(dir_path, logger, propname, propdict,
+                                        self.cfg['telcfg'].tel_cfgs,
+                                        self.cfg['targets'].tgt_cfgs,
+                                        self.cfg['inscfg'].ins_cfgs,
+                                        self.cfg['envcfg'].env_cfgs,
+                                        file_ext=file_ext)
+            self.cfg['ob'].stringio['ob'] = self.stringio['ob']
+            self.cfg['ob'].process_input('ob')
+
+        elif os.path.isdir(dir_path) or file_ext == 'csv':
+
+            for name, cfg in self.cfg.iteritems():
+                cfg.find_filepath()
+                cfg.read_csv_file()
+                cfg.process_input(name)
+
+            self.cfg['ob'] = OBListFile(dir_path, logger, propname, propdict,
+                                        self.cfg['telcfg'].tel_cfgs,
+                                        self.cfg['targets'].tgt_cfgs,
+                                        self.cfg['inscfg'].ins_cfgs,
+                                        self.cfg['envcfg'].env_cfgs,
+                                        file_ext=file_ext)
+            self.cfg['ob'].find_filepath()
+            self.cfg['ob'].read_csv_file()
+            self.cfg['ob'].process_input('ob')
+
+        else:
+            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
 
 #END

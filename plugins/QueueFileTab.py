@@ -205,13 +205,16 @@ class QueueFileTab(PlBase.Plugin):
             for i in range(count):
                 self.inputData.rows.pop(row)
             self.inputData.parse()
-            self.file_save_item.setEnabled(True)
+            self.enable_save_item(self.model)
 
     def enable_save_item(self, qmodel):
         # This method will be called when the user changes something
         # in the table. Enable the "Save" item so that the user can
-        # save the updated data to the output file.
-        self.file_save_item.setEnabled(True)
+        # save the updated data to the output file. Currently, we
+        # cannot preserve formulas in an Excel file, so we only enable
+        # the menu item if the inputData is *not* an Excel file.
+        if not self.inputData.is_excel_file():
+            self.file_save_item.setEnabled(True)
 
 class TableModel(GenericTableModel):
 

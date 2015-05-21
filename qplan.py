@@ -117,6 +117,7 @@ def main(options, args):
     # Start up the control/display engine
     qplanner = QueuePlanner(logger, threadPool, mm, prefs, ev_quit, model)
     qplanner.set_input_dir(options.input_dir)
+    qplanner.set_input_fmt(options.input_fmt)
 
     # Build desired layout
     qplanner.build_toplevel(default_layout)
@@ -190,6 +191,9 @@ if __name__ == "__main__":
     optprs.add_option("-i", "--input", dest="input_dir", default=".",
                       metavar="DIRECTORY",
                       help="Read input files from DIRECTORY")
+    optprs.add_option("-f", "--format", dest="input_fmt", default=None,
+                      metavar="FILE_FORMAT",
+                      help="Specify input file format (csv, xls, or xlsx)")
     optprs.add_option("--log", dest="logfile", metavar="FILE",
                       help="Write logging output to FILE")
     optprs.add_option("--loglevel", dest="loglevel", metavar="LEVEL",

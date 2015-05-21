@@ -109,39 +109,25 @@ class ControlPanel(PlBase.Plugin):
 
     def initialize_model_cb(self, widget):
         self.input_dir = self.w.input_dir.get_text().strip()
+        self.input_fmt = self.controller.input_fmt
 
         try:
             # read weights
-            weights_file = os.path.join(self.input_dir, "weights.csv")
-            if not os.path.exists(weights_file):
-                self.logger.error("File not readable: %s" % (weights_file))
-                return
-            self.logger.info("reading weights from %s" % (weights_file))
-            self.weights_qf = filetypes.WeightsFile(weights_file, self.logger)
+            self.weights_qf = filetypes.WeightsFile(self.input_dir, self.logger, file_ext=self.input_fmt)
             # Load "Weights" Tab
             if 'weightstab' not in self.view.plugins:
                 self.view.load_plugin('weightstab', 'WeightsTab', 'WeightsTab', 'report', 'Weights')
             self.model.set_weights_qf(self.weights_qf)
 
             # read schedule
-            schedule_file = os.path.join(self.input_dir, "schedule.csv")
-            if not os.path.exists(schedule_file):
-                self.logger.error("File not readable: %s" % (schedule_file))
-                return
-            self.logger.info("reading schedule from %s" % (schedule_file))
-            self.schedule_qf = filetypes.ScheduleFile(schedule_file, self.logger)
+            self.schedule_qf = filetypes.ScheduleFile(self.input_dir, self.logger, file_ext=self.input_fmt)
             # Load "Schedule" Tab
             if 'scheduletab' not in self.view.plugins:
                 self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
             self.model.set_schedule_qf(self.schedule_qf)
 
             # read proposals
-            proposal_file = os.path.join(self.input_dir, "programs.csv")
-            if not os.path.exists(proposal_file):
-                self.logger.error("File not readable: %s" % (proposal_file))
-                return
-            self.logger.info("reading proposals from %s" % (proposal_file))
-            self.programs_qf = filetypes.ProgramsFile(proposal_file, self.logger)
+            self.programs_qf = filetypes.ProgramsFile(self.input_dir, self.logger, file_ext=self.input_fmt)
             if 'programstab' not in self.view.plugins:
                 self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
             self.model.set_programs_qf(self.programs_qf)
@@ -158,64 +144,30 @@ class ControlPanel(PlBase.Plugin):
             propnames.sort()
 
             for propname in propnames:
-                obdir = os.path.join(self.input_dir, propname)
-                if not os.path.isdir(obdir):
-                    self.logger.error("Directory not readable: %s" % (obdir))
-                    continue
+                pf = filetypes.ProgramFile(self.input_dir, self.logger, propname, self.programs_qf.programs_info, file_ext=self.input_fmt)
 
-                # Read telcfg
-                csvfile = os.path.join(obdir, "telcfg.csv")
-                if not os.path.exists(csvfile):
-                    self.logger.error("File not readable: %s" % (csvfile))
-                    continue
-                self.logger.info("loading telescope configuration file %s" % (csvfile))
-                telcfg_qf = filetypes.TelCfgFile(csvfile, self.logger)
+                # Set telcfg
+                telcfg_qf = pf.cfg['telcfg']
                 self.telcfg_qf_dict[propname] = telcfg_qf
                 self.model.set_telcfg_qf_dict(self.telcfg_qf_dict)
                 
-                # Read inscfg
-                csvfile = os.path.join(obdir, "inscfg.csv")
-                if not os.path.exists(csvfile):
-                    self.logger.error("File not readable: %s" % (csvfile))
-                    continue
-                self.logger.info("loading instrument configuration file %s" % (csvfile))
-                inscfg_qf = filetypes.InsCfgFile(csvfile, self.logger)
+                # Set inscfg
+                inscfg_qf = pf.cfg['inscfg']
                 self.inscfg_qf_dict[propname] = inscfg_qf
                 self.model.set_inscfg_qf_dict(self.inscfg_qf_dict)
                 
-                # Read envcfg
-                csvfile = os.path.join(obdir, "envcfg.csv")
-                if not os.path.exists(csvfile):
-                    self.logger.error("File not readable: %s" % (csvfile))
-                    continue
-                self.logger.info("loading environment configuration file %s" % (csvfile))
-                envcfg_qf = filetypes.EnvCfgFile(csvfile, self.logger)
+                # Set envcfg
+                envcfg_qf = pf.cfg['envcfg']
                 self.envcfg_qf_dict[propname] = envcfg_qf
                 self.model.set_envcfg_qf_dict(self.envcfg_qf_dict)
 
-                # Read targets
-                csvfile = os.path.join(obdir, "targets.csv")
-                if not os.path.exists(csvfile):
-                    self.logger.error("File not readable: %s" % (csvfile))
-                    continue
-                self.logger.info("loading targets configuration file %s" % (csvfile))
-                tgtcfg_qf = filetypes.TgtCfgFile(csvfile, self.logger)
+                # Set targets
+                tgtcfg_qf = pf.cfg['targets']
                 self.tgtcfg_qf_dict[propname] = tgtcfg_qf
                 self.model.set_tgtcfg_qf_dict(self.tgtcfg_qf_dict)
                 
-                # Finally, read OBs
-                obfile = os.path.join(obdir, "ob.csv")
-                if not os.path.exists(obfile):
-                    self.logger.error("File not readable: %s" % (obfile))
-                    continue
-                self.ob_qf_dict[propname] = filetypes.OBListFile(obfile,
-                                                                 self.logger,
-                                                                 propname,
-                                                                 self.programs_qf.programs_info,
-                                                                 telcfg_qf.tel_cfgs,
-                                                                 tgtcfg_qf.tgt_cfgs,
-                                                                 inscfg_qf.ins_cfgs,
-                                                                 envcfg_qf.env_cfgs)
+                # Finally, set OBs
+                self.ob_qf_dict[propname] = pf.cfg['ob']
                 #self.oblist_info.extend(self.oblist[propname].obs_info)
             self.model.set_ob_qf_dict(self.ob_qf_dict)
 

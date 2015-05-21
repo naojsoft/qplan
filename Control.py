@@ -35,4 +35,6 @@ class Controller(Callback.Callbacks):
     def set_input_dir(self, path):
         self.input_dir = path
         
+    def set_input_fmt(self, fmt):
+        self.input_fmt = fmt
 #END
