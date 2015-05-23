@@ -454,6 +454,7 @@ class QueueModel(Callback.Callbacks):
             props[pgmname].obcount += 1
 
         unscheduled_obs = list(oblist)
+        total_avail = 0.0
         total_waste = 0.0
 
         self.logger.info("scheduling %d OBs (from %d programs) for %d nights" % (
@@ -464,6 +465,7 @@ class QueueModel(Callback.Callbacks):
             start_time = schedule.start_time
             stop_time  = schedule.stop_time
             delta = (stop_time - start_time).total_seconds()
+            total_avail += delta / 60.0
 
             nslot = entity.Slot(start_time, delta, data=schedule.data)
             slots = [ nslot ]
@@ -560,7 +562,7 @@ class QueueModel(Callback.Callbacks):
                 bnch.obcount-len(bnch.obs), bnch.obcount, pct,
                 uncompleted_s))
         out_f.write("\n")
-        out_f.write("Total unscheduled time: %8.2f min\n" % (total_waste))
+        out_f.write("Total time: avail=%8.2f sched=%8.2f unsched=%8.2f min\n" % (total_avail, (total_avail - total_waste), total_waste))
         self.summary_report = out_f.getvalue()
         out_f.close()
         self.logger.info(self.summary_report)

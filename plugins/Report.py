@@ -117,9 +117,10 @@ class Report(PlBase.Plugin):
                 out_f.write("%-16.16s  %-6.6s\n" % (date, str(ob)))
 
         out_f.write("\n")
+        time_avail = (schedule.stop_time - schedule.start_time).total_seconds() / 60.0
         waste = res.time_waste_sec / 60.0
-        out_f.write("%d targets  %d filter exch  unscheduled: time=%.2f min\n" % (
-            len(targets), res.num_filter_exchanges, waste))
+        out_f.write("%d targets  %d filter exch  Time: avail=%.2f sched=%.2f unsched=%.2f min\n" % (
+            len(targets), res.num_filter_exchanges, time_avail, (time_avail - waste), waste))
         out_f.write("\n")
 
         self.schedules[schedule] = Bunch.Bunch(report=out_f.getvalue())
