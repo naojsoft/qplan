@@ -19,6 +19,9 @@ class Resolution(PlBase.Plugin):
         self.oblist_index = None
         self.ob_resolution = {}
         self.oblist_indices = []
+        # These are the default quality buttons. They can be
+        # overridden in a sub-class if desired.
+        self.qualityButtons = ('Good', 'Marginal', 'Bad')
 
     def build_gui(self, container):
         # Create a scrollable area
@@ -67,27 +70,26 @@ class Resolution(PlBase.Plugin):
         # Create a frame for the data quality buttons
         data_button_frame = Widgets.Frame()
         # Create some radio buttons to describe the data quality
-        captions = (('Data Quality:', 'label'),
-                    ('Excellent', 'radiobutton',
-                     'Good', 'radiobutton',
-                     'Fair', 'radiobutton',
-                     'Questionable', 'radiobutton',
-                     'Bad', 'radiobutton'),)
+        buttonList = []
+        self.qualityButtonVals = {}
+        for i, name in enumerate(self.qualityButtons):
+            buttonList.append(name)
+            buttonList.append('radiobutton')
+            self.qualityButtonVals[name] = len(self.qualityButtons) - i
+        captions = (('Data Quality:', 'label'), buttonList)
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w_data_buttons = b
 
-        b.excellent.add_callback('activated', self.rate_cb, 5);
-        b.good.add_callback('activated', self.rate_cb, 4);
-        b.fair.add_callback('activated', self.rate_cb, 3);
-        b.questionable.add_callback('activated', self.rate_cb, 2);
-        b.bad.add_callback('activated', self.rate_cb, 1);
+        # Set the callback method for the data quality radio buttons
+        for name in self.qualityButtons:
+            b[name.lower()].add_callback('activated', self.rate_cb, self.qualityButtonVals[name]);
 
+        # Put the quality buttons into a QButtonGroup so that we set
+        # up the buttons as "exclusive", i.e., only one button can be
+        # selected at a time.
         self.data_bg = QtGui.QButtonGroup()
-        self.data_bg.addButton(self.w_data_buttons.excellent.get_widget())
-        self.data_bg.addButton(self.w_data_buttons.good.get_widget())
-        self.data_bg.addButton(self.w_data_buttons.fair.get_widget())
-        self.data_bg.addButton(self.w_data_buttons.questionable.get_widget())
-        self.data_bg.addButton(self.w_data_buttons.bad.get_widget())
+        for name in self.qualityButtons:
+            self.data_bg.addButton(self.w_data_buttons[name.lower()].get_widget())
 
         # Place the radio buttons into the frame
         data_button_frame.set_widget(w)
@@ -231,11 +233,8 @@ class Resolution(PlBase.Plugin):
             ob_str = str(ob)
             self.w_comments.comment_entry.clear()
             self.data_bg.setExclusive(False)
-            self.w_data_buttons.excellent.set_state(False)
-            self.w_data_buttons.good.set_state(False)
-            self.w_data_buttons.fair.set_state(False)
-            self.w_data_buttons.questionable.set_state(False)
-            self.w_data_buttons.bad.set_state(False)
+            for name in self.qualityButtons:
+                self.w_data_buttons[name.lower()].set_state(False)
             self.data_bg.setExclusive(True)
             self.ob_resolution[ob_str]['OB_Comments'] = ''
             self.ob_resolution[ob_str]['dq'] = 0
@@ -264,11 +263,8 @@ class Resolution(PlBase.Plugin):
             self.w_comments.comment_entry.set_text(resolution['OB_Comments'])
             self.data_bg.setExclusive(False)
             dq = resolution['dq']
-            self.w_data_buttons.excellent.set_state(dq == 5)
-            self.w_data_buttons.good.set_state(dq == 4)
-            self.w_data_buttons.fair.set_state(dq == 3)
-            self.w_data_buttons.questionable.set_state(dq == 2)
-            self.w_data_buttons.bad.set_state(dq == 1)
+            for name in self.qualityButtons:
+                self.w_data_buttons[name.lower()].set_state(dq == self.qualityButtonVals[name])
             self.data_bg.setExclusive(True)
         except Exception as e:
             self.logger.error(str(e))
