@@ -22,14 +22,15 @@ sys.path.insert(0, pluginHome)
 # Subaru python stdlib imports
 from ginga.misc import ModuleManager, Settings, Task, Bunch
 from ginga.misc import log
-from ginga.Control import GuiLogHandler
 
 # Local application imports
 from Control import Controller
 from View import Viewer
 from Model import QueueModel
+# must import AFTER Viewer
+from ginga.Control import GuiLogHandler
 
-version = "20140804.0"
+version = "20150605.0"
 
 defaultServiceName = 'queueplanner'
 
@@ -40,7 +41,7 @@ default_layout = ['seq', {},
                     dict(row=['hpanel', {},
                      ['ws', dict(name='left', width=300, show_tabs=False),
                       # (tabname, layout), ...
-                      ], 
+                      ],
                      ['vpanel', {},
                       ['hpanel', dict(height=400),
                        ['vbox', dict(name='main', width=700),
@@ -58,7 +59,7 @@ default_layout = ['seq', {},
                      ], stretch=1),
                     dict(row=['hbox', dict(name='status')], stretch=0),
                     ]]
-                 
+
 
 plugins = [
     # pluginName, moduleName, className, workspaceName, tabName
@@ -93,7 +94,7 @@ def main(options, args):
 
     threadPool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
                                  numthreads=options.numthreads)
-    
+
     # Get settings folder
     ## if os.environ.has_key('CONFHOME'):
     ##     basedir = os.path.join(os.environ['CONFHOME'], svcname)
@@ -113,7 +114,7 @@ def main(options, args):
     ##         self.mm.loadModule(name)
 
     model = QueueModel(logger=logger)
-    
+
     # Start up the control/display engine
     qplanner = QueuePlanner(logger, threadPool, mm, prefs, ev_quit, model)
     qplanner.set_input_dir(options.input_dir)
@@ -167,16 +168,16 @@ def main(options, args):
         threadPool.stopall(wait=True)
 
     sys.exit(0)
-        
+
 
 if __name__ == "__main__":
-   
+
     # Parse command line options with nifty new optparse module
     from optparse import OptionParser
 
     usage = "usage: %prog [options] cmd [args]"
     optprs = OptionParser(usage=usage, version=('%%prog %s' % version))
-    
+
     optprs.add_option("--date-start", dest="date_start", default=None,
                       help="Define the start of the schedule ('YYYY-MM-DD HH:MM')")
     optprs.add_option("--date-stop", dest="date_stop", default=None,
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     ## optprs.add_option("--monitor", dest="monitor", metavar="NAME",
     ##                   default='monitor',
     ##                   help="Synchronize from monitor named NAME")
-    ## optprs.add_option("--monchannels", dest="monchannels", 
+    ## optprs.add_option("--monchannels", dest="monchannels",
     ##                   default='status', metavar="NAMES",
     ##                   help="Specify monitor channels to subscribe to")
     ## optprs.add_option("--monport", dest="monport", type="int",

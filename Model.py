@@ -441,21 +441,39 @@ class QueueModel(Callback.Callbacks):
 
         # build a lookup table of programs -> OBs
         props = {}
+        total_program_time = 0
         for key in self.programs:
             total_time = self.programs[key].total_time
             props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[],
                                      obcount=0, sched_time=0.0,
                                      total_time=total_time)
+            total_program_time += total_time
 
         # count OBs in each program
+        total_ob_time = 0
         for ob in self.oblist:
             pgmname = str(ob.program)
             props[pgmname].obs.append(ob)
             props[pgmname].obcount += 1
+            # New policy is not to charge any overhead to the client,
+            # including readout time
+            obtime_no_overhead = ob.inscfg.exp_time * ob.inscfg.num_exp
+            total_ob_time += obtime_no_overhead
 
         unscheduled_obs = list(oblist)
         total_avail = 0.0
         total_waste = 0.0
+
+        # Note oversubscribed time
+        self.logger.info("total program time=%d  total ob time=%d" % (
+            total_program_time, total_ob_time))
+        diff = total_ob_time - total_program_time
+        if diff > 0:
+            hrs = float(diff) / 3600.0
+            self.logger.info("oversubscribed by %.2f hours" % (hrs))
+        elif diff < 0:
+            hrs = float(-diff) / 3600.0
+            self.logger.info("undersubscribed by %.2f hours" % (hrs))
 
         self.logger.info("scheduling %d OBs (from %d programs) for %d nights" % (
             len(unscheduled_obs), len(self.programs), len(schedules)))
@@ -476,15 +494,11 @@ class QueueModel(Callback.Callbacks):
 
             self.logger.info("scheduling night %s" % (ndate))
 
-            ## obmap = qsim.obs_to_slots(slots, site, unscheduled_obs)
-            ## #this_nights_obs = obmap[str(nslot)]
-            ## # sort to force deterministic scheduling if the same
-            ## # files are reloaded
-            ## this_nights_obs = sorted(obmap[str(nslot)],
-            ##                          cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2)))
-            ## self.logger.info("%d OBs can be executed this night" % (
-            ##     len(this_nights_obs)))
-            this_nights_obs = unscheduled_obs
+            ## this_nights_obs = unscheduled_obs
+            # sort to force deterministic scheduling if the same
+            # files are reloaded
+            this_nights_obs = sorted(unscheduled_obs,
+                                     cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2)))
 
             # optomize and rank schedules
             self.fill_night_schedule(schedule, site, this_nights_obs, props)

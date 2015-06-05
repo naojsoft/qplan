@@ -1,6 +1,6 @@
 #
 # ControlPanel.py -- AirMass chart plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 import os.path
@@ -55,7 +55,7 @@ class ControlPanel(PlBase.Plugin):
 
         spacer = Widgets.Label('')
         vbox.add_widget(spacer, stretch=1)
-        
+
         hbox = Widgets.HBox()
 
         adj = Widgets.ScrollBar(orientation='horizontal')
@@ -64,7 +64,7 @@ class ControlPanel(PlBase.Plugin):
         adj_w.setSingleStep(1)
         adj_w.setPageStep(10)
         #adj_w.setMaximum(1000)
-        idx = self.controller.idx_tgt_plots        
+        idx = self.controller.idx_tgt_plots
         adj_w.setValue(idx)
         #adj_w.resize(200, -1)
         adj_w.setTracking(True)
@@ -150,12 +150,12 @@ class ControlPanel(PlBase.Plugin):
                 telcfg_qf = pf.cfg['telcfg']
                 self.telcfg_qf_dict[propname] = telcfg_qf
                 self.model.set_telcfg_qf_dict(self.telcfg_qf_dict)
-                
+
                 # Set inscfg
                 inscfg_qf = pf.cfg['inscfg']
                 self.inscfg_qf_dict[propname] = inscfg_qf
                 self.model.set_inscfg_qf_dict(self.inscfg_qf_dict)
-                
+
                 # Set envcfg
                 envcfg_qf = pf.cfg['envcfg']
                 self.envcfg_qf_dict[propname] = envcfg_qf
@@ -165,11 +165,11 @@ class ControlPanel(PlBase.Plugin):
                 tgtcfg_qf = pf.cfg['targets']
                 self.tgtcfg_qf_dict[propname] = tgtcfg_qf
                 self.model.set_tgtcfg_qf_dict(self.tgtcfg_qf_dict)
-                
+
                 # Finally, set OBs
                 self.ob_qf_dict[propname] = pf.cfg['ob']
                 #self.oblist_info.extend(self.oblist[propname].obs_info)
-            self.model.set_ob_qf_dict(self.ob_qf_dict)
+                self.model.set_ob_qf_dict(self.ob_qf_dict)
 
         except Exception as e:
             self.logger.error("Error initializing: %s" % (str(e)))
@@ -199,19 +199,19 @@ class ControlPanel(PlBase.Plugin):
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI
         self.update_model()
-        
+
         self.view.nongui_do(self.model.schedule_all)
 
     def set_plot_pct_cb(self, w, val):
-        print(('pct', val))
+        #print(('pct', val))
         self.controller.idx_tgt_plots = val
         self.model.select_schedule(self.model.selected_schedule)
         return True
-        
+
     def set_plot_limit_cb(self, w, val):
-        print(('limit', val))
+        #print(('limit', val))
         self.controller.num_tgt_plots = val
         self.model.select_schedule(self.model.selected_schedule)
         return True
-        
+
 #END

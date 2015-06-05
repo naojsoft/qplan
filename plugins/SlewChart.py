@@ -1,6 +1,6 @@
 #
 # SlewChart.py -- Slew chart plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 from datetime import datetime
@@ -23,7 +23,7 @@ class SlewChartCanvas(FigureCanvas):
 
         self.w = 500
         self.h = 500
-        
+
         FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
                                    QtGui.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
@@ -33,7 +33,7 @@ class SlewChartCanvas(FigureCanvas):
 
     def sizeHint(self):
          return QtCore.QSize(self.w, self.h)
-  
+
 
 class SlewChart(PlBase.Plugin):
 
@@ -42,14 +42,16 @@ class SlewChart(PlBase.Plugin):
 
         self.schedules = {}
         self.initialized = False
-        
+
         model.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
         # the solar system objects
-        self.ss = [ common.moon, common.sun, common.mercury, common.venus,
-                    common.mars, common.jupiter, common.saturn,
-                    common.uranus, common.neptune, common.pluto ]
+        self.ss = [ common.moon, common.sun,
+                    #common.mercury, common.venus,
+                    #common.mars, common.jupiter, common.saturn,
+                    #common.uranus, common.neptune, common.pluto,
+                    ]
         self.ss_colors = [ 'white', 'yellow', 'orange', 'lightgreen', 'red',
                            'white', 'turquoise', 'salmon', 'plum' ]
 
@@ -69,8 +71,8 @@ class SlewChart(PlBase.Plugin):
         ## win = container.window()
         ## toolbar = NavigationToolbar(canvas, win)
         ## layout.addWidget(toolbar, stretch=0)
-        
-        
+
+
     def show_schedule_cb(self, model, schedule):
         try:
             info = self.schedules[schedule]
@@ -94,11 +96,10 @@ class SlewChart(PlBase.Plugin):
 
         # plot the current location of solar system objects
         site = model.site
-        print("getting current time")
         dt = datetime.now(site.tz_local)
         self.view.gui_do(self.plot.plot_targets, site,
                          self.ss, dt, self.ss_colors)
-        
+
         return True
 
     def add_schedule(self, schedule):
@@ -114,7 +115,8 @@ class SlewChart(PlBase.Plugin):
                     info = ob.target.calc(self.model.site, slot.start_time)
 
                     i += 1
-                    txt = "%d [%s]" % (i, ob.target.name)
+                    #txt = "%d [%s]" % (i, ob.target.name)
+                    txt = "%d" % (i)
                     target_list.append((info.az_deg, info.alt_deg, txt))
 
         self.schedules[schedule] = Bunch.Bunch(targets=target_list)
@@ -124,5 +126,5 @@ class SlewChart(PlBase.Plugin):
         self.add_schedule(schedule)
         return True
 
-        
+
 #END
