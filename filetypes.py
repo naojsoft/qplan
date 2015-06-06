@@ -9,6 +9,7 @@ import pandas as pd
 import csv
 import string
 import StringIO
+import datetime
 
 import entity
 from ginga.misc import Bunch
@@ -41,6 +42,7 @@ class QueueFile(object):
         self.file_ext = file_ext
         self.filepath = None
         self.stringio = {}
+        self.excel_converters = None
 
     def find_filepath(self):
         self.filepath = None
@@ -74,13 +76,25 @@ class QueueFile(object):
             raise IOError('File path not defined for file prefix %s' % self.file_prefix)
 
     def read_excel_file(self):
+        self.df = {}
         if self.filepath:
             self.logger.info('Reading file %s' % self.filepath)
-            with pd.ExcelFile(self.filepath) as datasrc:
+            self.file_obj.seek(0)
+            with pd.ExcelFile(self.file_obj) as datasrc:
                 for name in datasrc.sheet_names:
-                    dataframe = datasrc.parse(name)
+                    # We use the ExcelFile.parse "converters" argument
+                    # only for sheets that have column(s) where we
+                    # expect integer values. The converter helps us
+                    # when the sheet has blank rows and keeps the
+                    # Pandas DataFrame from converting the column from
+                    # integers to floats.
+                    try:
+                        excel_converters = self.cfg[name].excel_converters
+                    except (KeyError, AttributeError):
+                        excel_converters = None
+                    self.df[name] = datasrc.parse(name, converters=excel_converters)
                     self.stringio[name] = StringIO.StringIO()
-                    dataframe.to_csv(self.stringio[name], index=False)
+                    self.df[name].to_csv(self.stringio[name], index=False)
                     self.stringio[name].seek(0)
         else:
             raise IOError('File path not defined for file prefix %s' % self.file_prefix)
@@ -95,6 +109,7 @@ class QueueFile(object):
 
         # Read and save the first line, which should have the column
         # titles.
+        self.stringio[name].seek(0)
         self.queue_file = self.stringio[name]
         reader = csv.reader(self.queue_file, **self.fmtparams)
         self.columnNames = next(reader)
@@ -417,6 +432,11 @@ class TelCfgFile(QueueFile):
             'dome': 'dome',
             'comment': 'comment',
             }
+        self.columnInfo = {
+            'code':         {'iname': 'Code', 'type': str, 'constraint': None},
+            'foci':         {'iname': 'Foci', 'type': str, 'constraint': "x in ('P-OPT2',)"},
+            'dome':         {'iname': 'Dome', 'type': str, 'constraint': "x in ('Open', 'Closed')"},
+            }
         super(TelCfgFile, self).__init__(input_dir, 'telcfg', logger, file_ext)
 
     def parse_input(self):
@@ -474,6 +494,15 @@ class EnvCfgFile(QueueFile):
             'transparency': 'transparency',
             'comment': 'comment',
             }
+        self.columnInfo = {
+            'code':         {'iname': 'Code',         'type': str,   'constraint': None},
+            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "x > 0.0"},
+            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "x >= 1.0"},
+            'moon':         {'iname': 'Moon',         'type': str,   'constraint': "x in ('dark', 'gray', 'any')"},
+            'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': None},
+            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "x >= 0.0 and x <= 1.0"},
+            }
+
         super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
 
     def parse_input(self):
@@ -529,7 +558,42 @@ class TgtCfgFile(QueueFile):
             'equinox': 'eq',
             'comment': 'comment',
             }
+        self.columnInfo = {
+            'code':         {'iname': 'Code',        'type': str, 'constraint': None},
+            'target_name':  {'iname': 'Target Name', 'type': str, 'constraint': None},
+            'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA},
+            'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseDec},
+            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "x in ('J2000', 'B1950')"},
+            }
         super(TgtCfgFile, self).__init__(input_dir, 'targets', logger, file_ext)
+
+    def parseRA(self, ra):
+        try:
+           datetime.datetime.strptime(ra, '%H:%M:%S')
+        except ValueError:
+            try:
+                datetime.datetime.strptime(ra, '%H:%M:%S.%f')
+            except ValueError:
+                return False
+        return True
+
+    def parseDec(self, dec):
+        dms = dec.split(':')
+        d = dms.pop(0)
+        d = float(d)
+        try:
+            assert d >= -90.0 and d <= 90.0
+        except AssertionError:
+            return False
+        ms = ':'.join(dms)
+        try:
+           datetime.datetime.strptime(ms, '%M:%S')
+        except ValueError:
+            try:
+                datetime.datetime.strptime(ms, '%M:%S.%f')
+            except ValueError:
+                return False
+        return True
 
     def parse_input(self):
         """
@@ -634,7 +698,64 @@ class InsCfgFile(QueueFile):
                         'comment': 'comment',
                         }),
             }
+        self.HSC_filters =   "('g', 'r', 'i', 'z', 'Y', 'NB921', 'NB816', 'NB515')"
+        self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')"
+        self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')"
+        self.dither_constr = "x in ('1', '5', 'N')"
+        self.guiding_constr = "x in ('Y','N')"
+        self.columnInfo = {
+            'HSC': {
+            'code':         {'iname': 'Code',       'type': str,   'constraint': None},
+            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "x == 'HSC'"},
+            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "x == 'imaging'"},
+            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "x in %s" % self.HSC_filters},
+            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "x > 0.0"},
+            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "x > 0"},
+            'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr},
+            'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr},
+            'pa':           {'iname': 'PA',         'type': float, 'constraint': None},
+            'offset_ra':    {'iname': 'Offset RA',  'type': float, 'constraint': None},
+            'offset_dec':   {'iname': 'Offset DEC', 'type': float, 'constraint': None},
+            'dith1':        {'iname': 'Dith1',      'type': float, 'constraint': None},
+            'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None},
+            },
+            'FOCAS': {
+            'code':         {'iname': 'Code',        'type': str,   'constraint': None},
+            'instrument':   {'iname': 'Instrument',  'type': str,   'constraint': "x == 'FOCAS'"},
+            'mode':         {'iname': 'Mode',        'type': str,   'constraint': "x in ('imaging', 'spectroscopy')"},
+            'filter':       {'iname': 'Filter',      'type': str,   'constraint': "x in %s" % self.FOCAS_filters},
+            'exp_time':     {'iname': 'Exp Time',    'type': float, 'constraint': "x > 0.0"},
+            'num_exp':      {'iname': 'Num Exp',     'type': int,   'constraint': "x > 0"},
+            'dither':       {'iname': 'Dither',      'type': str,   'constraint': self.dither_constr},
+            'guiding':      {'iname': 'Guiding',     'type': str,   'constraint': self.guiding_constr},
+            'pa':           {'iname': 'PA',          'type': float, 'constraint': None},
+            'offset_ra':    {'iname': 'Offset RA',   'type': float, 'constraint': None},
+            'offset_dec':   {'iname': 'Offset DEC',  'type': float, 'constraint': None},
+            'dither_ra':    {'iname': 'Dither RA',   'type': float, 'constraint': None},
+            'dither_dec':   {'iname': 'Dither DEC',  'type': float, 'constraint': None},
+            'dither_theta': {'iname': 'Dither Theta','type': float, 'constraint': None},
+            'binning':      {'iname': 'Binning',     'type': str,   'constraint': "x in ('1x1',)"},
+            },
+            'SPCAM': {
+            'code':         {'iname': 'Code',       'type': str,   'constraint': None},
+            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "x == 'SPCAM'"},
+            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "x == 'imaging'"},
+            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "x in %s" % self.SPCAM_filters},
+            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "x > 0.0"},
+            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "x > 0"},
+            'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr},
+            'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr},
+            'pa':           {'iname': 'PA',         'type': float, 'constraint': None},
+            'offset_ra':    {'iname': 'Offset RA',  'type': float, 'constraint': None},
+            'offset_dec':   {'iname': 'Offset DEC', 'type': float, 'constraint': None},
+            'dith1':        {'iname': 'Dith1',      'type': float, 'constraint': None},
+            'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None},
+            },
+            }
+        self.max_onsource_time_hrs = 2.0 # hours
         super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
+        self.excel_converters = {'Num Exp': lambda x: int(x) if x else '',
+                                 'Dither':  lambda x: str(x) if x else ''}
 
     def parse_input(self):
         """
@@ -709,7 +830,28 @@ class OBListFile(QueueFile):
             'total_time': 'total_time',
             'comment': 'comment',
             }
+        self.columnInfo = {
+            'code':       {'iname': 'Code', 'type': str,   'constraint': None},
+            'tgtcfg':     {'iname': 'tgtcfg', 'type': str,   'constraint': self.tgtcfgCheck},
+            'inscfg':     {'iname': 'inscfg', 'type': str,   'constraint': self.inscfgCheck},
+            'telcfg':     {'iname': 'telcfg', 'type': str,   'constraint': self.telcfgCheck},
+            'envcfg':     {'iname': 'envcfg', 'type': str,   'constraint': self.envcfgCheck},
+            'priority':   {'iname': 'Priority', 'type': float, 'constraint': None},
+            'total_time': {'iname': 'Total Time', 'type': float, 'constraint': None},
+            }
         super(OBListFile, self).__init__(input_dir, 'ob', logger, file_ext=file_ext)
+
+    def tgtcfgCheck(self, tgtcfg, tgt_config):
+        return tgtcfg in tgt_config.tgt_cfgs
+
+    def inscfgCheck(self, inscfg, ins_config):
+        return inscfg in ins_config.ins_cfgs
+
+    def telcfgCheck(self, telcfg, tel_config):
+        return telcfg in tel_config.tel_cfgs
+
+    def envcfgCheck(self, envcfg, env_config):
+        return envcfg in env_config.env_cfgs
 
     def parse_input(self):
         """
@@ -762,26 +904,60 @@ class OBListFile(QueueFile):
                     lineNum, self.filepath, str(e)))
 
 class ProgramFile(QueueFile):
-    def __init__(self, input_dir, logger, propname, propdict, file_ext=None):
+    def __init__(self, input_dir, logger, propname, propdict, file_ext=None, file_obj=None):
         super(ProgramFile, self).__init__(input_dir, propname, logger, file_ext)
+        self.requiredSheets = ('telcfg', 'inscfg', 'envcfg', 'targets', 'ob')
 
         self.cfg = {}
+        self.warn_count = 0
+        self.error_count = 0
+        self.warnings = {}
+        for name in self.requiredSheets:
+            self.warnings[name] = []
+        self.errors = {}
+        for name in self.requiredSheets:
+            self.errors[name] = []
         dir_path = os.path.join(input_dir, propname)
         self.cfg['telcfg'] = TelCfgFile(dir_path, logger, file_ext)
         self.cfg['inscfg'] = InsCfgFile(dir_path, logger, file_ext)
         self.cfg['envcfg'] = EnvCfgFile(dir_path, logger, file_ext)
         self.cfg['targets'] = TgtCfgFile(dir_path, logger, file_ext)
 
-        try:
-            self.find_filepath()
-        except FileNotFoundError, e:
-            if self.file_ext == None or self.file_ext == 'csv':
-                pass
-            else:
-                raise FileNotFoundError(e)
+        if file_obj is None:
+            # If we didn't get supplied with a file object, that means
+            # we need to use the input_dir, file_prefix, file_ext,
+            # etc. to locate the input file/directory.
+            try:
+                self.find_filepath()
+            except FileNotFoundError, e:
+                if self.file_ext == None or self.file_ext == 'csv':
+                    pass
+                else:
+                    raise FileNotFoundError(e)
+        else:
+            # If we did get a file object, construct the filename from
+            # the proposal name and the file extension.
+            self.filepath = '.'.join([propname, file_ext])
 
         if self.is_excel_file():
+            if file_obj:
+                # If we were supplied with a file object, just use it.
+                self.file_obj = file_obj
+            else:
+                # If we didn't get a file object, read from the
+                # filepath and create a StringIO object from the file.
+                with open(self.filepath, 'r') as excel_file:
+                    self.file_obj = StringIO.StringIO(excel_file.read())
+
+            for name, cfg in self.cfg.iteritems():
+                cfg.filepath = self.filepath
+
             self.read_excel_file()
+
+            error_incr = self.validate()
+
+            if error_incr > 0:
+                return
 
             for name, cfg in self.cfg.iteritems():
                 cfg.stringio[name] = self.stringio[name]
@@ -793,6 +969,13 @@ class ProgramFile(QueueFile):
                                         self.cfg['inscfg'].ins_cfgs,
                                         self.cfg['envcfg'].env_cfgs,
                                         file_ext=file_ext)
+            self.cfg['ob'].filepath = self.filepath
+            error_incr = self.validate_column_names('ob')
+            if error_incr > 0:
+                return
+            error_incr = self.validate_data('ob')
+            if error_incr > 0:
+                return
             self.cfg['ob'].stringio['ob'] = self.stringio['ob']
             self.cfg['ob'].process_input('ob')
 
@@ -801,7 +984,15 @@ class ProgramFile(QueueFile):
             for name, cfg in self.cfg.iteritems():
                 cfg.find_filepath()
                 cfg.read_csv_file()
+                self.stringio[name] = cfg.stringio[name]
+                error_incr = self.validate_column_names(name)
+                if error_incr > 0:
+                    continue
+                error_incr = self.validate_data(name)
                 cfg.process_input(name)
+
+            if self.error_count > 0:
+                return
 
             self.cfg['ob'] = OBListFile(dir_path, logger, propname, propdict,
                                         self.cfg['telcfg'].tel_cfgs,
@@ -811,9 +1002,219 @@ class ProgramFile(QueueFile):
                                         file_ext=file_ext)
             self.cfg['ob'].find_filepath()
             self.cfg['ob'].read_csv_file()
+            self.stringio['ob'] = self.cfg['ob'].stringio['ob']
+            error_incr = self.validate_column_names('ob')
+            if error_incr > 0:
+                return
+            error_incr = self.validate_data('ob')
+            if error_incr > 0:
+                return
             self.cfg['ob'].process_input('ob')
 
         else:
             raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
 
+    def validate(self):
+
+        begin_error_count = self.error_count
+        # Check to see if all required sheets are in the file
+        for name in self.requiredSheets:
+            if name in self.stringio:
+                self.logger.debug('Required sheet %s found in file %s' % (name, self.filepath))
+            else:
+                msg = 'Required sheet %s not found in file %s' % (name, self.filepath)
+                self.logger.error(msg)
+                self.errors[name].append([None, None, msg])
+                self.error_count += 1
+
+        if self.error_count > begin_error_count:
+            return self.error_count - begin_error_count
+
+        # Check to see if all sheets have the required columns and
+        # that the contents of the columns can be parsed and meet the
+        # constraint(s), if any.
+        for name in self.cfg:
+            self.validate_column_names(name)
+            self.validate_data(name)
+
+        return self.error_count - begin_error_count
+
+    def get_insname(self):
+        # Access the inscfg information to determine the instrument
+        # name. Hopefully, the first row has the column names and the
+        # second row is parseable so that we can get the instrument
+        # name.
+        self.stringio['inscfg'].seek(0)
+        self.queue_file = self.stringio['inscfg']
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        column_names = next(reader)
+        row = next(reader)
+        rec = self.parse_row(row, column_names, self.cfg['inscfg'].column_map)
+        insname = rec.insname
+        return insname
+
+    def validate_column_names(self, name):
+
+        begin_error_count = self.error_count
+
+        # Check to make sure that the supplied sheet has the required
+        # column names in the first row. First, get the column names
+        # from the first row.
+        self.stringio[name].seek(0)
+        self.queue_file = self.stringio[name]
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        column_names = next(reader)
+
+        # For the inscfg sheet, we need to figure out the instrument
+        # name because each instrument has a different set of columns.
+        if name == 'inscfg':
+            insname = self.get_insname()
+            columnInfo = self.cfg[name].columnInfo[insname]
+            self.stringio[name].seek(0)
+            next(reader)
+        else:
+            columnInfo = self.cfg[name].columnInfo
+
+        # Iterate through the list of required columns to make sure
+        # they are all there.
+        for col_name in columnInfo:
+            if columnInfo[col_name]['iname'] in column_names:
+                self.logger.debug('Column name %s found in sheet %s' % (columnInfo[col_name]['iname'], name))
+            else:
+                msg = 'Required column %s not found in sheet %s' % (columnInfo[col_name]['iname'], name)
+                self.logger.error(msg)
+                self.errors[name].append([1, [columnInfo[col_name]['iname']], msg])
+                self.error_count += 1
+
+        return self.error_count - begin_error_count
+
+    def validate_data(self, name):
+
+        begin_error_count = self.error_count
+
+        # Check to make sure that all the data in the sheet is valid
+        # and meets the constraints.
+        self.stringio[name].seek(0)
+        self.queue_file = self.stringio[name]
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        column_names = next(reader)
+
+        # For the inscfg sheet, we need to figure out the instrument
+        # name because each instrument has a different set of columns.
+        if name == 'inscfg':
+            insname = self.get_insname()
+            columnInfo = self.cfg[name].columnInfo[insname]
+            column_map = self.cfg[name].configs[insname][1]
+            self.stringio[name].seek(0)
+            next(reader)
+        else:
+            columnInfo = self.cfg[name].columnInfo
+            column_map = self.cfg[name].column_map
+
+        # Iterate through all the rows in the sheet.
+        codes = {}
+        for i, row in enumerate(reader):
+            self.logger.debug('Sheet %s Line %d Row is %s' % (name, i+1, row))
+            row_num = i + 1
+            rec = self.parse_row(row, column_names, column_map)
+            self.validate_row(name, codes, rec, row_num, columnInfo, column_map)
+
+        return self.error_count - begin_error_count
+
+    def validate_row(self, name, codes, rec, row_num, columnInfo, column_map):
+
+        begin_error_count = self.error_count
+
+        # Check the data in the supplied row to make sure it meets the
+        # constraints specified in columnInfo.
+        if rec.code == '':
+            # We don't care about lines with no entry in the Code column
+            self.logger.debug('Skipping line %d with blank Code entry in sheet %s' % (row_num, name))
+        else:
+            # First, check to make sure the Code is unique
+            if rec.code in codes:
+                msg = "Warning while checking line %d, column Code of sheet %s: Duplicate code value identified: %s" % (row_num, name, rec.code)
+                self.logger.warn(msg)
+                self.warnings[name].append([row_num, [columnInfo['Code']['iname']], msg])
+                self.warn_count += 1
+            else:
+                codes[rec.code] = True
+
+            # A special check on the "inscfg" sheet: compute on-source
+            # time and check to see if it is less than the recommended
+            # limit (currently two hours). Eventually, the on-source
+            # time might be available from the "inscfg" sheet, but,
+            # for now, compute the on-source time here.
+            if name == 'inscfg':
+                try:
+                    onsource_time_hrs = (float(rec.exp_time) * int(rec.num_exp)) / 3600.0
+                    if onsource_time_hrs <= self.cfg['inscfg'].max_onsource_time_hrs:
+                        self.logger.debug('Line %d of sheet %s: onsource time of %.1f hours is less than recommended maximum value of %.1f hours' % (row_num, name, onsource_time_hrs, self.cfg['inscfg'].max_onsource_time_hrs))
+                    else:
+                        msg = 'Warning while checking line %d of sheet %s: onsource time of %.1f hours exceeds recommended maximum of %.1f hours' % (row_num, name, onsource_time_hrs, self.cfg['inscfg'].max_onsource_time_hrs)
+                        self.logger.warn(msg)
+                        self.warnings[name].append([row_num, [columnInfo['exp_time']['iname'], columnInfo['num_exp']['iname']], msg])
+                        self.warn_count += 1
+                except ValueError:
+                    msg = "Warning while checking line %d of sheet %s: Unable to compute on-source time. Cannot parse exp_time %s and/or num_exp %s" % (row_num, name, rec.exp_time, rec.num_exp)
+                    self.logger.warn(msg)
+                    self.warnings[name].append([row_num, [columnInfo['exp_time']['iname'], columnInfo['num_exp']['iname']], msg])
+                    self.warn_count += 1
+
+            # Iterate through all the columns and check constraints, if any.
+            for col_name, info in columnInfo.iteritems():
+                rec_name = column_map[col_name]
+                str_val = rec[rec_name]
+                # First, see if we can coerce the string value into
+                # the desired datatype.
+                try:
+                    val = info['type'](str_val)
+                except ValueError, e:
+                    msg = "Error evaluating line %d, column %s of sheet %s: cannot evaluate '%s' as %s" % (row_num, col_name, name, str_val, info['type'])
+                    self.logger.error(msg)
+                    self.errors[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                    self.error_count += 1
+                    continue
+                # If there is a constraint, check the value to see if
+                # it meets the constraint requirement.
+                if info['constraint']:
+                    # The first test checks the configuration
+                    # reference columns in the "ob" sheet.
+                    if col_name in ('tgtcfg', 'inscfg', 'telcfg', 'envcfg'):
+                        if col_name in ('inscfg', 'telcfg', 'envcfg'):
+                            cfg_name = col_name
+                        else:
+                            cfg_name = 'targets'
+                        if info['constraint'](val, self.cfg[cfg_name]):
+                            self.logger.debug('Line %d, column %s of sheet %s: found %s %s in %s sheet' % (row_num, col_name, name, col_name, val, cfg_name))
+                        else:
+                            msg = 'Error while checking line %d, column %s of sheet %s: %s %s does not appear in %s sheet' % (row_num, col_name, name, col_name, val, cfg_name)
+                            self.logger.error(msg)
+                            self.errors[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.error_count += 1
+
+                    elif col_name in ('ra', 'dec'):
+                        # This is a special check of the RA/Dec
+                        # values.
+                        if info['constraint'](val):
+                            self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
+                        else:
+                            msg = 'Warning while checking line %d, column %s of sheet %s: %s %s is not valid' % (row_num, col_name, name, col_name, val)
+                            self.logger.warn(msg)
+                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.warn_count += 1
+
+                    else:
+                        # Finally, the generic constraint check as
+                        # defined in columnInfo.
+                        l = lambda(x): eval(info['constraint'])
+                        if l(val):
+                            self.logger.debug('Line %d, column %s of sheet %s: %s meets the constraint %s' % (row_num, col_name, name, val, info['constraint']))
+                        else:
+                            msg = 'Warning while checking line %d, column %s of sheet %s: %s does not meet the constraint %s' % (row_num, col_name, name, val, info['constraint'])
+                            self.logger.warn(msg)
+                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.warn_count += 1
+
+        return self.error_count - begin_error_count
 #END
