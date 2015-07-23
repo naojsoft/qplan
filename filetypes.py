@@ -227,6 +227,8 @@ class ScheduleFile(QueueFile):
         if self.file_ext == 'csv':
             self.read_csv_file()
         elif self.is_excel_file:
+            with open(self.filepath, 'r') as excel_file:
+                self.file_obj = StringIO.StringIO(excel_file.read())
             self.read_excel_file()
         else:
             raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
@@ -310,6 +312,8 @@ class ProgramsFile(QueueFile):
         if self.file_ext == 'csv':
             self.read_csv_file()
         elif self.is_excel_file:
+            with open(self.filepath, 'r') as excel_file:
+                self.file_obj = StringIO.StringIO(excel_file.read())
             self.read_excel_file()
         else:
             raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
@@ -382,6 +386,8 @@ class WeightsFile(QueueFile):
         if self.file_ext == 'csv':
             self.read_csv_file()
         elif self.is_excel_file:
+            with open(self.filepath, 'r') as excel_file:
+                self.file_obj = StringIO.StringIO(excel_file.read())
             self.read_excel_file()
         else:
             raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
