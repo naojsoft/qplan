@@ -438,10 +438,12 @@ class TelCfgFile(QueueFile):
             'dome': 'dome',
             'comment': 'comment',
             }
+        self.foci = "('P-OPT2',)"
+        self.dome_states = "('Open', 'Closed')".upper()
         self.columnInfo = {
             'code':         {'iname': 'Code', 'type': str, 'constraint': None},
-            'foci':         {'iname': 'Foci', 'type': str, 'constraint': "x in ('P-OPT2',)"},
-            'dome':         {'iname': 'Dome', 'type': str, 'constraint': "x in ('Open', 'Closed')"},
+            'foci':         {'iname': 'Foci', 'type': str, 'constraint': "value in %s" % self.foci},
+            'dome':         {'iname': 'Dome', 'type': str, 'constraint': "value in %s" % self.dome_states},
             }
         super(TelCfgFile, self).__init__(input_dir, 'telcfg', logger, file_ext)
 
@@ -500,13 +502,14 @@ class EnvCfgFile(QueueFile):
             'transparency': 'transparency',
             'comment': 'comment',
             }
+        self.moon_states = "('dark', 'gray', 'any')".upper()
         self.columnInfo = {
             'code':         {'iname': 'Code',         'type': str,   'constraint': None},
-            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "x > 0.0"},
-            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "x >= 1.0"},
-            'moon':         {'iname': 'Moon',         'type': str,   'constraint': "x in ('dark', 'gray', 'any')"},
+            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "value > 0.0"},
+            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0"},
+            'moon':         {'iname': 'Moon',         'type': str,   'constraint': "value in %s" % self.moon_states},
             'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': None},
-            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "x >= 0.0 and x <= 1.0"},
+            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "value >= 0.0 and value <= 1.0"},
             }
 
         super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
@@ -569,7 +572,7 @@ class TgtCfgFile(QueueFile):
             'target_name':  {'iname': 'Target Name', 'type': str, 'constraint': None},
             'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA},
             'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseDec},
-            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "x in ('J2000', 'B1950')"},
+            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "value in ('J2000', 'B1950')"},
             }
         super(TgtCfgFile, self).__init__(input_dir, 'targets', logger, file_ext)
 
@@ -704,19 +707,25 @@ class InsCfgFile(QueueFile):
                         'comment': 'comment',
                         }),
             }
-        self.HSC_filters =   "('g', 'r', 'i', 'z', 'Y', 'NB921', 'NB816', 'NB515')"
-        self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')"
-        self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')"
-        self.dither_constr = "x in ('1', '5', 'N')"
-        self.guiding_constr = "x in ('Y','N')"
+
+        self.HSC_filters =   "('g', 'r', 'i', 'z', 'Y', 'NB921', 'NB816', 'NB515')".upper()
+        self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')".upper()
+        self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')".upper()
+
+        self.HSC_modes = "('imaging',)".upper()
+        self.FOCAS_modes = "('imaging', 'spectroscopy')".upper()
+        self.SPCAM_modes = "('imaging',)".upper()
+
+        self.dither_constr = "value in ('1', '5', 'N')"
+        self.guiding_constr = "value in ('Y','N')"
         self.columnInfo = {
             'HSC': {
             'code':         {'iname': 'Code',       'type': str,   'constraint': None},
-            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "x == 'HSC'"},
-            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "x == 'imaging'"},
-            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "x in %s" % self.HSC_filters},
-            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "x > 0.0"},
-            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "x > 0"},
+            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'HSC'"},
+            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.HSC_modes},
+            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "value in %s" % self.HSC_filters},
+            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "value > 0.0"},
+            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "value > 0"},
             'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr},
             'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr},
             'pa':           {'iname': 'PA',         'type': float, 'constraint': None},
@@ -727,11 +736,11 @@ class InsCfgFile(QueueFile):
             },
             'FOCAS': {
             'code':         {'iname': 'Code',        'type': str,   'constraint': None},
-            'instrument':   {'iname': 'Instrument',  'type': str,   'constraint': "x == 'FOCAS'"},
-            'mode':         {'iname': 'Mode',        'type': str,   'constraint': "x in ('imaging', 'spectroscopy')"},
-            'filter':       {'iname': 'Filter',      'type': str,   'constraint': "x in %s" % self.FOCAS_filters},
-            'exp_time':     {'iname': 'Exp Time',    'type': float, 'constraint': "x > 0.0"},
-            'num_exp':      {'iname': 'Num Exp',     'type': int,   'constraint': "x > 0"},
+            'instrument':   {'iname': 'Instrument',  'type': str,   'constraint': "value == 'FOCAS'"},
+            'mode':         {'iname': 'Mode',        'type': str,   'constraint': "value in %s" % self.FOCAS_modes},
+            'filter':       {'iname': 'Filter',      'type': str,   'constraint': "value in %s" % self.FOCAS_filters},
+            'exp_time':     {'iname': 'Exp Time',    'type': float, 'constraint': "value > 0.0"},
+            'num_exp':      {'iname': 'Num Exp',     'type': int,   'constraint': "value > 0"},
             'dither':       {'iname': 'Dither',      'type': str,   'constraint': self.dither_constr},
             'guiding':      {'iname': 'Guiding',     'type': str,   'constraint': self.guiding_constr},
             'pa':           {'iname': 'PA',          'type': float, 'constraint': None},
@@ -744,11 +753,11 @@ class InsCfgFile(QueueFile):
             },
             'SPCAM': {
             'code':         {'iname': 'Code',       'type': str,   'constraint': None},
-            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "x == 'SPCAM'"},
-            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "x == 'imaging'"},
-            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "x in %s" % self.SPCAM_filters},
-            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "x > 0.0"},
-            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "x > 0"},
+            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'SPCAM'"},
+            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.SPCAM_modes},
+            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "value in %s" % self.SPCAM_filters},
+            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "value > 0.0"},
+            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "value > 0"},
             'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr},
             'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr},
             'pa':           {'iname': 'PA',         'type': float, 'constraint': None},
@@ -1213,11 +1222,21 @@ class ProgramFile(QueueFile):
                     else:
                         # Finally, the generic constraint check as
                         # defined in columnInfo.
-                        l = lambda(x): eval(info['constraint'])
+                        l = lambda(value): eval(info['constraint'])
+                        # Try to convert supplied value to upper-case
+                        # to make it easier to check constraints for
+                        # string values. If the conversion fails with
+                        # an AttributeError exception, it is probably
+                        # because the value is not a string, so ignore
+                        # the exception.
+                        try:
+                            val = val.upper()
+                        except AttributeError:
+                            pass
                         if l(val):
-                            self.logger.debug('Line %d, column %s of sheet %s: %s meets the constraint %s' % (row_num, col_name, name, val, info['constraint']))
+                            self.logger.debug('Line %d, column %s of sheet %s: %s meets the constraint of %s' % (row_num, col_name, name, val, info['constraint']))
                         else:
-                            msg = 'Warning while checking line %d, column %s of sheet %s: %s does not meet the constraint %s' % (row_num, col_name, name, val, info['constraint'])
+                            msg = 'Warning while checking line %d, column %s of sheet %s: %s does not meet the constraint of %s' % (row_num, col_name, name, val, info['constraint'])
                             self.logger.warn(msg)
                             self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
                             self.warn_count += 1
