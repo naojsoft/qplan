@@ -47,7 +47,7 @@ Content-Type: text/html\n
 
 # The form element
 print """\
-<form enctype="multipart/form-data" action="/cgi-bin/qcheck.cgi" method="POST">
+<form enctype="multipart/form-data" action="/cgi-bin/qcheck/qcheck.cgi" method="POST">
 <input type="hidden" name="logLevel" value="30">
 File name(s) (must be Excel file format):
 <input type="file" name="filename" multiple>
@@ -56,7 +56,7 @@ File name(s) (must be Excel file format):
 </form> 
 """
 
-sys.path.append('/home/rkackley/Code/queuesim')
+sys.path.append('/gen2/share/Git/queuesim')
 site.addsitedir('/gen2/share/arch/64/lib/python')
 site.addsitedir('/gen2/share/arch/64/lib/python2.7/site-packages')
 
