@@ -565,6 +565,8 @@ class TgtCfgFile(QueueFile):
             'ra': 'ra',
             'dec': 'dec',
             'equinox': 'eq',
+            'sdss_ra': 'sdss_ra',
+            'sdss_dec': 'sdss_dec',
             'comment': 'comment',
             }
         self.columnInfo = {
@@ -573,6 +575,8 @@ class TgtCfgFile(QueueFile):
             'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA},
             'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseDec},
             'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "value in ('J2000', 'B1950')"},
+            'sdss_ra':      {'iname': 'SDSS RA',     'type': str, 'constraint': self.parseRA},
+            'sdss_dec':     {'iname': 'SDSS DEC',    'type': str, 'constraint': self.parseDec},
             }
         super(TgtCfgFile, self).__init__(input_dir, 'targets', logger, file_ext)
 
@@ -670,6 +674,10 @@ class InsCfgFile(QueueFile):
                         'offset_dec': 'offset_dec',
                         'dith1': 'dith1',
                         'dith2': 'dith2',
+                        'skip': 'skip',
+                        'stop': 'stop',
+                        'on-src_time': 'on-src_time',
+                        'total_time': 'total_time',
                         'comment': 'comment',
                         }),
             'FOCAS': (entity.FOCASConfiguration,
@@ -733,6 +741,10 @@ class InsCfgFile(QueueFile):
             'offset_dec':   {'iname': 'Offset DEC', 'type': float, 'constraint': None},
             'dith1':        {'iname': 'Dith1',      'type': float, 'constraint': None},
             'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None},
+            'skip':         {'iname': 'Skip',       'type': int,   'constraint': None},
+            'stop':         {'iname': 'Stop',       'type': int,   'constraint': None},
+            'on-src_time':  {'iname': 'On-src Time','type': float, 'constraint': None},
+            'total_time':   {'iname': 'Total Time', 'type': float, 'constraint': None},
             },
             'FOCAS': {
             'code':         {'iname': 'Code',        'type': str,   'constraint': None},
@@ -842,6 +854,7 @@ class OBListFile(QueueFile):
             'telcfg': 'tel_code',
             'envcfg': 'env_code',
             'priority': 'priority',
+            'on-src_time': 'on-src_time',
             'total_time': 'total_time',
             'comment': 'comment',
             }
@@ -852,6 +865,7 @@ class OBListFile(QueueFile):
             'telcfg':     {'iname': 'telcfg', 'type': str,   'constraint': self.telcfgCheck},
             'envcfg':     {'iname': 'envcfg', 'type': str,   'constraint': self.envcfgCheck},
             'priority':   {'iname': 'Priority', 'type': float, 'constraint': None},
+            'on-src_time':{'iname': 'On-src Time','type': float, 'constraint': None},
             'total_time': {'iname': 'Total Time', 'type': float, 'constraint': None},
             }
         super(OBListFile, self).__init__(input_dir, 'ob', logger, file_ext=file_ext)
@@ -1208,7 +1222,7 @@ class ProgramFile(QueueFile):
                             self.errors[name].append([row_num, [columnInfo[col_name]['iname']], msg])
                             self.error_count += 1
 
-                    elif col_name in ('ra', 'dec'):
+                    elif col_name in ('ra', 'dec', 'sdss_ra', 'sdss_dec'):
                         # This is a special check of the RA/Dec
                         # values.
                         if info['constraint'](val):
