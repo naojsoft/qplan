@@ -10,6 +10,7 @@ import csv
 import string
 import StringIO
 import datetime
+import re
 
 import entity
 from ginga.misc import Bunch
@@ -1115,6 +1116,23 @@ class ProgramFile(QueueFile):
                 self.errors[name].append([1, [columnInfo[col_name]['iname']], msg])
                 self.error_count += 1
 
+            # Warn the user if there is a column with a name that
+            # starts with one of the expected names, but then has
+            # appended to the name a ".1", ".2", etc. This means that
+            # there was a duplicate column name in the spreadsheet and
+            # Pandas appended a sequence number to make the subsequent
+            # columns have unique names.
+            pattern = columnInfo[col_name]['iname'] + '\.\d+'
+            dup_count = 0
+            for cname in column_names:
+                if re.match(pattern, cname):
+                    dup_count += 1
+            if dup_count > 0:
+                msg = '%d duplicate %s column(s) found in sheet %s' % (dup_count, columnInfo[col_name]['iname'], name)
+                self.logger.warn(msg)
+                self.warnings[name].append([1, [columnInfo[col_name]['iname']], msg])
+                self.warn_count += 1
+
         return self.error_count - begin_error_count
 
     def validate_data(self, name):
@@ -1164,7 +1182,7 @@ class ProgramFile(QueueFile):
             if rec.code in codes:
                 msg = "Warning while checking line %d, column Code of sheet %s: Duplicate code value identified: %s" % (row_num, name, rec.code)
                 self.logger.warn(msg)
-                self.warnings[name].append([row_num, [columnInfo['Code']['iname']], msg])
+                self.warnings[name].append([row_num, [columnInfo['code']['iname']], msg])
                 self.warn_count += 1
             else:
                 codes[rec.code] = True
@@ -1193,7 +1211,15 @@ class ProgramFile(QueueFile):
             # Iterate through all the columns and check constraints, if any.
             for col_name, info in columnInfo.iteritems():
                 rec_name = column_map[col_name]
-                str_val = rec[rec_name]
+                # Check to see if the record has the desired
+                # column. If not, there is not much we can do, so skip
+                # over this record. The fact that a column is missing
+                # or mis-labeled will have already been reported by
+                # the validate_column_names method.
+                try:
+                    str_val = rec[rec_name]
+                except KeyError, e:
+                    continue
                 # First, see if we can coerce the string value into
                 # the desired datatype.
                 try:
