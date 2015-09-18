@@ -1113,7 +1113,7 @@ class ProgramFile(QueueFile):
             else:
                 msg = 'Required column %s not found in sheet %s' % (columnInfo[col_name]['iname'], name)
                 self.logger.error(msg)
-                self.errors[name].append([1, [columnInfo[col_name]['iname']], msg])
+                self.errors[name].append([0, [columnInfo[col_name]['iname']], msg])
                 self.error_count += 1
 
             # Warn the user if there is a column with a name that
@@ -1123,14 +1123,16 @@ class ProgramFile(QueueFile):
             # Pandas appended a sequence number to make the subsequent
             # columns have unique names.
             pattern = columnInfo[col_name]['iname'] + '\.\d+'
-            dup_count = 0
+            dup_list = []
             for cname in column_names:
                 if re.match(pattern, cname):
-                    dup_count += 1
+                    dup_list.append(cname)
+
+            dup_count = len(dup_list)
             if dup_count > 0:
                 msg = '%d duplicate %s column(s) found in sheet %s' % (dup_count, columnInfo[col_name]['iname'], name)
                 self.logger.warn(msg)
-                self.warnings[name].append([1, [columnInfo[col_name]['iname']], msg])
+                self.warnings[name].append([0, dup_list, msg])
                 self.warn_count += 1
 
         return self.error_count - begin_error_count

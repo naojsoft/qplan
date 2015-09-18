@@ -7,21 +7,42 @@ import StringIO
 
 LOG_FORMAT = '%(message)s'
 
+def html_header(l, formatters=None):
+    s = '<table border="1" class="dataframe"><thead><tr style="text-align: right;">'
+    for item in l:
+        s += '\n<th>'
+        if formatters:
+            try:
+                s += formatters[item](item)
+            except KeyError, e:
+                s += item
+        else:
+            s += item
+        s += '</th>'
+    s += '\n</tr></thead></table>'
+    return s
+
 def report_msgs(d, severity):
     for name, l in d.iteritems():
         for row in l:
             row_num, col_name_list, msg = row
-            if row_num:
-                fmt = {}
-                for col_name in col_name_list:
-                    fmt[col_name] = lambda x: '<span class="%s">%s</span>' % (severity, x)
-                    print """\
-                    <p>%s<br>%s</p>
-                    """ % (msg, progFile.df[name][row_num-1:row_num].to_html(index=False, na_rep='', formatters=fmt, escape=False))
-            else:
+            if row_num is None:
                 print """\
                 <p>%s</p>
                 """ % (msg)
+            else:
+                fmt = {}
+                for col_name in col_name_list:
+                    fmt[col_name] = lambda x: '<span class="%s">%s</span>' % (severity, x)
+                if row_num == 0:
+                    col_names = list(progFile.df[name])
+                    print  """\
+                    <p>%s<br>%s</p>
+                    """ % (msg, html_header(col_names, formatters=fmt))
+                else:
+                    print """\
+                    <p>%s<br>%s</p>
+                    """ % (msg, progFile.df[name][row_num-1:row_num].to_html(index=False, na_rep='', formatters=fmt, escape=False))
 
 # HTML header and CSS information
 print """\
