@@ -6,6 +6,7 @@
 #
 import os
 import pandas as pd
+import numpy as np
 import csv
 import string
 import StringIO
@@ -939,6 +940,7 @@ class ProgramFile(QueueFile):
         self.requiredSheets = ('telcfg', 'inscfg', 'envcfg', 'targets', 'ob')
 
         self.cfg = {}
+        self.ph1Constraint = {'Ph 1 Seeing': None, 'Ph 1 Transparency': None, 'Allocated Time': None}
         self.warn_count = 0
         self.error_count = 0
         self.warnings = {}
@@ -984,6 +986,14 @@ class ProgramFile(QueueFile):
 
             self.read_excel_file()
 
+            # If there is a "proposal" sheet in the file, get the
+            # seeing, transparency, and allocated time values.
+            for constraint_name in self.ph1Constraint:
+                try:
+                    self.ph1Constraint[constraint_name] = self.df['proposal'][constraint_name][0]
+                except KeyError, e:
+                    self.ph1Constraint[constraint_name] = None
+
             error_incr = self.validate()
 
             if error_incr > 0:
@@ -1006,6 +1016,7 @@ class ProgramFile(QueueFile):
             error_incr = self.validate_data('ob')
             if error_incr > 0:
                 return
+            self.checkOnSourceTime('ob', 'On-src Time', 'Allocated Time')
             self.cfg['ob'].stringio['ob'] = self.stringio['ob']
             self.cfg['ob'].process_input('ob')
 
@@ -1261,6 +1272,28 @@ class ProgramFile(QueueFile):
                             self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
                             self.warn_count += 1
 
+                    elif col_name == 'seeing' and self.ph1Constraint['Ph 1 Seeing'] is not None:
+                        # This is a special check on the Seeing value,
+                        # if we have a "Ph 1 Seeing" value in the
+                        # Phase 1 constraint dictionary
+                        if val >= self.ph1Constraint['Ph 1 Seeing']:
+                            self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
+                        else:
+                            msg = 'Warning while checking line %d, column %s of sheet %s: %s value %s is less than Phase 1 Seeing value %s' % (row_num, col_name, name, col_name, val, self.ph1Constraint['Ph 1 Seeing'])
+                            self.logger.warn(msg)
+                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.warn_count += 1
+                    elif col_name == 'transparency' and self.ph1Constraint['Ph 1 Transparency'] is not None:
+                        # This is a special check on the Transparency
+                        # value, if we have a "Ph 1 Transparency"
+                        # value in the Phase 1 constraint dictionary
+                        if val <= self.ph1Constraint['Ph 1 Transparency']:
+                            self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
+                        else:
+                            msg = 'Warning while checking line %d, column %s of sheet %s: %s value %s is greater than Phase 1 Transparency value %s' % (row_num, col_name, name, col_name, val, self.ph1Constraint['Ph 1 Transparency'])
+                            self.logger.warn(msg)
+                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.warn_count += 1
                     else:
                         # Finally, the generic constraint check as
                         # defined in columnInfo.
@@ -1284,4 +1317,15 @@ class ProgramFile(QueueFile):
                             self.warn_count += 1
 
         return self.error_count - begin_error_count
+
+    def checkOnSourceTime(self, name, col_name, constraintName):
+        if self.ph1Constraint[constraintName] is not None:
+            onSourceTimeSum = np.sum(self.df[name][col_name])
+            if onSourceTimeSum <= self.ph1Constraint['Allocated Time']:
+                self.logger.debug('Column %s of sheet %s: Total on-source time %s seconds meets the %s constraint of %s seconds' % (col_name, name, onSourceTimeSum, constraintName, self.ph1Constraint[constraintName]))
+            else:
+                msg = 'Warning while checking column %s of sheet %s: Total on-source time %s seconds is greater than the %s constraint of %s seconds' % (col_name, name, onSourceTimeSum, constraintName, self.ph1Constraint[constraintName])
+                self.logger.warn(msg)
+                self.warnings[name].append([None, [col_name], msg])
+                self.warn_count += 1
 #END

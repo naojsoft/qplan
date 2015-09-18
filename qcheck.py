@@ -24,13 +24,18 @@ def main(options, args):
     if options.input_filename:
         # This section is for reading an Excel file that has the usual
         # sheets in it (targets, envcfg, etc.)
+
+        # Append any directory path supplied in options.input_filename
+        # onto the end of the options.input_dir value.
+        input_dir = os.path.join(options.input_dir, os.path.dirname(options.input_filename))
+        # Parse the input filename so we can get the proposal name.
         input_filename = os.path.basename(options.input_filename)
         propname, ext = input_filename.split('.')
         if ext in filetypes.QueueFile.excel_ext:
             propdict = {}
             key = propname.upper()
             propdict[key] = entity.Program(key, hours=0, category='')
-            progFile = filetypes.ProgramFile(options.input_dir, logger, propname, propdict)
+            progFile = filetypes.ProgramFile(input_dir, logger, propname, propdict)
         else:
             logger.error("File extension '%s' is not a valid file type. Must be one of %s." % (ext, filetypes.QueueFile.excel_ext))
             sys.exit(1)
