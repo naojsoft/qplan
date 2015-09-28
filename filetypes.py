@@ -1263,14 +1263,20 @@ class ProgramFile(QueueFile):
 
                     elif col_name in ('ra', 'dec', 'sdss_ra', 'sdss_dec'):
                         # This is a special check of the RA/Dec
-                        # values.
-                        if info['constraint'](val):
-                            self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
+                        # values. We always check the RA/Dec columns,
+                        # but skip the check of the SDSS columns if
+                        # the cell is empty.
+                        if col_name in ('ra', 'dec') or \
+                               col_name in ('sdss_ra', 'sdss_dec') and len(val) > 0:
+                            if info['constraint'](val):
+                                self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
+                            else:
+                                msg = 'Warning while checking line %d, column %s of sheet %s: %s %s is not valid' % (row_num, col_name, name, col_name, val)
+                                self.logger.warn(msg)
+                                self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                                self.warn_count += 1
                         else:
-                            msg = 'Warning while checking line %d, column %s of sheet %s: %s %s is not valid' % (row_num, col_name, name, col_name, val)
-                            self.logger.warn(msg)
-                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
-                            self.warn_count += 1
+                            self.logger.debug('Line %d, column %s of sheet %s: Skipping check of empty cell' % (row_num, col_name, name))
 
                     elif col_name == 'seeing' and self.ph1Constraint['Ph 1 Seeing'] is not None:
                         # This is a special check on the Seeing value,
@@ -1279,10 +1285,10 @@ class ProgramFile(QueueFile):
                         if val >= self.ph1Constraint['Ph 1 Seeing']:
                             self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
                         else:
-                            msg = 'Warning while checking line %d, column %s of sheet %s: %s value %s is less than Phase 1 Seeing value %s' % (row_num, col_name, name, col_name, val, self.ph1Constraint['Ph 1 Seeing'])
-                            self.logger.warn(msg)
-                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
-                            self.warn_count += 1
+                            msg = 'Error while checking line %d, column %s of sheet %s: %s value %s is less than Phase 1 Seeing value %s' % (row_num, col_name, name, col_name, val, self.ph1Constraint['Ph 1 Seeing'])
+                            self.logger.error(msg)
+                            self.errors[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.error_count += 1
                     elif col_name == 'transparency' and self.ph1Constraint['Ph 1 Transparency'] is not None:
                         # This is a special check on the Transparency
                         # value, if we have a "Ph 1 Transparency"
@@ -1290,10 +1296,10 @@ class ProgramFile(QueueFile):
                         if val <= self.ph1Constraint['Ph 1 Transparency']:
                             self.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, name, col_name, val))
                         else:
-                            msg = 'Warning while checking line %d, column %s of sheet %s: %s value %s is greater than Phase 1 Transparency value %s' % (row_num, col_name, name, col_name, val, self.ph1Constraint['Ph 1 Transparency'])
-                            self.logger.warn(msg)
-                            self.warnings[name].append([row_num, [columnInfo[col_name]['iname']], msg])
-                            self.warn_count += 1
+                            msg = 'Error while checking line %d, column %s of sheet %s: %s value %s is greater than Phase 1 Transparency value %s' % (row_num, col_name, name, col_name, val, self.ph1Constraint['Ph 1 Transparency'])
+                            self.logger.error(msg)
+                            self.errors[name].append([row_num, [columnInfo[col_name]['iname']], msg])
+                            self.error_count += 1
                     else:
                         # Finally, the generic constraint check as
                         # defined in columnInfo.
