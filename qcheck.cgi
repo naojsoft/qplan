@@ -4,6 +4,7 @@ import cgi, os, sys, site
 import cgitb; cgitb.enable()
 import logging,logging.handlers
 import StringIO
+import pandas as pd
 
 LOG_FORMAT = '%(message)s'
 
@@ -26,6 +27,7 @@ def report_msgs(d, severity):
     for name, l in d.iteritems():
         for row in l:
             row_num, col_name_list, msg = row
+            msg = msg.replace('<', '&lt').replace('>', '&gt')
             if row_num is None:
                 print """\
                 <p>%s</p>
@@ -33,7 +35,7 @@ def report_msgs(d, severity):
             else:
                 fmt = {}
                 for col_name in col_name_list:
-                    fmt[col_name] = lambda x: '<span class="%s">%s</span>' % (severity, x)
+                    fmt[col_name] = lambda x: '<span class="%s">%s</span>' % (severity, ' ' if pd.isnull(x) else x)
                 if row_num == 0:
                     col_names = list(progFile.df[name])
                     print  """\
