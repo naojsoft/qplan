@@ -674,12 +674,13 @@ class ProposalFile(QueueFile):
             'ph1_moon': 'ph1_moon',
             }
         self.columnInfo = {
-            'prop_id':          {'iname': 'Prop ID',          'type': str,   'constraint': "len(value) > 0",                       'prefilled': False},
+            'prop_id':          {'iname': 'Prop ID',          'type': str,   'constraint': self.checkPropID,                       'prefilled': False},
             'ph1_seeing':       {'iname': 'Ph1 Seeing',       'type': float, 'constraint': "value > 0.0",                          'prefilled': False},
             'ph1_transparency': {'iname': 'Ph1 Transparency', 'type': float, 'constraint': "value >= 0.0 and value <= 1.0",        'prefilled': False},
             'ph1_moon':         {'iname': 'Ph1 Moon',         'type': str,   'constraint': "value in %s" % str(moon_states_upper), 'prefilled': False},
             'allocated_time':   {'iname': 'Allocated Time',   'type': float, 'constraint': "value >= 0.0",                         'prefilled': False},
             }
+        self.propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE)\d{2,3}|UH\d{2}[AB])$')
         super(ProposalFile, self).__init__(input_dir, 'proposal', logger, file_ext)
 
     def parse_input(self):
@@ -714,6 +715,24 @@ class ProposalFile(QueueFile):
             except Exception as e:
                 raise ValueError("Error reading line %d of proposal: %s" % (
                     lineNum, str(e)))
+
+    def checkPropID(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+        valid = False
+        if len(val) > 0:
+            if self.propID_re.match(val):
+                progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, iname, self.name, iname, val))
+                valid = True
+            else:
+                valid = False
+        else:
+            valid = False
+        if not valid:
+            msg = "Error while checking line %d, column %s of sheet %s: %s '%s' is not valid" % (row_num, iname, self.name, iname, val)
+            progFile.logger.error(msg)
+            progFile.errors[self.name].append([row_num, [iname], msg])
+            progFile.error_count += 1
+        return valid
 
 class TelCfgFile(QueueFile):
     def __init__(self, input_dir, logger, file_ext=None):
