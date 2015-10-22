@@ -70,16 +70,16 @@ def upload_file(progFile, sessionValid, ldap_result, ldap_success, filename, fil
     else:
         if progFile.error_count > 0:
             print """\
-            <h3>Error: Unable to upload file because error count is greater than 0</h3>
-            """
+            <h3><span class="%s">Error:</span> Unable to upload file because error count is greater than 0</h3>
+            """ %('error')
         elif not sessionValid:
             if ldap_success is not None and not ldap_success:
                 print """\
-                <h3>Error: Unable to upload file because %s</h3>
+                <h3><span class="%s">Error:</span> Unable to upload file because %s</h3>
                 """ % ldap_result
             else:
                 print """\
-                <h3>Error: Unable to upload file because session has expired</h3>
+                <h3><span class="%s">Error:</span> Unable to upload file because session has expired</h3>
                 """
 
 def report_msgs(d, severity):
@@ -194,6 +194,8 @@ def validateSession(cookieFromClient):
         logger.info('Session not validated')
         return False
 
+logger.info('Received request from address %s' % os.environ['REMOTE_ADDR'])
+
 form = cgi.FieldStorage()
 
 # Check to see if there is a cookie in the HTTP request and if we can
@@ -222,6 +224,7 @@ if upload and not sessionValid:
     except KeyError:
         ldap_result = 'Username/password not supplied'
     else:
+        logger.info('STARS LDAP authentication for username %s' % username)
         ldap_result, ldap_success = stars_ldap_connect(username, password)
         logger.info('ldap_result %s' % ldap_result)
 
@@ -270,11 +273,12 @@ File name(s) (must be Excel file format):
 <hr>
 """
 if sessionValid:
+    print 'For file upload, choose the file(s) using the button at the top of the page and then press the Upload button.<br>'
     print 'Session is valid until HST %s (Username/password not currently required)<br>' % getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c')
 else:
     print """\
     <p>
-    For file upload, enter STARS username and password:
+    For file upload, choose the file(s) using the button at the top of the page and then enter your STARS username and password:
     <br>
     <label for="name">STARS Userame</label>
     <input type="text" name="username" id="username" value="">
@@ -369,6 +373,8 @@ if len(fileList[0].filename) > 0:
             print """\
             <h3>File Check Results From File %s:</h3>
             """ % (item.filename)
+            if upload:
+                upload_file(progFile, sessionValid, ldap_result, ldap_success, item.filename, file_buff)
             if progFile.warn_count == 0 and progFile.error_count == 0:
                 print """\
                 <p><span class="ok">Warning</span> count is %d</p>
@@ -386,9 +392,6 @@ if len(fileList[0].filename) > 0:
                 <p><span class="%s">Error</span> count is %d</p>
                 """ % ('error' if progFile.error_count >0 else 'ok', progFile.error_count)
                 report_msgs(progFile.errors, 'error')
-
-                if upload:
-                    upload_file(progFile, sessionValid, ldap_result, ldap_success, item.filename, file_buff)
 
     ms.close()
 else:
