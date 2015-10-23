@@ -1100,7 +1100,7 @@ class InsCfgFile(QueueFile):
         self.guiding_constr = "value in ('Y','N')"
         self.columnInfoAllInst = {
             'HSC': {
-            'code':         {'iname': 'Code',       'type': str,   'constraint': None,                             'prefilled': False},
+            'code':         {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",                 'prefilled': False},
             'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'HSC'",                 'prefilled': False},
             'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.HSC_modes,   'prefilled': False},
             'filter':       {'iname': 'Filter',     'type': str,   'constraint': "value in %s" % self.HSC_filters, 'prefilled': False},
@@ -1119,7 +1119,7 @@ class InsCfgFile(QueueFile):
             'total_time':   {'iname': 'Total Time', 'type': float, 'constraint': self.totalTimeCalcCheck,          'prefilled': True},
             },
             'FOCAS': {
-            'code':         {'iname': 'Code',        'type': str,   'constraint': None},
+            'code':         {'iname': 'Code',        'type': str,   'constraint': "len(value) > 0"},
             'instrument':   {'iname': 'Instrument',  'type': str,   'constraint': "value == 'FOCAS'"},
             'mode':         {'iname': 'Mode',        'type': str,   'constraint': "value in %s" % self.FOCAS_modes},
             'filter':       {'iname': 'Filter',      'type': str,   'constraint': "value in %s" % self.FOCAS_filters},
@@ -1136,7 +1136,7 @@ class InsCfgFile(QueueFile):
             'binning':      {'iname': 'Binning',     'type': str,   'constraint': "x in ('1x1',)"},
             },
             'SPCAM': {
-            'code':         {'iname': 'Code',       'type': str,   'constraint': None},
+            'code':         {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0"},
             'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'SPCAM'"},
             'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.SPCAM_modes},
             'filter':       {'iname': 'Filter',     'type': str,   'constraint': "value in %s" % self.SPCAM_filters},
@@ -1371,10 +1371,10 @@ class OBListFile(QueueFile):
         iname_inscfg = progFile.cfg[inscfg_name].columnInfo[inscfg_col_name]['iname']
         for row in progFile.cfg[inscfg_name].rows:
             if rec.ins_code == row['Code']:
-                if val == float(rec[inscfg_col_name]):
-                    progFile.logger.debug('Line %d, column %s of sheet %s: %s %s seconds on ob sheet equals the %s value of %s seconds for Code %s and is ok' % (row_num, iname, self.name, iname, val, iname_inscfg, rec[inscfg_col_name], rec.ins_code))
+                if val == float(row[iname_inscfg]):
+                    progFile.logger.debug('Line %d, column %s of sheet %s: %s %s seconds on ob sheet equals the %s value of %s seconds for Code %s and is ok' % (row_num, iname, self.name, iname, val, iname_inscfg, row[iname_inscfg], rec.ins_code))
                 else:
-                    msg = 'Error while checking line %d, column %s of sheet %s: %s %s seconds on ob sheet is different from the %s value of %s seconds for Code %s' % (row_num, iname, self.name, iname, val, iname_inscfg, rec[inscfg_col_name], rec.ins_code)
+                    msg = 'Error while checking line %d, column %s of sheet %s: %s %s seconds on ob sheet is different from the %s value of %s seconds for Code %s' % (row_num, iname, self.name, iname, val, iname_inscfg, row[iname_inscfg], rec.ins_code)
                     progFile.logger.error(msg)
                     progFile.errors[self.name].append([row_num, [iname], msg])
                     progFile.error_count += 1
@@ -1389,7 +1389,9 @@ class OBListFile(QueueFile):
 
     def totalOnSrcTimeCheck(self, progFile):
         # Add up the on-source time for all the observing blocks in
-        # the file and check to see if the total is less than or equal to the allocated on-source time specified on the "proposal" sheet.
+        # the file and check to see if the total is less than or equal
+        # to the allocated on-source time specified on the "proposal"
+        # sheet.
 
         begin_error_count = progFile.error_count
 
@@ -1416,10 +1418,10 @@ class OBListFile(QueueFile):
         if onSrcTimeSum <= ph1_allocated_time:
             progFile.logger.debug('Column %s of sheet %s: On-source time sum of %s seconds is less than or equal to the Phase 1 allocated value of %s seconds and is ok' % (iname, self.name, onSrcTimeSum, ph1_allocated_time))
         else:
-            msg = 'Error while checking column %s of sheet %s: On-source time sum of %s seconds is greater than the Phase 1 allocated value of %s seconds' % (iname, self.name, onSrcTimeSum, ph1_allocated_time )
-            progFile.logger.error(msg)
-            progFile.errors[self.name].append([None, [iname], msg])
-            progFile.error_count += 1
+            msg = 'Warning while checking column %s of sheet %s: On-source time sum of %s seconds is greater than the Phase 1 allocated value of %s seconds' % (iname, self.name, onSrcTimeSum, ph1_allocated_time )
+            progFile.logger.warn(msg)
+            progFile.warnings[self.name].append([None, [iname], msg])
+            progFile.warn_count += 1
 
     def parse_input(self):
         """

@@ -249,7 +249,7 @@ Content-Type: text/html\n
 <meta name="Author" content="Russell Kackley">
 <meta name="Generator" content="emacs and human">
 <meta name="Copyright" content="&copy; 200X  Russell Kackley">
-<title>Subaru Queue File Checker</title>
+<title>Subaru Queue File Checker/Uploader</title>
 <style>
 .ok      {background-color: white}
 .warning {background-color: yellow}
@@ -257,15 +257,15 @@ Content-Type: text/html\n
 </style>
 </head>
 <body>
-<h1>Subaru Queue File Checker</h1>
+<h1>Subaru Queue File Checker/Uploader</h1>
 """
 
 # The form element
 print """\
 <form enctype="multipart/form-data" action="/cgi-bin/qcheck/qcheck.cgi" method="POST">
 <input type="hidden" name="logLevel" value="30">
-File name(s) (must be Excel file format):
-<input type="file" name="filename" multiple>
+File name (must be Excel file format):
+<input type="file" name="filename">
 <hr>
 <br>
 <input type="submit" name="check"  value="Check">
@@ -273,13 +273,20 @@ File name(s) (must be Excel file format):
 <hr>
 """
 if sessionValid:
-    print 'For file upload, choose the file(s) using the button at the top of the page and then press the Upload button.<br>'
-    print 'Session is valid until HST %s (Username/password not currently required)<br>' % getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c')
+    print """\
+    For file upload, select the file using the Browse/Choose File button above
+    <br>
+    and then press the Upload button.
+    <p>
+    Session is valid until HST %s (Username/password not currently required)<br>
+    """ % getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c')
 else:
     print """\
     <p>
-    For file upload, choose the file(s) using the button at the top of the page and then enter your STARS username and password:
+    For file upload, select the file using the Browse/Choose File button above,
     <br>
+    enter your STARS username and password, and then press the Upload button.
+    <p>
     <label for="name">STARS Userame</label>
     <input type="text" name="username" id="username" value="">
     <br>
@@ -288,6 +295,7 @@ else:
     <br>
     """
 print """\
+<p>
 <input type="submit" name="upload" value="Upload">
 </form> 
 """
@@ -377,21 +385,21 @@ if len(fileList[0].filename) > 0:
                 upload_file(progFile, sessionValid, ldap_result, ldap_success, item.filename, file_buff)
             if progFile.warn_count == 0 and progFile.error_count == 0:
                 print """\
-                <p><span class="ok">Warning</span> count is %d</p>
                 <p><span class="ok">Error</span> count is %d</p>
-                """ % (progFile.warn_count, progFile.error_count)
+                <p><span class="ok">Warning</span> count is %d</p>
+                """ % (progFile.error_count, progFile.warn_count)
                 print """\
                 File %s is <span class="ok">ok</span>.
                 """ % (item.filename)
             else:
                 print """\
-                <p><span class="%s">Warning</span> count is %d</p>
-                """ % ('warning' if progFile.warn_count >0 else 'ok', progFile.warn_count)
-                report_msgs(progFile.warnings, 'warning')
-                print """\
                 <p><span class="%s">Error</span> count is %d</p>
                 """ % ('error' if progFile.error_count >0 else 'ok', progFile.error_count)
                 report_msgs(progFile.errors, 'error')
+                print """\
+                <p><span class="%s">Warning</span> count is %d</p>
+                """ % ('warning' if progFile.warn_count >0 else 'ok', progFile.warn_count)
+                report_msgs(progFile.warnings, 'warning')
 
     ms.close()
 else:
