@@ -335,7 +335,12 @@ class QueueFile(object):
                     try:
                         val = info['type'](str_val)
                     except ValueError, e:
-                        msg = "Error evaluating line %d, column %s of sheet %s: cannot evaluate '%s' as %s" % (row_num, info['iname'], self.name, str_val, info['type'])
+                        msg = 'Error evaluating line %d, column %s of sheet %s: '% (row_num, info['iname'], self.name)
+                        if len(str_val) > 0:
+                            msg += "Non-numeric value, '%s', " % str_val
+                        else:
+                            msg += 'Blank value '
+                        msg += 'found where a numeric value was expected'
                         progFile.logger.error(msg)
                         progFile.errors[self.name].append([row_num, [info['iname']], msg])
                         progFile.error_count += 1
@@ -728,7 +733,7 @@ class ProposalFile(QueueFile):
         else:
             valid = False
         if not valid:
-            msg = "Error while checking line %d, column %s of sheet %s: %s '%s' is not valid" % (row_num, iname, self.name, iname, val)
+            msg = "Error while checking line %d, column %s of sheet %s: %s '%s' is not a valid proposal ID" % (row_num, iname, self.name, iname, val)
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [iname], msg])
             progFile.error_count += 1
