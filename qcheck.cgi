@@ -71,16 +71,16 @@ def upload_file(progFile, sessionValid, ldap_result, ldap_success, filename, fil
         if progFile.error_count > 0:
             print """\
             <h3><span class="%s">Error:</span> Unable to upload file because error count is greater than 0</h3>
-            """ %('error')
+            """ % ('error')
         elif not sessionValid:
             if ldap_success is not None and not ldap_success:
                 print """\
                 <h3><span class="%s">Error:</span> Unable to upload file because %s</h3>
-                """ % ldap_result
+                """ % ('error', ldap_result)
             else:
                 print """\
                 <h3><span class="%s">Error:</span> Unable to upload file because session has expired</h3>
-                """
+                """ % ('error')
 
 def report_msgs(d, severity):
     for name, l in d.iteritems():
