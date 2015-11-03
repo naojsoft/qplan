@@ -11,6 +11,7 @@ import Cookie
 import time
 import hashlib
 import pickle
+import re
 
 sys.path.append('/gen2/share/Git/queuesim')
 site.addsitedir('/gen2/share/arch/64/lib/python')
@@ -23,6 +24,7 @@ STARS_LDAP_SERVER = 'squery.subaru.nao.ac.jp'
 STARS_LDAP_PORT = 389
 QUEUE_FILE_TOP_DIR = '/var/www/queue_files'
 COOKIE_MAX_AGE = 3 * 60 * 60 # 3 hours
+#propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE)\d{2,3}|UH\d{2}[AB])$')
 
 log_file = os.path.join(QUEUE_FILE_TOP_DIR, 'qcheck.log')
 logger = log.get_logger(name='qcheck', level=20, log_file=log_file)
@@ -236,6 +238,14 @@ if upload and not sessionValid:
     else:
         sc = None
 
+# Check to see if the user clicked on the "List files" button
+try:
+    list_files = form['list_files'].value
+    propid = form['propid'].value
+except KeyError:
+    list_files = None
+    propid = ''
+
 # HTML header and CSS information
 if sessionValid:
     print sc
@@ -249,7 +259,7 @@ Content-Type: text/html\n
 <meta name="Author" content="Russell Kackley">
 <meta name="Generator" content="emacs and human">
 <meta name="Copyright" content="&copy; 200X  Russell Kackley">
-<title>Subaru Queue File Checker/Uploader</title>
+<title>Subaru Queue File Checker/Uploader/Listing</title>
 <style>
 .ok      {background-color: white}
 .warning {background-color: yellow}
@@ -257,14 +267,14 @@ Content-Type: text/html\n
 </style>
 </head>
 <body>
-<h1>Subaru Queue File Checker/Uploader</h1>
+<h1>Subaru Queue File Checker/Uploader/Listing</h1>
 """
 
 # The form element
 print """\
 <form enctype="multipart/form-data" action="/cgi-bin/qcheck/qcheck.cgi" method="POST">
 <input type="hidden" name="logLevel" value="30">
-File name (must be Excel file format):
+File name for checking or uploading (must be Excel file format):
 <input type="file" name="filename">
 <hr>
 <br>
@@ -297,8 +307,18 @@ else:
 print """\
 <p>
 <input type="submit" name="upload" value="Upload">
-</form> 
 """
+print """\
+<hr>
+<p>
+Use the following entry field and button to list the names of the files that have been uploaded for a Proposal ID (username/password not required).
+<p>
+<label for="name">Proposal ID</label>
+<input type="text" name="propid" id="propid" value="%s"> (e.g., S16A-001)
+<br>
+<input type="submit" name="list_files" value="List files">
+</form>
+""" % propid
 
 try:
     # Get file and log level information here.
@@ -322,7 +342,32 @@ if upload and ldap_success is not None:
     else:
         print '<h3>STARS LDAP result: %s</h3>' % ldap_result
 
+if list_files:
+    if propid:
+        if filetypes.ProposalFile.propID_re.match(propid):
+            propid_dirpath = os.path.join(QUEUE_FILE_TOP_DIR, propid)
+            if os.path.isdir(propid_dirpath):
+                filename_list = os.listdir(propid_dirpath)
+                if len(filename_list) > 0:
+                    print '<hr>List of uploaded files for Proposal ID %s:<p>' % propid
+                    filename_list = sorted(filename_list)
+                    mtimes=[datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(propid_dirpath, filename))).strftime('%c') for filename in filename_list]
+                    sizes = [os.path.getsize(os.path.join(propid_dirpath, filename)) for filename in filename_list]
+                    df = pd.DataFrame({'Filename': filename_list, 'Modification time (HST)': mtimes, 'Size (bytes)': sizes})
+                    print df.to_html(index=False, justify='center')
+                else:
+                    print 'No files found for Proposal ID', propid
+            else:
+                print 'No files found for Proposal ID', propid
+        else:
+            print 'Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S16A-001.' % propid
+    else:
+        print 'Please enter a Proposal ID.'
+    sys.exit(1)
+
 if len(fileList[0].filename) > 0:
+
+    print '<hr>'
 
     ms = magic.open(magic.MAGIC_ERROR)
     ms.load()
@@ -404,7 +449,7 @@ if len(fileList[0].filename) > 0:
     ms.close()
 else:
     print """\
-    <p>Unable to read file - filename is empty</p>
+    <hr><p>Unable to read file - filename is empty</p>
     """
 
 print """\

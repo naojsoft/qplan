@@ -667,6 +667,8 @@ class WeightsFile(QueueFile):
 
 class ProposalFile(QueueFile):
 
+    propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE)\d{2,3}|UH\d{2}[AB])$')
+
     def __init__(self, input_dir, logger, file_ext=None):
 
         self.name = 'proposal'
@@ -685,7 +687,6 @@ class ProposalFile(QueueFile):
             'ph1_moon':         {'iname': 'Ph1 Moon',         'type': str,   'constraint': "value in %s" % str(moon_states_upper), 'prefilled': False},
             'allocated_time':   {'iname': 'Allocated Time',   'type': float, 'constraint': "value >= 0.0",                         'prefilled': False},
             }
-        self.propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE)\d{2,3}|UH\d{2}[AB])$')
         super(ProposalFile, self).__init__(input_dir, 'proposal', logger, file_ext)
 
     def parse_input(self):
