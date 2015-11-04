@@ -196,6 +196,22 @@ def validateSession(cookieFromClient):
         logger.info('Session not validated')
         return False
 
+def list_files(propid):
+    propid_dirpath = os.path.join(QUEUE_FILE_TOP_DIR, propid)
+    if os.path.isdir(propid_dirpath):
+        filename_list = os.listdir(propid_dirpath)
+        if len(filename_list) > 0:
+            print '<hr>List of uploaded files for Proposal ID %s:<p>' % propid
+            filename_list = sorted(filename_list)
+            mtimes=[datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(propid_dirpath, filename))).strftime('%c') for filename in filename_list]
+            sizes = [os.path.getsize(os.path.join(propid_dirpath, filename)) for filename in filename_list]
+            df = pd.DataFrame({'Filename': filename_list, 'Modification time (HST)': mtimes, 'Size (bytes)': sizes})
+            print df.to_html(index=False, justify='center')
+        else:
+            print 'No files found for Proposal ID', propid
+    else:
+        print 'No files found for Proposal ID', propid
+
 logger.info('Received request from address %s' % os.environ['REMOTE_ADDR'])
 
 form = cgi.FieldStorage()
@@ -240,10 +256,10 @@ if upload and not sessionValid:
 
 # Check to see if the user clicked on the "List files" button
 try:
-    list_files = form['list_files'].value
+    list_files_val = form['list_files'].value
     propid = form['propid'].value
 except KeyError:
-    list_files = None
+    list_files_val = None
     propid = ''
 
 # HTML header and CSS information
@@ -342,23 +358,10 @@ if upload and ldap_success is not None:
     else:
         print '<h3>STARS LDAP result: %s</h3>' % ldap_result
 
-if list_files:
+if list_files_val:
     if propid:
         if filetypes.ProposalFile.propID_re.match(propid):
-            propid_dirpath = os.path.join(QUEUE_FILE_TOP_DIR, propid)
-            if os.path.isdir(propid_dirpath):
-                filename_list = os.listdir(propid_dirpath)
-                if len(filename_list) > 0:
-                    print '<hr>List of uploaded files for Proposal ID %s:<p>' % propid
-                    filename_list = sorted(filename_list)
-                    mtimes=[datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(propid_dirpath, filename))).strftime('%c') for filename in filename_list]
-                    sizes = [os.path.getsize(os.path.join(propid_dirpath, filename)) for filename in filename_list]
-                    df = pd.DataFrame({'Filename': filename_list, 'Modification time (HST)': mtimes, 'Size (bytes)': sizes})
-                    print df.to_html(index=False, justify='center')
-                else:
-                    print 'No files found for Proposal ID', propid
-            else:
-                print 'No files found for Proposal ID', propid
+            list_files(propid)
         else:
             print 'Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S16A-001.' % propid
     else:
@@ -436,6 +439,7 @@ if len(fileList[0].filename) > 0:
                 print """\
                 File %s is <span class="ok">ok</span>.
                 """ % (item.filename)
+                list_files(progFile.cfg['proposal'].proposal_info.prop_id)
             else:
                 print """\
                 <p><span class="%s">Error</span> count is %d</p>
