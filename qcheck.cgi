@@ -439,7 +439,8 @@ if len(fileList[0].filename) > 0:
                 print """\
                 File %s is <span class="ok">ok</span>.
                 """ % (item.filename)
-                list_files(progFile.cfg['proposal'].proposal_info.prop_id)
+                if upload:
+                    list_files(progFile.cfg['proposal'].proposal_info.prop_id)
             else:
                 print """\
                 <p><span class="%s">Error</span> count is %d</p>
