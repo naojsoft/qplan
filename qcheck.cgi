@@ -25,8 +25,8 @@ STARS_LDAP_PORT = 389
 QUEUE_FILE_TOP_DIR = '/var/www/queue_files'
 COOKIE_MAX_AGE = 3 * 60 * 60 # 3 hours
 
-pd.set_option('display.max_rows', 5)
-pd.set_option('max_rows', 5)
+# Set column width greater than the maximum to accommodate long
+# filenames in "Uploaded Files" output listing.
 pd.set_option('max_colwidth', 80)
 
 log_file = os.path.join(QUEUE_FILE_TOP_DIR, 'qcheck.log')
