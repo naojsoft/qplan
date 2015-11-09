@@ -24,7 +24,10 @@ STARS_LDAP_SERVER = 'squery.subaru.nao.ac.jp'
 STARS_LDAP_PORT = 389
 QUEUE_FILE_TOP_DIR = '/var/www/queue_files'
 COOKIE_MAX_AGE = 3 * 60 * 60 # 3 hours
-#propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE)\d{2,3}|UH\d{2}[AB])$')
+
+pd.set_option('display.max_rows', 5)
+pd.set_option('max_rows', 5)
+pd.set_option('max_colwidth', 80)
 
 log_file = os.path.join(QUEUE_FILE_TOP_DIR, 'qcheck.log')
 logger = log.get_logger(name='qcheck', level=20, log_file=log_file)
@@ -62,6 +65,10 @@ def upload_file(progFile, sessionValid, ldap_result, ldap_success, filename, fil
 
         now = datetime.datetime.now()
         out_filename = '_'.join([propname, now.strftime('%Y%m%d_%H%M%S')])
+        # If the proposal ID is not already part of the filename,
+        # prepend the proposal ID onto the front of the filename.
+        if prop_id.upper() not in out_filename.upper():
+            out_filename = '_'.join([prop_id, out_filename])
         out_filename = '.'.join([out_filename, ext])
         out_pathname = os.path.join(prop_dir, out_filename)
         with open(out_pathname, 'w') as f:
@@ -205,7 +212,7 @@ def list_files(propid):
             filename_list = sorted(filename_list)
             mtimes=[datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(propid_dirpath, filename))).strftime('%c') for filename in filename_list]
             sizes = [os.path.getsize(os.path.join(propid_dirpath, filename)) for filename in filename_list]
-            df = pd.DataFrame({'Filename': filename_list, 'Modification time (HST)': mtimes, 'Size (bytes)': sizes})
+            df = pd.DataFrame({'Filename': filename_list, 'Last Modified (HST)': mtimes, 'Size (bytes)': sizes})
             print df.to_html(index=False, justify='center')
         else:
             print 'No files found for Proposal ID', propid
