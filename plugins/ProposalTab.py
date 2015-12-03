@@ -3,11 +3,11 @@
 #                   configuration files related to a proposal
 #
 
-from PyQt4 import QtGui, QtCore
 import PlBase
 
 import entity
 from ginga.misc import ModuleManager
+from ginga.gw import Widgets
 
 class ProposalTab(PlBase.Plugin):
 
@@ -28,12 +28,10 @@ class ProposalTab(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
 
-        self.tabWidget = QtGui.QTabWidget()
+        self.tabWidget = Widgets.TabWidget()
 
         for name in self.tabs:
             modName = self.tabInfo[name]['mod']
@@ -42,11 +40,11 @@ class ProposalTab(PlBase.Plugin):
             klass = getattr(module, modName)
             self.tabInfo[name]['obj'] = klass(self.model, self.view, self.controller, self.logger)
 
-            widget = QtGui.QWidget()
+            widget = Widgets.VBox()
             self.tabInfo[name]['obj'].build_gui(widget)
-            self.tabWidget.addTab(widget, name)
+            self.tabWidget.add_widget(widget, title=name)
 
-        layout.addWidget(self.tabWidget)
+        container.add_widget(self.tabWidget)
 
     def setProposal(self, proposal):
         self.proposal = proposal

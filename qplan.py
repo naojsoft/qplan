@@ -28,19 +28,19 @@ import ginga.toolkit as ginga_toolkit
 from Control import Controller
 from Model import QueueModel
 
-version = "20150605.0"
+version = "20151202.0"
 
 defaultServiceName = 'queueplanner'
 
 default_layout = ['seq', {},
-                   ['vbox', dict(name='top', width=1400, height=900),
+                   ['vbox', dict(name='top', width=1440, height=900),
                     dict(row=['hbox', dict(name='menu')],
                          stretch=0),
                     dict(row=['hpanel', {},
-                     ['ws', dict(name='left', width=300, show_tabs=False),
+                     ['ws', dict(name='left', width=100, show_tabs=False),
                       # (tabname, layout), ...
                       ],
-                     ['vpanel', {},
+                     ['vpanel', dict(width=700),
                       ['hpanel', dict(height=400),
                        ['vbox', dict(name='main', width=700),
                         dict(row=['ws', dict(name='report', group=1)], stretch=1)],
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     optprs.add_option("--display", dest="display", metavar="HOST:N",
                       help="Use X display on HOST:N")
     optprs.add_option("-g", "--geometry", dest="geometry",
-                      metavar="GEOM", default="+20+100",
+                      metavar="GEOM", default="1440x900",
                       help="X geometry for initial size and placement")
     optprs.add_option("-i", "--input", dest="input_dir", default=".",
                       metavar="DIRECTORY",

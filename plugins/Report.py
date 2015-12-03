@@ -38,9 +38,8 @@ class Report(PlBase.Plugin):
         self.vbox = vbox
 
         tw = Widgets.TextArea(wrap=False, editable=False)
-        font = self.view.get_font("Courier", 12)
-        #font = Widgets.get_font("Courier", 12)
-        tw.set_font(font)
+        self.font = self.view.get_font('Courier', 12)
+        tw.set_font(self.font)
         self.tw = tw
 
         vbox.add_widget(self.tw, stretch=1)
@@ -52,8 +51,7 @@ class Report(PlBase.Plugin):
     def set_text(self, text):
         # TODO: figure out why we have to keep setting the font
         # after the text is cleared
-        font = self.view.get_font("Courier", 12)
-        self.tw.set_font(font)
+        self.tw.set_font(self.font)
         self.tw.set_text(str(text))
 
     def show_schedule_cb(self, qmodel, schedule):

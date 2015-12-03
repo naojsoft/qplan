@@ -100,8 +100,8 @@ class Viewer(GwMain.GwMain, Widgets.Application):
     def stop(self):
         self.ev_quit.set()
 
-    def get_font(self, font_type, point_size):
-        font_family = self.settings.get(font_type, 'sans')
+    def get_font(self, font_family, point_size):
+        #font_family = self.settings.get(font_type, 'sans')
         font = GwHelp.get_font(font_family, point_size)
         return font
 

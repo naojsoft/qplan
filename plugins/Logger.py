@@ -29,8 +29,8 @@ class Logger(PlBase.Plugin):
         container.set_spacing(4)
 
         tw = Widgets.TextArea(editable=False, wrap=False)
-        font = self.view.get_font("Courier", 10)
-        tw.set_font(font)
+        self.font = self.view.get_font('Courier', 12)
+        tw.set_font(self.font)
         self.tw = tw
 
         container.add_widget(self.tw, stretch=1)
@@ -61,6 +61,7 @@ class Logger(PlBase.Plugin):
 
     def clear(self):
         self.tw.clear()
+        self.tw.set_font(self.font)
         return True
 
 
