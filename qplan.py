@@ -22,13 +22,11 @@ sys.path.insert(0, pluginHome)
 # Subaru python stdlib imports
 from ginga.misc import ModuleManager, Settings, Task, Bunch
 from ginga.misc import log
+import ginga.toolkit as ginga_toolkit
 
 # Local application imports
 from Control import Controller
-from View import Viewer
 from Model import QueueModel
-# must import AFTER Viewer
-from ginga.Control import GuiLogHandler
 
 version = "20150605.0"
 
@@ -75,15 +73,6 @@ plugins = [
     ('semester', 'SumChart', 'SemesterSumChart', 'sub1', 'Semester Chart'),
     ]
 
-class QueuePlanner(Controller, Viewer):
-
-    def __init__(self, logger, threadPool, module_manager, preferences,
-                 ev_quit, model):
-
-        Viewer.__init__(self, logger, ev_quit)
-        Controller.__init__(self, logger, threadPool, module_manager,
-                            preferences, ev_quit, model)
-
 
 def main(options, args):
     # Create top level logger.
@@ -94,6 +83,21 @@ def main(options, args):
 
     threadPool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
                                  numthreads=options.numthreads)
+
+    ginga_toolkit.use(options.toolkit)
+
+    from View import Viewer
+    # must import AFTER Viewer
+    from ginga.Control import GuiLogHandler
+
+    class QueuePlanner(Controller, Viewer):
+
+        def __init__(self, logger, threadPool, module_manager, preferences,
+                     ev_quit, model):
+
+            Viewer.__init__(self, logger, ev_quit)
+            Controller.__init__(self, logger, threadPool, module_manager,
+                                preferences, ev_quit, model)
 
     # Get settings folder
     ## if os.environ.has_key('CONFHOME'):
@@ -123,7 +127,7 @@ def main(options, args):
     # Build desired layout
     qplanner.build_toplevel(default_layout)
     for w in qplanner.ds.toplevels:
-        w.showNormal()
+        w.show()
 
     for pluginName, moduleName, className, wsName, tabName in plugins:
         qplanner.load_plugin(pluginName, moduleName, className,
@@ -145,9 +149,6 @@ def main(options, args):
     # Raise window
     w = qplanner.w.root
     w.show()
-    qplanner.app.setActiveWindow(w)
-    w.raise_()
-    w.activateWindow()
 
     server_started = False
 
@@ -229,6 +230,9 @@ if __name__ == "__main__":
     optprs.add_option("--stderr", dest="logstderr", default=False,
                       action="store_true",
                       help="Copy logging also to stderr")
+    optprs.add_option("-t", "--toolkit", dest="toolkit", metavar="NAME",
+                      default='qt4',
+                      help="Prefer GUI toolkit (gtk|qt)")
 
     (options, args) = optprs.parse_args(sys.argv[1:])
 

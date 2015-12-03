@@ -5,7 +5,6 @@
 #
 import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
 

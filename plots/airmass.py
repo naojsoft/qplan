@@ -1,6 +1,6 @@
 #
 # plots.py -- does matplotlib plots needed for queue tools
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 # Some code based on "Observer" module by Daniel Magee
@@ -11,40 +11,28 @@ from datetime import datetime, timedelta
 import pytz
 import numpy
 
-from matplotlib import figure
 import matplotlib.dates as mpl_dt
 import matplotlib as mpl
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from PyQt4 import QtGui
 
 from ginga.misc import Bunch
+from ginga.util import plots
 
-import zoompan as zp
+class AirMassPlot(plots.Plot):
 
-class AirMassPlot(object):
+    def __init__(self, width, height):
+        super(AirMassPlot, self).__init__(width=width, height=height)
 
-    def __init__(self, width, height, dpi=96):
         # time increments, by minute
         self.time_inc_min = 15
-        
-        # create matplotlib figure
-        self.fig = figure.Figure(figsize=(width, height), dpi=dpi)
 
         # colors used for successive points
         self.colors = ['r', 'b', 'g', 'c', 'm', 'y']
 
     def setup(self):
         pass
-    
+
     def get_figure(self):
         return self.fig
-    
-    def make_canvas(self):
-        canvas = FigureCanvas(self.fig)
-        return canvas
-        
-    ## def get_ax(self):
-    ##     return self.ax
 
     def clear(self):
         #self.ax.cla()
@@ -53,7 +41,7 @@ class AirMassPlot(object):
     def plot_airmass(self, site, tgt_data, tz):
         self._plot_airmass(self.fig, site, tgt_data, tz)
 
-    
+
     def _plot_airmass(self, figure, site, tgt_data, tz):
         """
         Plot into `figure` an airmass chart using target data from `info`
@@ -151,13 +139,27 @@ if __name__ == '__main__':
     import sys
     import entity, common
 
-    app = QtGui.QApplication([])
-    plot = AirMassPlot(10, 6)
-    plot.setup()
+    from ginga import toolkit
+    toolkit.use('qt')
+
+    from ginga.gw import Widgets, Plot
+    plot = AirMassPlot(1000, 600)
+
     outfile = None
     if len(sys.argv) > 1:
         outfile = sys.argv[1]
 
+    if outfile == None:
+        app = Widgets.Application()
+        topw = app.make_window()
+        plotw = Plot.PlotWidget(plot)
+        topw.set_widget(plotw)
+        topw.add_callback('close', lambda w: w.delete())
+    else:
+        from ginga.aggw import Plot
+        plotw = Plot.PlotWidget(plot)
+
+    plot.setup()
     tz = pytz.timezone('US/Hawaii')
     site = common.subaru
 
@@ -202,12 +204,10 @@ if __name__ == '__main__':
     plot.plot_airmass(site, target_data, tz)
 
     if outfile == None:
-        canvas = plot.make_canvas()
-        canvas.show()
+        topw.show()
     else:
-        canvas = plot.make_canvas()    # is this necessary?
-        self.fig.savefig(outfile)
+        plot.fig.savefig(outfile)
 
-    app.exec_()
+    app.start()
 
 #END

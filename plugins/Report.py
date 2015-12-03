@@ -1,6 +1,6 @@
 #
 # Report.py -- Report plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 import time
@@ -8,11 +8,10 @@ import re
 import StringIO
 from datetime import timedelta
 
-from PyQt4 import QtGui, QtCore
+from ginga.gw import Widgets
 import PlBase
 
 from ginga.misc import Bunch
-from ginga.misc import Widgets
 
 import qsim
 
@@ -24,7 +23,7 @@ class Report(PlBase.Plugin):
 
         self.schedules = {}
         self.cur_schedule = None
-        
+
         model.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
         model.add_callback('schedule-cleared', self.clear_schedule_cb)
@@ -39,32 +38,23 @@ class Report(PlBase.Plugin):
         self.vbox = vbox
 
         tw = Widgets.TextArea(wrap=False, editable=False)
-        #font = self.view.get_font("Courier", 12)
-        font = QtGui.QFont("Courier", 12)
+        font = self.view.get_font("Courier", 12)
+        #font = Widgets.get_font("Courier", 12)
         tw.set_font(font)
         self.tw = tw
-        
+
         vbox.add_widget(self.tw, stretch=1)
 
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        container.setLayout(layout)
-
-        layout.addWidget(vbox.get_widget(), stretch=1)
+        container.add_widget(vbox, stretch=1)
 
         self.gui_up = True
 
     def set_text(self, text):
         # TODO: figure out why we have to keep setting the font
         # after the text is cleared
-        #font = self.view.get_font("Courier", 12)
-        font = QtGui.QFont("Courier", 12)
+        font = self.view.get_font("Courier", 12)
         self.tw.set_font(font)
         self.tw.set_text(str(text))
-        ## self.tw.moveCursor(QtGui.QTextCursor.Start)
-        ## self.tw.moveCursor(QtGui.QTextCursor.StartOfLine)
-        ## self.tw.ensureCursorVisible()
 
     def show_schedule_cb(self, qmodel, schedule):
         try:
@@ -145,9 +135,9 @@ class Report(PlBase.Plugin):
                 return ob
         print("%s not found!" % obkey)
         raise KeyError(obkey)
-        
+
     def _get_selected_obs(self):
-        
+
         buf = self.tw.get_text()
         w = self.tw.get_widget()
         try:
@@ -161,7 +151,7 @@ class Report(PlBase.Plugin):
                     start -= 1
                     if start == 0:
                         break
-                    
+
             # find the end of line if selection doesn't
             # end on a line
             length, end = len(buf), end - 1
@@ -189,7 +179,7 @@ class Report(PlBase.Plugin):
 
             #print(oblist)
             return oblist
-        
+
         except Exception as e:
             self.logger.error("Error selecting OBs: %s" % (str(e)))
             return []

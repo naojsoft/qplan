@@ -6,8 +6,7 @@
 import os.path
 
 from ginga.misc import Bunch
-from ginga.misc import Widgets
-from PyQt4 import QtGui, QtCore
+from ginga.gw import Widgets
 
 import PlBase
 import filetypes
@@ -33,6 +32,7 @@ class ControlPanel(PlBase.Plugin):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
         vbox.set_spacing(2)
+        vbox.cfg_expand(8, 8)
 
         sw = Widgets.ScrollArea()
         sw.set_widget(vbox)
@@ -58,30 +58,20 @@ class ControlPanel(PlBase.Plugin):
 
         hbox = Widgets.HBox()
 
-        adj = Widgets.ScrollBar(orientation='horizontal')
-        adj_w = adj.get_widget()
-        adj_w.setRange(0, 100)
-        adj_w.setSingleStep(1)
-        adj_w.setPageStep(10)
-        #adj_w.setMaximum(1000)
+        adj = Widgets.Slider(orientation='horizontal', track=True)
+        adj.set_limits(0, 100, incr_value=1)
         idx = self.controller.idx_tgt_plots
-        adj_w.setValue(idx)
-        #adj_w.resize(200, -1)
-        adj_w.setTracking(True)
+        adj.set_value(idx)
+        #adj.resize(200, -1)
         adj.set_tooltip("Choose subset of targets plotted")
         #self.w.plotgrp = adj
-        adj.add_callback('activated', self.set_plot_pct_cb)
+        adj.add_callback('value-changed', self.set_plot_pct_cb)
         hbox.add_widget(adj, stretch=1)
 
         sb = Widgets.SpinBox()
         sb.set_limits(1, 100)
-        sb_w = sb.get_widget()
         num = self.controller.num_tgt_plots
-        sb_w.setValue(num)
-        ## sb_w.setSingleStep(1)
-        ## sb_w.setPageStep(10)
-        ## sb_w.setWrapping(False)
-        #self.w.plotnum = sb
+        sb.set_value(num)
         sb.set_tooltip("Adjust size of subset of targets plotted")
         sb.add_callback('value-changed', self.set_plot_limit_cb)
         hbox.add_widget(sb, stretch=0)
@@ -98,14 +88,7 @@ class ControlPanel(PlBase.Plugin):
         ## vbox.add_widget(btns, stretch=0)
 
         self.sw = sw
-        top_w = sw.get_widget()
-
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        container.setLayout(layout)
-
-        layout.addWidget(top_w, stretch=1)
+        container.add_widget(sw, stretch=1)
 
     def initialize_model_cb(self, widget):
         self.input_dir = self.w.input_dir.get_text().strip()

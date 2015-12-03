@@ -1,41 +1,38 @@
 #
 # AirMassChart.py -- AirMass chart plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 from __future__ import print_function
 from datetime import timedelta
 #import pytz
 
-from PyQt4 import QtGui, QtCore
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-import matplotlib
-
+from ginga.gw import Widgets, Plot
 from ginga.misc import Bunch
 
 import PlBase
 from plots.airmass import AirMassPlot
 
 
-class AirMassChartCanvas(FigureCanvas):
-    def __init__(self, figure, parent=None):
+## class AirMassChartCanvas(FigureCanvas):
+##     def __init__(self, figure, parent=None):
 
-        FigureCanvas.__init__(self, figure)
-        self.setParent(parent)
+##         FigureCanvas.__init__(self, figure)
+##         self.setParent(parent)
 
-        FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
-        FigureCanvas.updateGeometry(self)
+##         FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
+##                                    QtGui.QSizePolicy.Expanding)
+##         FigureCanvas.updateGeometry(self)
 
-        self.w = 700
-        self.h = 500
-        
-    def minimumSizeHint(self):
-        return QtCore.QSize(self.w, self.h)
+##         self.w = 700
+##         self.h = 500
 
-    def sizeHint(self):
-         return QtCore.QSize(self.w, self.h)
-  
+##     def minimumSizeHint(self):
+##         return QtCore.QSize(self.w, self.h)
+
+##     def sizeHint(self):
+##          return QtCore.QSize(self.w, self.h)
+
 
 class AirMassChart(PlBase.Plugin):
 
@@ -48,7 +45,7 @@ class AirMassChart(PlBase.Plugin):
         # Set preferred timezone for plot
         #self.tz = pytz.utc
         self.tz = model.timezone
-        
+
         model.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
@@ -56,14 +53,12 @@ class AirMassChart(PlBase.Plugin):
 
         self.plot = AirMassPlot(8, 6)
 
-        self.canvas = AirMassChartCanvas(self.plot.get_figure())
+        self.canvas = Plot.PlotWidget(self.plot, width=700, height=500)
 
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
 
-        layout.addWidget(self.canvas, stretch=1)
+        container.add_widget(self.canvas, stretch=1)
 
     def show_schedule_cb(self, qmodel, schedule):
         try:
@@ -72,7 +67,7 @@ class AirMassChart(PlBase.Plugin):
             if not self.initialized:
                 self.plot.setup()
                 self.initialized = True
-            
+
             if info.num_tgts == 0:
                 self.logger.debug("no targets for plotting airmass")
                 self.view.gui_do(self.plot.clear)
@@ -89,7 +84,7 @@ class AirMassChart(PlBase.Plugin):
 
                 self.view.gui_do(self.plot.plot_airmass, site, target_data,
                                  self.tz)
-            self.view.gui_do(self.canvas.draw)
+            self.view.gui_do(self.plot.draw)
         ## except KeyError:
         ##     pass
         except Exception as e:
@@ -99,7 +94,7 @@ class AirMassChart(PlBase.Plugin):
 
     def add_schedule(self, schedule):
         self.logger.debug("adding schedule %s" % (schedule))
-        
+
         start_time = schedule.start_time
         t = start_time.astimezone(self.model.timezone)
         # if schedule starts after midnight, change start date to the

@@ -4,7 +4,7 @@
 #
 
 from PyQt4 import QtGui, QtCore
-from ginga.qtw.QtHelp import ToolBar
+from ginga.gw import Widgets
 import PlBase
 
 from Schedule import GenericTableModel
@@ -21,38 +21,34 @@ class QueueFileTab(PlBase.Plugin):
     def build_gui(self, container):
         # Make a top-level layout to which we will add the Toolbar and
         # the TableView.
-        top_layout = QtGui.QVBoxLayout()
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        container.setLayout(top_layout)
+        top_layout = container
+        top_layout.set_margins(0, 0, 0, 0)
 
         # Create a toolbar and add it to the top_layout
-        toolbar = ToolBar()
-        top_layout.addWidget(toolbar)
+        toolbar = Widgets.Toolbar()
+        top_layout.add_widget(toolbar)
 
         # Create a "File" menu
-        filemenu = toolbar.add_name('File')
-        self.file_save_item = toolbar.make_action('Save')
-        self.file_save_item.setEnabled(False)
-        self.file_save_item.triggered.connect(self.save_item_clicked)
-        filemenu.addAction(self.file_save_item)
+        filemenu = toolbar.add_menu(text='File')
+        self.file_save_item = filemenu.add_name('Save')
+        self.file_save_item.set_enabled(False)
+        self.file_save_item.add_callback('activated', self.save_item_clicked)
 
         # Create an "Edit" menu
-        editmenu = toolbar.add_name('Edit')
-        copy_item = toolbar.make_action('Copy')
-        copy_item.setShortcut("Ctrl+C")
-        copy_item.triggered.connect(self.copy_clicked)
-        editmenu.addAction(copy_item)
-        paste_item = toolbar.make_action('Paste')
-        paste_item.setShortcut("Ctrl+V")
-        paste_item.triggered.connect(self.paste_clicked)
-        editmenu.addAction(paste_item)
+        editmenu = toolbar.add_menu('Edit')
+        copy_item = editmenu.add_name('Copy')
+        copy_item.get_widget().setShortcut("Ctrl+C")
+        copy_item.add_callback('activated', lambda w: self.copy_clicked())
+        paste_item = editmenu.add_name('Paste')
+        paste_item.get_widget().setShortcut("Ctrl+V")
+        paste_item.add_callback('activated', lambda w: self.paste_clicked())
 
-        insert_row_item = toolbar.make_action('Insert Rows')
-        insert_row_item.triggered.connect(self.insert_row_clicked)
-        editmenu.addAction(insert_row_item)
-        delete_row_item = toolbar.make_action('Delete Rows')
-        delete_row_item.triggered.connect(self.delete_row_clicked)
-        editmenu.addAction(delete_row_item)
+        insert_row_item = editmenu.add_name('Insert Rows')
+        insert_row_item.add_callback('activated',
+                                     lambda w: self.insert_row_clicked())
+        delete_row_item = editmenu.add_name('Delete Rows')
+        delete_row_item.add_callback('activated',
+                                     lambda w: self.delete_row_clicked())
 
         # Create the table view
         tableview = QtGui.QTableView()
@@ -66,7 +62,8 @@ class QueueFileTab(PlBase.Plugin):
         vh.setResizeMode(QtGui.QHeaderView.ResizeToContents)
 
         # Add the table view to the top_layout
-        top_layout.addWidget(self.tableview, stretch=1)
+        w = Widgets.wrap(tableview)
+        top_layout.add_widget(w, stretch=1)
 
     def build_table(self, module_name, class_name):
         # Set our QTableView widget to point to the supplied table
@@ -115,7 +112,7 @@ class QueueFileTab(PlBase.Plugin):
                     row = index.row()
                     col = index.column()
                     self.logger.debug('row %d col %d %s' % (row, col, self.dataForTableModel[row][col]))
-                    
+
                 selRangeFirst = sel.first()
                 self.logger.debug('after selRangeFirst %s'%selRangeFirst)
                 self.logger.debug('after selRangeFirst isEmpty? %s'%selRangeFirst.isEmpty())
@@ -254,11 +251,11 @@ class TableModel(GenericTableModel):
         if (orientation == QtCore.Qt.Horizontal) and \
                (role == QtCore.Qt.DisplayRole):
             return self.columns[section]
-        
+
         elif (orientation == QtCore.Qt.Vertical) and \
                (role == QtCore.Qt.DisplayRole):
             return str(section + 1)
-        
+
         # Hack to make the rows in a TableView all have a
         # reasonable height for the data
         #elif (role == QtCore.Qt.SizeHintRole) and \

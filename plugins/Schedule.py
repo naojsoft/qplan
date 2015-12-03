@@ -1,9 +1,10 @@
 #
 # Schedule.py -- Schedule plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 
+from ginga.gw import Widgets
 from PyQt4 import QtGui, QtCore
 import PlBase
 
@@ -13,18 +14,17 @@ class Schedule(PlBase.Plugin):
         super(Schedule, self).__init__(model, view, controller, logger)
 
         self.schedules = []
-        
+
         model.add_callback('schedule-cleared', self.clear_schedule_cb)
         model.add_callback('schedule-added', self.new_schedule_cb)
 
     def build_gui(self, container):
 
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
-        container.setLayout(layout)
+        container.set_margins(4, 4, 4, 4)
+        container.set_spacing(4)
 
         # create the table
+        # TODO: replace with Widgets.TreeView
         table = QtGui.QTableView()
         self.table = table
         table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -43,12 +43,13 @@ class Schedule(PlBase.Plugin):
 
         table.resizeColumnsToContents()
 
-        layout.addWidget(self.table, stretch=1)
+        w = Widgets.wrap(table)
+        container.add_widget(w, stretch=1)
 
     def build_table(self, schedules):
 
         columns = ['Schedule']
-        
+
         table = self.table
         model = ScheduleTableModel(columns, schedules)
         table.setModel(model)
@@ -56,7 +57,7 @@ class Schedule(PlBase.Plugin):
         table.setSelectionModel(selectionModel)
         selectionModel.currentRowChanged.connect(self.select_row_cb)
         #model.layoutChanged.connect(self.sort_cb)
-        
+
         # set column width to fit contents
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
@@ -70,7 +71,7 @@ class Schedule(PlBase.Plugin):
         self.schedules = []
         if model is not None:
             model.clear()
-        
+
     def new_schedule_cb(self, qmodel, schedule):
         if not schedule in self.schedules:
             self.schedules.append(schedule)
@@ -98,7 +99,7 @@ class Schedule(PlBase.Plugin):
             schedule = self.schedules[row]
             self.model.select_schedule(schedule)
         return True
-    
+
 
 class GenericTableModel(QtCore.QAbstractTableModel):
 
@@ -108,26 +109,26 @@ class GenericTableModel(QtCore.QAbstractTableModel):
         self.columns = columns
         self.model_data = data
 
-    def rowCount(self, parent): 
-        return len(self.model_data) 
- 
-    def columnCount(self, parent): 
-        return len(self.columns) 
+    def rowCount(self, parent):
+        return len(self.model_data)
+
+    def columnCount(self, parent):
+        return len(self.columns)
 
     def get_data(self, row, col):
         """Subclass should override this as necessary."""
         return self.model_data[row][col]
-        
+
     def mksort(self, col):
         """Subclass should override this as necessary."""
         def sortfn(item):
             return item[col]
         return sortfn
-        
-    def data(self, index, role): 
-        if not index.isValid(): 
-            return None 
-        elif role != QtCore.Qt.DisplayRole: 
+
+    def data(self, index, role):
+        if not index.isValid():
+            return None
+        elif role != QtCore.Qt.DisplayRole:
             return None
 
         row, col = index.row(), index.column()
@@ -139,7 +140,7 @@ class GenericTableModel(QtCore.QAbstractTableModel):
                (role == QtCore.Qt.DisplayRole):
             #return self.columns[col][0]
             return self.columns[col]
-        
+
         # Hack to make the rows in a TableView all have a
         # reasonable height for the data
         elif (role == QtCore.Qt.SizeHintRole) and \
@@ -169,18 +170,18 @@ class GenericTableModel(QtCore.QAbstractTableModel):
             self.model_data = []
 
             self.endRemoveRows()
-    
+
 class ScheduleTableModel(GenericTableModel):
 
     def get_data(self, row, col):
         return self.model_data[row]
-        
+
     def mksort(self, col):
         """Subclass should override this as necessary."""
         def sortfn(item):
             return str(item)
         return sortfn
-        
-    
+
+
 
 #END

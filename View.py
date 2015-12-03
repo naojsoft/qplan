@@ -3,8 +3,7 @@ import sys, os
 import platform
 import traceback
 
-from ginga.qtw import QtHelp, QtMain
-from ginga.qtw.QtHelp import QtGui, QtCore, QFont, MenuBar
+from ginga.gw import GwHelp, GwMain, Widgets, Desktop
 from ginga.misc import Bunch
 
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
@@ -18,14 +17,12 @@ import qsim
 class ViewError(Exception):
     pass
 
-class Viewer(QtMain.QtMain):
+class Viewer(GwMain.GwMain, Widgets.Application):
 
     def __init__(self, logger, ev_quit):
-       # call superclass constructors--sets self.app
-        QtMain.QtMain.__init__(self, logger=logger, ev_quit=ev_quit)
-        if os.path.exists(rc_file):
-            self.app.setStyleSheet(rc_file)
-
+        Widgets.Application.__init__(self, logger=logger)
+        GwMain.GwMain.__init__(self, logger=logger, ev_quit=ev_quit,
+                               app=self)
         self.w = Bunch.Bunch()
 
         # For now...
@@ -41,16 +38,17 @@ class Viewer(QtMain.QtMain):
         self.font18 = self.get_font('fixedFont', 18)
 
         self.w.tooltips = None
-        QtGui.QToolTip.setFont(self.font11)
 
-        self.ds = QtHelp.Desktop()
+        self.ds = Desktop.Desktop(self)
         self.ds.make_desktop(layout, widgetDict=self.w)
 
-        for root in self.ds.toplevels:
+        for win in self.ds.toplevels:
             # add delete/destroy callbacks
-            root.setWindowTitle("Queue Planner")
+            win.add_callback('close', self.quit)
+            win.set_title("Queue Planner")
+            root = win
         self.ds.add_callback('all-closed', self.quit)
-        
+
         self.w.root = root
 
         menuholder = self.w['menu']
@@ -63,34 +61,25 @@ class Viewer(QtMain.QtMain):
 
 
     def add_menus(self, holder):
-        menubar = MenuBar()
+        menubar = Widgets.Menubar()
+        self.menubar = menubar
 
-        # NOTE: Special hack for Mac OS X, otherwise the menus
-        # do not get added to the global OS X menu
-        macos_ver = platform.mac_ver()[0]
-        if len(macos_ver) > 0:
-            self.w['top'].layout().addWidget(menubar, stretch=0)
-        else:
-            holder.layout().addWidget(menubar, stretch=1)
+        holder.add_widget(menubar, stretch=1)
 
         # create a File pulldown menu, and add it to the menu bar
         filemenu = menubar.add_name("File")
+        filemenu.add_separator()
 
-        sep = menubar.make_action('')
-        sep.setSeparator(True)
-        filemenu.addAction(sep)
-        
-        item = menubar.make_action("Quit")
-        item.triggered.connect(self.quit)
-        filemenu.addAction(item)
+        item = filemenu.add_name("Quit")
+        item.add_callback('activated', lambda w: self.quit())
 
         # create a Option pulldown menu, and add it to the menu bar
         ## optionmenu = menubar.add_name("Option")
 
     def add_statusbar(self, holder):
-        self.w.status = QtGui.QStatusBar()
-        holder.layout().addWidget(self.w.status, stretch=1)
-   
+        self.w.status = Widgets.StatusBar()
+        holder.add_widget(self.w.status, stretch=1)
+
     def windowClose(self, *args):
         """Quit the application.
         """
@@ -106,14 +95,14 @@ class Viewer(QtMain.QtMain):
         self.w.root = None
         while len(self.ds.toplevels) > 0:
             w = self.ds.toplevels.pop()
-            w.deleteLater()
+            w.delete()
 
     def stop(self):
         self.ev_quit.set()
 
     def get_font(self, font_type, point_size):
         font_family = self.settings.get(font_type, 'sans')
-        font = QFont(font_family, point_size)
+        font = GwHelp.get_font(font_family, point_size)
         return font
 
     def set_pos(self, x, y):
@@ -124,7 +113,7 @@ class Viewer(QtMain.QtMain):
 
     def set_geometry(self, geometry):
         # Painful translation of X window geometry specification
-        # into correct calls to Qt
+        # into correct calls to widget
         coords = geometry.replace('+', ' +')
         coords = coords.replace('-', ' -')
         coords = coords.split()
@@ -148,7 +137,7 @@ class Viewer(QtMain.QtMain):
 
     def load_plugin(self, pluginName, moduleName, className, wsName, tabName):
 
-        widget = QtGui.QWidget()
+        widget = Widgets.VBox()
 
         # Record plugin info
         canonicalName = pluginName.lower()
@@ -156,9 +145,9 @@ class Viewer(QtMain.QtMain):
                            name=canonicalName, officialname=pluginName,
                            modulename=moduleName, classname=className,
                            wsname=wsName, tabname=tabName, widget=widget)
-        
+
         self.plugins[pluginName] = bnch
-        
+
         try:
             module = self.mm.loadModule(moduleName)
 
@@ -192,22 +181,19 @@ class Viewer(QtMain.QtMain):
                 (type, value, tb) = sys.exc_info()
                 tb_str = "\n".join(traceback.format_tb(tb))
                 self.logger.error("Traceback:\n%s" % (tb_str))
-                
+
             except Exception, e:
                 tb_str = "Traceback information unavailable."
                 self.logger.error(tb_str)
-                
-            vbox = QtGui.QVBoxLayout()
-            vbox.setContentsMargins(4, 4, 4, 4)
-            vbox.setSpacing(0)
-            widget.setLayout(vbox)
-            
-            textw = QtGui.QTextEdit()
-            textw.append(str(e) + '\n')
-            textw.append(tb_str)
-            textw.setReadOnly(True)
-            vbox.addWidget(textw, stretch=1)
-                
+
+            widget.set_margins(4, 4, 4, 4)
+            widget.set_spacing(0)
+
+            textw = Widgets.TextArea(editable=False)
+            textw.append_text(str(e) + '\n')
+            textw.append_text(tb_str)
+            widget.add_widget(textw, stretch=1)
+
             self.ds.add_tab(wsName, widget, 2, tabName)
 
     def close_plugin(self, pluginName):
@@ -217,7 +203,7 @@ class Viewer(QtMain.QtMain):
         self.logger.info('calling remove_tab() for plugin %s' % (pluginName))
         self.ds.remove_tab(bnch.wsTabName)
         return True
-     
+
     def close_all_plugins(self):
         for pluginName in self.plugins:
             try:
@@ -225,14 +211,14 @@ class Viewer(QtMain.QtMain):
             except Exception as e:
                 self.logger.error('Exception while calling stop for plugin %s: %s' % (pluginName, e))
         return True
-    
+
     def reload_plugin(self, pluginName):
         pInfo = self.plugins[pluginName]
         try:
             self.close_plugin(pluginName)
         except:
             pass
-        
+
         return self.load_plugin(pInfo.officialname, pInfo.modulename,
                                 pInfo.classname, pInfo.wsname,
                                 pInfo.tabname)
@@ -247,6 +233,6 @@ class Viewer(QtMain.QtMain):
             self.gui_do(pInfo.obj.log, text)
         except:
             pass
-        
+
 
 #END

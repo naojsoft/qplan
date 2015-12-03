@@ -1,16 +1,15 @@
 import math
 from datetime import datetime
 
-import matplotlib
-from matplotlib import rc, figure
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from PyQt4 import QtGui
+import matplotlib as mpl
+from matplotlib import rc
 
-import zoompan as zp
+from ginga.util import plots
 
-class AZELPlot(object):
+class AZELPlot(plots.Plot):
 
-    def __init__(self, width, height, dpi=96):
+    def __init__(self, width, height):
+        super(AZELPlot, self).__init__(width=width, height=height)
         # radar green, solid grid lines
         rc('grid', color='#316931', linewidth=1, linestyle='-')
         rc('xtick', labelsize=10)
@@ -18,9 +17,6 @@ class AZELPlot(object):
 
         # altitude increments, by degree
         self.alt_inc_deg = 15
-        
-        # create matplotlib figure
-        self.fig = figure.Figure(figsize=(width, height), dpi=dpi)
 
         # colors used for successive points
         self.colors = ['r', 'b', 'g', 'c', 'm', 'y']
@@ -28,9 +24,6 @@ class AZELPlot(object):
     def setup(self):
         ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8],
                                projection='polar', axisbg='#d5de9c')
-        ## self.zp = zp.ZoomPan()
-        ## self.zp.zoom_factory(ax, base_scale=1.5)
-        ## self.zp.pan_factory(ax)
         self.ax = ax
         # don't clear plot when we call plot()
         ax.hold(True)
@@ -39,21 +32,17 @@ class AZELPlot(object):
 
     def get_figure(self):
         return self.fig
-    
+
     def get_ax(self):
         return self.ax
 
-    def make_canvas(self):
-        canvas = FigureCanvas(self.fig)
-        return canvas
-        
     def clear(self):
         self.ax.cla()
         self.redraw()
 
     def map_azalt(self, az, alt):
         return (math.radians(az - 180.0), 90.0 - alt)
-    
+
     def orient_plot(self):
         ax = self.ax
         # Orient plot for Subaru telescope
@@ -109,23 +98,15 @@ class AZELPlot(object):
             # alt: invert the radial axis
             az, alt = self.map_azalt(tup[0], tup[1])
             name = tup[2]
-            ax.plot([az], [alt], lc) 
+            ax.plot([az], [alt], lc)
             ax.annotate(name, (az, alt))
 
         #self.orient_plot()
 
         self.redraw()
-        
-    def plot_azel(self, coords, outfile=None):
 
+    def plot_azel(self, coords):
         self.plot_coords(coords)
-        
-        if outfile == None:
-            self.canvas = self.make_canvas()
-            self.canvas.show()
-        else:
-            self.canvas = self.make_canvas()
-            self.fig.savefig(outfile)
 
     def _plot_target(self, observer, target, time_start, color):
         try:
@@ -153,9 +134,21 @@ if __name__ == '__main__':
     import entity, common
     import pytz
 
-    app = QtGui.QApplication([])
-    plot = AZELPlot(10, 10)
+    from ginga import toolkit
+    toolkit.use('qt')
+
+    from ginga.gw import Widgets, Plot
+
+    plot = AZELPlot(1000, 1000)
     plot.setup()
+
+    app = Widgets.Application()
+    topw = app.make_window()
+    plotw = Plot.PlotWidget(plot)
+    topw.set_widget(plotw)
+    topw.add_callback('close', lambda w: w.delete())
+    topw.show()
+
     plot.plot_azel([(-210.0, 60.43, "telescope"),])
     tgt3 = entity.StaticTarget(name="Bootes", ra="14:31:45.40",
                                dec="+32:28:38.50")
@@ -167,6 +160,7 @@ if __name__ == '__main__':
     start_time = tz.localize(start_time)
     plot.plot_targets(site, [common.moon, common.sun, tgt3],
                       start_time, ['white', 'yellow', 'green'])
-    app.exec_()
+
+    app.start()
 
 #END

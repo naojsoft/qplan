@@ -5,27 +5,8 @@
 #
 from PyQt4 import QtGui, QtCore
 import PlBase
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from ginga.gw import Plot
 import plots.summary as ps
-
-class SumChartCanvas(FigureCanvas):
-    def __init__(self, figure, parent=None):
-
-        FigureCanvas.__init__(self, figure)
-        self.setParent(parent)
-
-        self.w = 700
-        self.h = 500
-
-        FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
-        FigureCanvas.updateGeometry(self)
-
-    def minimumSizeHint(self):
-        return QtCore.QSize(self.w, self.h)
-
-    def sizeHint(self):
-        return QtCore.QSize(self.w, self.h)
 
 class BaseSumChart(PlBase.Plugin):
 
@@ -45,15 +26,11 @@ class NightSumChart(BaseSumChart):
     def build_gui(self, container):
 
         self.plot = ps.NightSumPlot(8, 6, logger=self.logger)
+        canvas = Plot.PlotWidget(self.plot)
 
-        canvas = SumChartCanvas(self.plot.get_figure())
-
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
-
-        layout.addWidget(canvas, stretch=1)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
+        container.add_widget(canvas, stretch=1)
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
@@ -67,15 +44,11 @@ class ProposalSumChart(BaseSumChart):
     def build_gui(self, container):
 
         self.plot = ps.ProposalSumPlot(8, 6, logger=self.logger)
+        canvas = Plot.PlotWidget(self.plot)
 
-        canvas = SumChartCanvas(self.plot.get_figure())
-
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
-
-        layout.addWidget(canvas, stretch=1)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
+        container.add_widget(canvas, stretch=1)
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
@@ -89,15 +62,11 @@ class SchedSumChart(BaseSumChart):
     def build_gui(self, container):
 
         self.plot = ps.ScheduleSumPlot(8, 6, logger=self.logger)
+        canvas = Plot.PlotWidget(self.plot)
 
-        canvas = SumChartCanvas(self.plot.get_figure())
-
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
-
-        layout.addWidget(canvas, stretch=1)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
+        container.add_widget(canvas, stretch=1)
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
@@ -111,15 +80,11 @@ class SemesterSumChart(BaseSumChart):
     def build_gui(self, container):
 
         self.plot = ps.SemesterSumPlot(8, 6, logger=self.logger)
+        canvas = Plot.PlotWidget(self.plot)
 
-        canvas = SumChartCanvas(self.plot.get_figure())
-
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
-
-        layout.addWidget(canvas, stretch=1)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
+        container.add_widget(canvas, stretch=1)
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')

@@ -1,11 +1,11 @@
 #
 # Logger.py -- Logging plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 import logging
 
-from PyQt4 import QtGui, QtCore
+from ginga.gw import Widgets
 import PlBase
 
 class Logger(PlBase.Plugin):
@@ -25,19 +25,15 @@ class Logger(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
 
-        tw = QtGui.QTextEdit()
-        tw.setReadOnly(True)
-        tw.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        font = QtGui.QFont("Courier", 10)
-        tw.setFont(font)
+        tw = Widgets.TextArea(editable=False, wrap=False)
+        font = self.view.get_font("Courier", 10)
+        tw.set_font(font)
         self.tw = tw
-        
-        layout.addWidget(self.tw, stretch=1)
+
+        container.add_widget(self.tw, stretch=1)
 
     def set_history(self, histlimit):
         assert histlimit <= self.histmax, \
@@ -46,10 +42,10 @@ class Logger(PlBase.Plugin):
         self.logger.debug("Logging history limit set to %d" % (
             histlimit))
         self.tw.set_limit(histlimit)
-        
+
     def set_history_cb(self, w, val):
         self.set_history(val)
-        
+
     def set_loglevel_cb(self, w, index):
         name, level = self.levels[index]
         self.fv.set_loglevel(level)
@@ -58,14 +54,10 @@ class Logger(PlBase.Plugin):
 
     def set_autoscroll_cb(self, w, val):
         self.autoscroll = val
-        
+
     def log(self, text):
         if self.tw != None:
-            self.tw.append(text)
-            if self.autoscroll:
-                self.tw.moveCursor(QtGui.QTextCursor.End)
-                self.tw.moveCursor(QtGui.QTextCursor.StartOfLine)
-                self.tw.ensureCursorVisible()
+            self.tw.append_text(text, autoscroll=self.autoscroll)
 
     def clear(self):
         self.tw.clear()

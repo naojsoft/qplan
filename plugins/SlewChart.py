@@ -5,34 +5,12 @@
 #
 from datetime import datetime
 
-from PyQt4 import QtGui, QtCore
-from matplotlib.backends.backend_qt4agg import \
-     FigureCanvasQTAgg as FigureCanvas, \
-     NavigationToolbar2QTAgg as NavigationToolbar
 from ginga.misc import Bunch
+from ginga.gw import Widgets, Plot
 
 import PlBase
 from plots.polarsky import AZELPlot
 import common
-
-class SlewChartCanvas(FigureCanvas):
-    def __init__(self, figure, parent=None):
-
-        FigureCanvas.__init__(self, figure)
-        self.setParent(parent)
-
-        self.w = 500
-        self.h = 500
-
-        FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
-                                   QtGui.QSizePolicy.Expanding)
-        FigureCanvas.updateGeometry(self)
-
-    def minimumSizeHint(self):
-        return QtCore.QSize(self.w, self.h)
-
-    def sizeHint(self):
-         return QtCore.QSize(self.w, self.h)
 
 
 class SlewChart(PlBase.Plugin):
@@ -57,20 +35,14 @@ class SlewChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        self.plot = AZELPlot(6, 6)
+        self.plot = AZELPlot(600, 600)
 
-        canvas = SlewChartCanvas(self.plot.get_figure())
+        canvas = Plot.PlotWidget(self.plot, width=600, height=600)
 
-        layout = QtGui.QVBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(4)
-        container.setLayout(layout)
+        container.set_margins(2, 2, 2, 2)
+        container.set_spacing(4)
 
-        layout.addWidget(canvas, stretch=1)
-
-        ## win = container.window()
-        ## toolbar = NavigationToolbar(canvas, win)
-        ## layout.addWidget(toolbar, stretch=0)
+        container.add_widget(canvas, stretch=1)
 
 
     def show_schedule_cb(self, model, schedule):
