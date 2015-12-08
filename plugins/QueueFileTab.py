@@ -133,7 +133,7 @@ class QueueFileTab(PlBase.Plugin):
         self.logger.debug('after loop')
 
     def copy_clicked(self):
-        self.logger.debug('clipboard %s'%self.view.app.clipboard().text())
+        self.logger.debug('clipboard %s'%self.view._qtapp.clipboard().text())
         #self.view.app.clipboard().setText('something here')
         self.logger.debug('selectedIndexes %s'%self.tableview.selectedIndexes())
         #self.view.gui_do(self.copy_clicked_gui_do)
@@ -155,7 +155,7 @@ class QueueFileTab(PlBase.Plugin):
                     self.logger.debug('row %d col %d %s' % (row, col, self.dataForTableModel[row][col]))
                 string += '\n'
             self.logger.debug(string)
-            self.view.app.clipboard().setText(string)
+            self.view._qtapp.clipboard().setText(string)
             self.copySelectionRange = QtGui.QItemSelectionRange(selRangeFirst)
 
     def paste_clicked_gui_do(self, selRow, selCol):
