@@ -1421,6 +1421,13 @@ class OBListFile(QueueFile):
 
         iname = self.columnInfo['on_src_time']['iname']
         ph1_allocated_time = float(progFile.cfg['proposal'].proposal_info['allocated_time'])
+        # Round onSrcTimeSum and ph1_allocated_time to nearest 0.1
+        # second to avoid roundoff errors when comparing the two
+        # values.
+        onSrcTimeSum = round(onSrcTimeSum,1)
+        ph1_allocated_time = round(ph1_allocated_time,1)
+        # Compare onSrcTimeSum to ph1_allocated_time and report error
+        # if onSrcTimeSum is greater than ph1_allocated_time
         if onSrcTimeSum <= ph1_allocated_time:
             progFile.logger.debug('Column %s of sheet %s: On-source time sum of %s seconds is less than or equal to the Phase 1 allocated value of %s seconds and is ok' % (iname, self.name, onSrcTimeSum, ph1_allocated_time))
         else:
