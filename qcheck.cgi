@@ -457,6 +457,8 @@ if len(fileList[0].filename) > 0:
                 <p><span class="%s">Warning</span> count is %d</p>
                 """ % ('warning' if progFile.warn_count >0 else 'ok', progFile.warn_count)
                 report_msgs(progFile.warnings, 'warning')
+                if upload and progFile.error_count == 0:
+                    list_files(progFile.cfg['proposal'].proposal_info.prop_id)
 
     ms.close()
 else:
