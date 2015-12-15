@@ -188,7 +188,7 @@ if __name__ == "__main__":
     optprs.add_option("--display", dest="display", metavar="HOST:N",
                       help="Use X display on HOST:N")
     optprs.add_option("-g", "--geometry", dest="geometry",
-                      metavar="GEOM", default="1440x900",
+                      metavar="GEOM", default=None,
                       help="X geometry for initial size and placement")
     optprs.add_option("-i", "--input", dest="input_dir", default=".",
                       metavar="DIRECTORY",

@@ -25,7 +25,7 @@ class NightSumChart(BaseSumChart):
 
     def build_gui(self, container):
 
-        self.plot = ps.NightSumPlot(8, 6, logger=self.logger)
+        self.plot = ps.NightSumPlot(800, 600, logger=self.logger)
         canvas = Plot.PlotWidget(self.plot)
 
         container.set_margins(2, 2, 2, 2)
@@ -43,7 +43,7 @@ class ProposalSumChart(BaseSumChart):
 
     def build_gui(self, container):
 
-        self.plot = ps.ProposalSumPlot(8, 6, logger=self.logger)
+        self.plot = ps.ProposalSumPlot(800, 600, logger=self.logger)
         canvas = Plot.PlotWidget(self.plot)
 
         container.set_margins(2, 2, 2, 2)
@@ -61,7 +61,7 @@ class SchedSumChart(BaseSumChart):
 
     def build_gui(self, container):
 
-        self.plot = ps.ScheduleSumPlot(8, 6, logger=self.logger)
+        self.plot = ps.ScheduleSumPlot(800, 600, logger=self.logger)
         canvas = Plot.PlotWidget(self.plot)
 
         container.set_margins(2, 2, 2, 2)
@@ -79,7 +79,7 @@ class SemesterSumChart(BaseSumChart):
 
     def build_gui(self, container):
 
-        self.plot = ps.SemesterSumPlot(8, 6, logger=self.logger)
+        self.plot = ps.SemesterSumPlot(800, 600, logger=self.logger)
         canvas = Plot.PlotWidget(self.plot)
 
         container.set_margins(2, 2, 2, 2)

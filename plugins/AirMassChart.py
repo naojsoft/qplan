@@ -14,26 +14,6 @@ import PlBase
 from plots.airmass import AirMassPlot
 
 
-## class AirMassChartCanvas(FigureCanvas):
-##     def __init__(self, figure, parent=None):
-
-##         FigureCanvas.__init__(self, figure)
-##         self.setParent(parent)
-
-##         FigureCanvas.setSizePolicy(self, QtGui.QSizePolicy.Expanding,
-##                                    QtGui.QSizePolicy.Expanding)
-##         FigureCanvas.updateGeometry(self)
-
-##         self.w = 700
-##         self.h = 500
-
-##     def minimumSizeHint(self):
-##         return QtCore.QSize(self.w, self.h)
-
-##     def sizeHint(self):
-##          return QtCore.QSize(self.w, self.h)
-
-
 class AirMassChart(PlBase.Plugin):
 
     def __init__(self, model, view, controller, logger):
@@ -51,7 +31,7 @@ class AirMassChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        self.plot = AirMassPlot(8, 6)
+        self.plot = AirMassPlot(700, 500, logger=self.logger)
 
         self.canvas = Plot.PlotWidget(self.plot, width=700, height=500)
 

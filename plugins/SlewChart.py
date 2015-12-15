@@ -35,7 +35,7 @@ class SlewChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        self.plot = AZELPlot(600, 600)
+        self.plot = AZELPlot(600, 600, logger=self.logger)
 
         canvas = Plot.PlotWidget(self.plot, width=600, height=600)
 

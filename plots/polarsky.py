@@ -8,8 +8,10 @@ from ginga.util import plots
 
 class AZELPlot(plots.Plot):
 
-    def __init__(self, width, height):
-        super(AZELPlot, self).__init__(width=width, height=height)
+    def __init__(self, width, height, logger=None):
+        super(AZELPlot, self).__init__(width=width, height=height,
+                                       logger=logger)
+
         # radar green, solid grid lines
         rc('grid', color='#316931', linewidth=1, linestyle='-')
         rc('xtick', labelsize=10)

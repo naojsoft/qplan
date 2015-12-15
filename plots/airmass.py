@@ -19,8 +19,9 @@ from ginga.util import plots
 
 class AirMassPlot(plots.Plot):
 
-    def __init__(self, width, height):
-        super(AirMassPlot, self).__init__(width=width, height=height)
+    def __init__(self, width, height, logger=None):
+        super(AirMassPlot, self).__init__(width=width, height=height,
+                                          logger=logger)
 
         # time increments, by minute
         self.time_inc_min = 15

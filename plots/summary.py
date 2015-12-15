@@ -8,12 +8,15 @@ from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
 
+from ginga.util import plots
+
 import qsim
 
-class BaseSumPlot(object):
-    def __init__(self, width, height, dpi=96, logger=None):
+class BaseSumPlot(plots.Plot):
+    def __init__(self, width, height, logger=None):
         # create matplotlib figure
-        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        super(BaseSumPlot, self).__init__(width=width, height=height,
+                                          logger=logger)
         self.logger = logger
         self.barWidth = 0.5
         self.legendFont = FontProperties('sans-serif', 'normal', 'normal', 'normal', 'normal', 'small')
@@ -39,13 +42,6 @@ class BaseSumPlot(object):
 
     def clear(self):
         self.fig.clf()
-
-    def get_figure(self):
-        return self.fig
-
-    # Override the plot method in subclass
-    def plot(self):
-        pass
 
 class NightSumPlot(BaseSumPlot):
     # Make a bar chart to show which types of OB's will be executed
@@ -114,9 +110,7 @@ class NightSumPlot(BaseSumPlot):
         # area so that we don't obscure any of the bars.
         plt.legend(legend_patches, legend_titles, prop=self.legendFont, loc='center left', bbox_to_anchor=(1, 0.5), handlelength=1)
 
-        canvas = self.fig.canvas
-        if canvas is not None:
-            canvas.draw()
+        self.draw()
 
 class ProposalSumPlot(BaseSumPlot):
     # Make a bar chart to show the completed OB percentage for each
@@ -166,9 +160,7 @@ class ProposalSumPlot(BaseSumPlot):
 
         plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='center left', bbox_to_anchor=(1, 0.5), handlelength=1)
 
-        canvas = self.fig.canvas
-        if canvas is not None:
-            canvas.draw()
+        self.draw()
 
 class ScheduleSumPlot(BaseSumPlot):
     # Makes a bar chart to show scheduled/unscheduled minutes for each
@@ -198,9 +190,7 @@ class ScheduleSumPlot(BaseSumPlot):
         plt.set_xticklabels(date_list, rotation=45, ha='right')
         plt.legend((unsched_bar, sched_bar), ('Delay+Unscheduled', 'Scheduled'), prop=self.legendFont)
 
-        canvas = self.fig.canvas
-        if canvas is not None:
-            canvas.draw()
+        self.draw()
 
 class SemesterSumPlot(BaseSumPlot):
     # Makes a pie chart to show percentage of available time allocated
@@ -264,6 +254,4 @@ class SemesterSumPlot(BaseSumPlot):
 
         plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='center left', bbox_to_anchor=(1, 0.5), handlelength=1)
 
-        canvas = self.fig.canvas
-        if canvas is not None:
-            canvas.draw()
+        self.draw()
