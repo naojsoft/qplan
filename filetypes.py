@@ -207,7 +207,7 @@ class QueueFile(object):
                 #self.logger.warn("No column->record map entry for column '%s' (%s); skipping..." % (colname, key))
                 continue
             attrkey = column_map[key]
-            rec[attrkey] = row[i]
+            rec[attrkey] = row[i].strip()
         return rec
 
     def validate_column_names(self, progFile):

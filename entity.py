@@ -773,7 +773,7 @@ class TelescopeConfiguration(object):
         return (self.min_el, self.max_el)
 
     def import_record(self, rec):
-        code = rec.code.lower()
+        code = rec.code.strip()
         self.focus = rec.focus.upper()
         self.dome = rec.dome.lower()
         return code
@@ -847,7 +847,7 @@ class HSCConfiguration(InstrumentConfiguration):
         return filter_change_time_sec
 
     def import_record(self, rec):
-        code = rec.code.lower()
+        code = rec.code.strip()
         self.insname = 'HSC'
         self.filter = rec.filter.lower()
         self.mode = rec.mode
@@ -891,7 +891,7 @@ class FOCASConfiguration(InstrumentConfiguration):
         return filter_change_time_sec
 
     def import_record(self, rec):
-        code = rec.code.lower()
+        code = rec.code.strip()
         self.insname = 'FOCAS'
         self.mode = rec.mode
         self.filter = rec.filter.lower()
