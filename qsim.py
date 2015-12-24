@@ -149,6 +149,58 @@ def check_night_visibility(site, schedule, ob):
     return res
 
 
+def check_moon(site, start_time, stop_time, ob, res):
+    """Check whether the moon is at acceptable darkness for this OB
+    and an acceptable distance from the target.
+    """
+    c1 = ob.target.calc(site, start_time)
+    c2 = ob.target.calc(site, stop_time)
+
+    # is this a dark night? check moon illumination
+    is_dark_night = c1.moon_pct <= dark_night_moon_pct_limit
+
+    desired_moon_sep = ob.envcfg.moon_sep
+
+    # if the moon is down for entire exposure, override illumination
+    # and consider this a dark night
+    horizon_deg = 0.0   # change as necessary
+    if (c1.moon_alt < horizon_deg) and (c2.moon_alt < horizon_deg):
+        #print("moon down, dark night")
+        is_dark_night = True
+
+    # if observer specified a moon phase, check it now
+    if ob.envcfg.moon == 'dark':
+        ## print "moon pct=%f moon alt=%f moon_sep=%f" % (
+        ##     c1.moon_pct, c1.moon_alt, c1.moon_sep)
+        if not is_dark_night:
+            res.setvals(obs_ok=False,
+                        reason="Moon illumination=%f not acceptable" % (
+                c1.moon_pct))
+            return False
+
+    # override the observer's desired separation if it is a dark night
+    limit_sep = 30.0
+    if (desired_moon_sep is not None) and is_dark_night:
+        desired_moon_sep = min(desired_moon_sep, limit_sep)
+        if desired_moon_sep < ob.envcfg.moon_sep:
+            res.setvals(override="overrode moon separation (%.2f) -> %.2f deg" % (
+                ob.envcfg.moon_sep, desired_moon_sep))
+
+    # if observer specified a moon separation from target, check it now
+    # TODO: do we need to check this at the end of the exposure as well?
+    # If so, then we may need to do it in observable() method
+    if desired_moon_sep is not None:
+        if ((c1.moon_sep < desired_moon_sep) or
+            (c2.moon_sep < desired_moon_sep)):
+            res.setvals(obs_ok=False,
+                        reason="Moon-target separation (%f,%f < %f) not acceptable" % (
+                c1.moon_sep, c2.moon_sep, desired_moon_sep))
+            return False
+
+    # moon looks good!
+    return True
+
+
 def check_slot(site, prev_slot, slot, ob):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
@@ -246,26 +298,6 @@ def check_slot(site, prev_slot, slot, ob):
 
     c1 = ob.target.calc(site, slot.start_time)
 
-    # if observer specified a moon phase, check it now
-    if ob.envcfg.moon == 'dark':
-        ## print "moon pct=%f moon alt=%f moon_sep=%f" % (
-        ##     c1.moon_pct, c1.moon_alt, c1.moon_sep)
-        if c1.moon_pct > dark_night_moon_pct_limit:
-            res.setvals(obs_ok=False,
-                        reason="Moon illumination=%f not acceptable" % (
-                c1.moon_pct))
-            return res
-
-    # if observer specified a moon separation from target, check it now
-    # TODO: do we need to check this at the end of the exposure as well?
-    # If so, then we may need to do it in observable() method
-    if ob.envcfg.moon_sep is not None:
-        if c1.moon_sep < ob.envcfg.moon_sep:
-            res.setvals(obs_ok=False,
-                        reason="Moon-target separation (%f < %f) not acceptable" % (
-                c1.moon_sep, ob.envcfg.moon_sep))
-            return res
-
     # calculate cost of slew to this target
     if prev_ob == None:
         # no previous target--calculate cost from telescope parked position
@@ -310,6 +342,10 @@ def check_slot(site, prev_slot, slot, ob):
     delay_sec = (t_start - start_time).total_seconds()
 
     stop_time = t_start + timedelta(0, ob.total_time)
+
+    # check moon constraints between start and stop time
+    obs_ok = check_moon(site, start_time, stop_time, ob, res)
+
     res.setvals(obs_ok=obs_ok, prev_ob=prev_ob,
                 prep_sec=prep_sec, slew_sec=slew_sec,
                 delta_az=delta_az, delta_alt=delta_alt,

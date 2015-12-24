@@ -81,7 +81,7 @@ def main(options, args):
 
     ev_quit = threading.Event()
 
-    threadPool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
+    thread_pool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
                                  numthreads=options.numthreads)
 
     ginga_toolkit.use(options.toolkit)
@@ -92,11 +92,11 @@ def main(options, args):
 
     class QueuePlanner(Controller, Viewer):
 
-        def __init__(self, logger, threadPool, module_manager, preferences,
+        def __init__(self, logger, thread_pool, module_manager, preferences,
                      ev_quit, model):
 
             Viewer.__init__(self, logger, ev_quit)
-            Controller.__init__(self, logger, threadPool, module_manager,
+            Controller.__init__(self, logger, thread_pool, module_manager,
                                 preferences, ev_quit, model)
 
     # Get settings folder
@@ -120,7 +120,7 @@ def main(options, args):
     model = QueueModel(logger=logger)
 
     # Start up the control/display engine
-    qplanner = QueuePlanner(logger, threadPool, mm, prefs, ev_quit, model)
+    qplanner = QueuePlanner(logger, thread_pool, mm, prefs, ev_quit, model)
     qplanner.set_input_dir(options.input_dir)
     qplanner.set_input_fmt(options.input_fmt)
 
@@ -155,9 +155,14 @@ def main(options, args):
     # Create threadpool and start it
     try:
         # Startup monitor threadpool
-        threadPool.startall(wait=True)
+        thread_pool.startall(wait=True)
 
         try:
+            # if there is a network component, start it
+            if hasattr(qplanner, 'start'):
+                task = Task.FuncTask2(qplanner.start)
+                thread_pool.addTask(task)
+
             # Main loop to handle GUI events
             qplanner.mainloop(timeout=0.001)
 
@@ -166,7 +171,7 @@ def main(options, args):
 
     finally:
         logger.info("Shutting down...")
-        threadPool.stopall(wait=True)
+        thread_pool.stopall(wait=True)
 
     sys.exit(0)
 

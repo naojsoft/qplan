@@ -1479,7 +1479,8 @@ class OBListFile(QueueFile):
                                telcfg=telcfg,
                                priority=priority,
                                name=code,
-                               total_time=float(rec.total_time))
+                               total_time=float(rec.total_time),
+                               acct_time=float(rec.on_src_time))
                 self.obs_info.append(ob)
 
             except Exception as e:

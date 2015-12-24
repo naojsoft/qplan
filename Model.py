@@ -339,7 +339,8 @@ class QueueModel(Callback.Callbacks):
                 # currently: no
                 #obtime = (ob.time_stop - ob.time_start).total_seconds()
                 obtime = ob.total_time
-                prop_total = props[str(ob.program)].sched_time + obtime
+                acct_time = ob.acct_time
+                prop_total = props[str(ob.program)].sched_time + acct_time
                 if prop_total > props[str(ob.program)].total_time:
                     self.logger.debug("rejected %s (%s) because it would exceed program allotted time" % (
                         ob, ob_id))
@@ -359,7 +360,7 @@ class QueueModel(Callback.Callbacks):
                 continue
 
             # account this scheduled time to the program
-            props[str(ob.program)].sched_time += obtime
+            props[str(ob.program)].sched_time += acct_time
             dur = ob.total_time / 60.0
 
             # if a long slew is required, insert a separate OB for that

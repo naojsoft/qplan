@@ -262,7 +262,7 @@ class OB(object):
     count = 1
 
     def __init__(self, id=None, program=None, target=None, telcfg=None,
-                 inscfg=None, envcfg=None, total_time=None,
+                 inscfg=None, envcfg=None, total_time=None, acct_time=None,
                  priority=1.0, name=None, derived=None, comment=''):
         super(OB, self).__init__()
         if id is None:
@@ -287,6 +287,7 @@ class OB(object):
         self.derived = derived
         self.comment = comment
         self.status = 'new'
+        self.acct_time = acct_time
         self.data_quality = 0
 
     def __repr__(self):
