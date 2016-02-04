@@ -11,21 +11,21 @@ from q2ope import BaseConverter
 class Converter(BaseConverter):
 
     def _setup_target(self, d, ob):
-        
+
         funky_ra = self.ra_to_funky(ob.target.ra)
         funky_dec = self.dec_to_funky(ob.target.dec)
-        
+
         autoguide = False
         d.update(dict(guidestr=''))
         if ob.inscfg.guiding:
             autoguide = True
 
         if ob.inscfg.filter is None:
-            # TODO: what should this be?
-            filtername = 'HSC-g'
+            # TODO: should we raise an error here?
+            filtername = 'NOP'
         else:
             filtername = ob.inscfg.filter.upper()
-            
+
         d.update(dict(object=ob.target.name,
                       ra="%010.3f" % funky_ra, dec="%+010.2f" % funky_dec,
                       equinox=ob.target.equinox, pa=ob.inscfg.pa,
@@ -34,18 +34,19 @@ class Converter(BaseConverter):
                       offset_ra=ob.inscfg.offset_ra,
                       offset_dec=ob.inscfg.offset_dec,
                       dith1=ob.inscfg.dith1, dith2=ob.inscfg.dith2,
+                      skip=ob.inscfg.skip, stop=ob.inscfg.stop,
                       filter='HSC-%s' % ob.inscfg.filter,
                       autoguide=autoguide))
 
         # TODO: build guiding params from table as described below
         if autoguide:
             d.update(dict(guidestr="GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO"))
-        
+
         # prepare target parameters substring common to all SETUPFIELD
         # and GETOBJECT commands
         tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"' % d
         d.update(dict(tgtstr=tgtstr))
-        
+
     def write_ope_header(self, out_f):
 
         out = self._mk_out(out_f)
@@ -61,18 +62,18 @@ OBSERVATION_FILE_TYPE=OPE
 #OBSERVATION_END_TIME=
 
 :parameter
-DEF_CMNTOOL=OBE_ID=COMMON OBE_MODE=TOOL  
-DEF_TOOLS=OBE_ID=HSC OBE_MODE=TOOLS  
-DEF_IMAGE=OBE_ID=HSC OBE_MODE=IMAG  
-DEF_IMAGE_VGW=OBE_ID=HSC OBE_MODE=IMAG_VGW  
-DEF_IMAGE5=OBE_ID=HSC OBE_MODE=IMAG_5  
-DEF_IMAGE5_VGW=OBE_ID=HSC OBE_MODE=IMAG_5_VGW  
-DEF_IMAGEN=OBE_ID=HSC OBE_MODE=IMAG_N   
-DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW  
+DEF_CMNTOOL=OBE_ID=COMMON OBE_MODE=TOOL
+DEF_TOOLS=OBE_ID=HSC OBE_MODE=TOOLS
+DEF_IMAGE=OBE_ID=HSC OBE_MODE=IMAG
+DEF_IMAGE_VGW=OBE_ID=HSC OBE_MODE=IMAG_VGW
+DEF_IMAGE5=OBE_ID=HSC OBE_MODE=IMAG_5
+DEF_IMAGE5_VGW=OBE_ID=HSC OBE_MODE=IMAG_5_VGW
+DEF_IMAGEN=OBE_ID=HSC OBE_MODE=IMAG_N
+DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
 
 #GUIDE=EXPTIME_FACTOR=2 BRIGHTNESS=2000
-#ZOPT=Z=7.00       
-#Z=7.00
+#ZOPT=Z=7.00
+Z=7.00
 
 :command
         """
@@ -88,7 +89,7 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
 
         d = {}
         self._setup_target(d, ob)
-        
+
         cmd_str = '''FOCUSOBE $DEF_IMAGE OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f EXPTIME=%(exptime)d Z=$Z DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s"''' % d
         out(cmd_str)
 
@@ -113,7 +114,7 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
                 self.out_filterchange(ob, out_f)
                 self.out_focusobe(ob, out_f)
                 return
-                
+
             elif ob.comment.startswith('Long slew'):
                 out("\n# %s" % (ob.comment))
                 d = {}
@@ -177,10 +178,19 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
         out("\n# %s (%s %s) %s: %s" % (ob, ob.program.proposal,
                                        ob.program.pi, ob.name,
                                        ob.target.name))
+        # write out any comments
+        if len(ob.comment) > 0:
+            out("\n## ob: %s" % (ob.comment))
+        if len(ob.target.comment) > 0:
+            out("\n## tgt: %s" % (ob.target.comment))
+        if len(ob.inscfg.comment) > 0:
+            out("\n## ins: %s" % (ob.inscfg.comment))
+        if len(ob.envcfg.comment) > 0:
+            out("\n## env: %s" % (ob.envcfg.comment))
 
         d = {}
         self._setup_target(d, ob)
-        
+
         if ob.inscfg.dither == '1':
             if ob.inscfg.guiding:
                 cmd_str = '''SetupField $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s''' % d
@@ -197,35 +207,36 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
 
         elif ob.inscfg.dither == '5':
             if ob.inscfg.guiding:
-                cmd_str = '''SetupField $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                cmd_str = '''SetupField $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
-            
-                cmd_str = '''GetObject $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+
+                cmd_str = '''GetObject $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
             else:
-                cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+                cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
-            
-                cmd_str = '''GetObject $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f''' % d
+
+                cmd_str = '''GetObject $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
         elif ob.inscfg.dither == 'N':
             if ob.inscfg.guiding:
-                cmd_str = '''SetupField $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                cmd_str = '''SetupField $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                cmd_str = '''GetObject $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
             else:
-                cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f''' % d
+                cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
         else:
             raise ValueError("Instrument dither must be one of {1, 5, N}")
 
+        out("\n#######################################")
 
 
 '''
@@ -260,12 +271,12 @@ FilterChange2 $DEF_TOOLS FILTER="HSC-r"
 
 
 ########################################################################
-# Following command is useful when you want to do focus test and 
-# take a shot at where telescope is pointed now. 
+# Following command is useful when you want to do focus test and
+# take a shot at where telescope is pointed now.
 ########################################################################
 
 
-FOCUSOBE $DEF_IMAGE OBJECT="FOCUS TEST" RA=!STATS.RA DEC=!STATS.DEC EQUINOX=2000.0 EXPTIME=10 Z=3.70 DELTA_Z=0.05 DELTA_DEC=5 Filter="HSC-r" 
+FOCUSOBE $DEF_IMAGE OBJECT="FOCUS TEST" RA=!STATS.RA DEC=!STATS.DEC EQUINOX=2000.0 EXPTIME=10 Z=3.70 DELTA_Z=0.05 DELTA_DEC=5 Filter="HSC-r"
 
 SetupField $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC OFFSET_RA=0 OFFSET_DEC=0 Filter="HSC-r"
 GetObject $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC EXPTIME=10 OFFSET_RA=0 OFFSET_DEC=0 Filter="HSC-r"
@@ -276,7 +287,7 @@ GetObject $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC EXPTIME=10 OFFSET_RA=0 OFFSET_D
 #
 # OpenTracking (without AG), only one shot
 # OFFSET can be specified in arcsec.
-# The OFFSET value should be 3600 or smaller. 
+# The OFFSET value should be 3600 or smaller.
 #
 #  Note: For INSROT_PA, please refer the HSC instrument web page.
 #        http://www.naoj.org/Observing/Instruments/HSC/ccd.html
@@ -295,15 +306,15 @@ GetObject $DEF_IMAGE $NGC77145 EXPTIME=240 OFFSET_RA=25 OFFSET_DEC=110 Filter="H
 ########################################################################
 # L1551
 #
-# OpenTracking (without AG), 5 shot dither. 
-# Dither pattern is as follows (relative to the center (0,0)). 
+# OpenTracking (without AG), 5 shot dither.
+# Dither pattern is as follows (relative to the center (0,0)).
 #              RA,  DEC
-#   1st pos:    0,    0 
+#   1st pos:    0,    0
 #   2nd pos:  1dx, -2dy
 #   3rd pos:  2dx,  1dy
 #   4th pos: -1dx,  2dy
 #   5th pos: -2dx, -1dy
-# where dx=DITH_RA and dy=DITH_DEC in arcsec. 
+# where dx=DITH_RA and dy=DITH_DEC in arcsec.
 ########################################################################
 
 
@@ -314,15 +325,15 @@ GetObject $DEF_IMAGE5 $L1551 DITH_RA=120 DITH_DEC=120 EXPTIME=240 OFFSET_RA=0 OF
 
 
 ########################################################################
-# OpenTracking (without AG), N shot dither. 
-# Dither pattern is as follows (relative to the center (0,0)). 
+# OpenTracking (without AG), N shot dither.
+# Dither pattern is as follows (relative to the center (0,0)).
 #                Delta RA,         Delta DEC
-#   1st pos:  R*cos(0*360/N+T), R*sin(0*360/N+T)  
-#   2nd pos:  R*cos(1*360/N+T), R*sin(1*360/N+T)  
-#   3rd pos:  R*cos(2*360/N+T), R*sin(2*360/N+T)  
+#   1st pos:  R*cos(0*360/N+T), R*sin(0*360/N+T)
+#   2nd pos:  R*cos(1*360/N+T), R*sin(1*360/N+T)
+#   3rd pos:  R*cos(2*360/N+T), R*sin(2*360/N+T)
 #      :             :                 :
 #   Nth pos:  R*cos((N-1)*360/N+T), R*sin((N-1)*360/N+T)
-# where N=NDITH, number of dither, R=RDITH in arcsec and T=TDITH in degree.  
+# where N=NDITH, number of dither, R=RDITH in arcsec and T=TDITH in degree.
 ########################################################################
 
 
@@ -347,17 +358,17 @@ GetObject $DEF_IMAGEN $L1551 OFFSET_RA=0 OFFSET_DEC=0 EXPTIME=240 NDITH=3 RDITH=
 FOCUSOBE $DEF_IMAGE $NGC6822 EXPTIME=10 Z=3.70 DELTA_Z=0.05 DELTA_DEC=5 Filter="HSC-r" INSROT_PA=90
 
 SetupField $DEF_IMAGE_VGW $NGC6822 OFFSET_RA=0 OFFSET_DEC=0 GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO Filter="HSC-r" INSROT_PA=90
-GetObject  $DEF_IMAGE_VGW $NGC6822 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO Filter="HSC-r" INSROT_PA=90 
+GetObject  $DEF_IMAGE_VGW $NGC6822 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO Filter="HSC-r" INSROT_PA=90
 
 
 ########################################################################
 # NGC4038_39
 #
 # AutoGuiding, 5 shot dither. Guide star is seleceted interactively
-# by VGW. Dither pattern is as above. 
+# by VGW. Dither pattern is as above.
 # Appropriate combinations of GOODMAG, and AG_EXP are as above.
-# Note: this sequence (IMAGE5_VGW) is stopped when you cannot find 
-#       AG star. This is sometimes the case. 
+# Note: this sequence (IMAGE5_VGW) is stopped when you cannot find
+#       AG star. This is sometimes the case.
 ########################################################################
 
 
@@ -369,7 +380,7 @@ GetObject  $DEF_IMAGE5_VGW $NGC4038_39 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 DITH
 
 ########################################################################
 # AutoGuiding, N shot dither. Guide star is seleceted interactively
-# by VGW. Dither pattern is as above. 
+# by VGW. Dither pattern is as above.
 # Appropriate combinations of GOODMAG, and AG_EXP are as above.
 ########################################################################
 
@@ -377,15 +388,15 @@ GetObject  $DEF_IMAGE5_VGW $NGC4038_39 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 DITH
 FOCUSOBE $DEF_IMAGE $NGC4038_39 EXPTIME=10 Z=4.50 DELTA_Z=0.05 DELTA_DEC=5 Filter="HSC-r" INSROT_PA=90
 
 SetupField $DEF_IMAGEN_VGW $NGC4038_39 OFFSET_RA=0 OFFSET_DEC=0 NDITH=3 RDITH=120 TDITH=15 GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO Filter="HSC-r" INSROT_PA=90
-GetObject  $DEF_IMAGEN_VGW $NGC4038_39 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 NDITH=3 RDITH=120 TDITH=15 GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO Filter="HSC-r" INSROT_PA=90 
+GetObject  $DEF_IMAGEN_VGW $NGC4038_39 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 NDITH=3 RDITH=120 TDITH=15 GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO Filter="HSC-r" INSROT_PA=90
 
 
 ########################################################################
 # NEO 1
 #
 # Non-Sidereal Tracking (without AG), only one shot
-# OFFSET can be specified in arcsec. 
-# The OFFSET value should be 3600 or smaller. 
+# OFFSET can be specified in arcsec.
+# The OFFSET value should be 3600 or smaller.
 ########################################################################
 
 
@@ -396,8 +407,8 @@ GetObject $DEF_IMAGE $NEO1 EXPTIME=360 OFFSET_RA=0 OFFSET_DEC=0 Filter="HSC-r" I
 ########################################################################
 # Standard Stars
 #
-# If you want to take bright standard stars (such as Landolt standards), 
-# specify DELTA_Z parameter to change focus value to the defocused position. 
+# If you want to take bright standard stars (such as Landolt standards),
+# specify DELTA_Z parameter to change focus value to the defocused position.
 # DELTA_Z=0.4 works in most case with 5-10 sec exposure.
 ########################################################################
 
@@ -407,12 +418,12 @@ GetStandard $DEF_IMAGE $SA107 EXPTIME=5 DELTA_Z=0.4 OFFSET_RA=40 OFFSET_DEC=90 F
 
 
 ########################################################################
-# Twilight Sky Flat 
+# Twilight Sky Flat
 #
-# Please use SetupSkyFlat command here. 
-# 
-# Appropriate exposure time will be calculated by instrument operator. 
-# Please ask for his/her assistance. 
+# Please use SetupSkyFlat command here.
+#
+# Appropriate exposure time will be calculated by instrument operator.
+# Please ask for his/her assistance.
 ########################################################################
 
 SetupSkyFlat $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC OFFSET_RA=10 OFFSET_DEC=10 Filter="HSC-r"
@@ -431,7 +442,7 @@ GetSkyFlat $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC EXPTIME=30 Filter="HSC-r"
 #   (4.00, 5.10, 10) FOR HSC-Y
 ########################################################################
 
-SetupDomeFlat $DEF_CMNTOOL SETUP=SETUP  LAMP=4X10W VOLT=4.00 AMP=5.10 
+SetupDomeFlat $DEF_CMNTOOL SETUP=SETUP  LAMP=4X10W VOLT=4.00 AMP=5.10
 
 FilterChange1 $DEF_TOOLS FILTER="HSC-r"
 FilterChange2 $DEF_TOOLS FILTER="HSC-r"
@@ -448,6 +459,6 @@ FilterChange2 $DEF_SPCAM FILTER="HSC-i"
 GetDomeFlat $DEF_IMAGE EXPTIME=12 Filter="HSC-i"
 GetDomeFlat $DEF_IMAGE EXPTIME=12 Filter="HSC-i" NUMBER=4
 
-ShutdownDomeFlat $DEF_CMNTOOL 
+ShutdownDomeFlat $DEF_CMNTOOL
 '''
 #END

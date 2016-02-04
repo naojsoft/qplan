@@ -22,26 +22,25 @@ sys.path.insert(0, pluginHome)
 # Subaru python stdlib imports
 from ginga.misc import ModuleManager, Settings, Task, Bunch
 from ginga.misc import log
-from ginga.Control import GuiLogHandler
+import ginga.toolkit as ginga_toolkit
 
 # Local application imports
 from Control import Controller
-from View import Viewer
 from Model import QueueModel
 
-version = "20140804.0"
+version = "20151202.0"
 
 defaultServiceName = 'qexecute'
 
 default_layout = ['seq', {},
-                   ['vbox', dict(name='top', width=1400, height=900),
+                   ['vbox', dict(name='top', width=1440, height=900),
                     dict(row=['hbox', dict(name='menu')],
                          stretch=0),
                     dict(row=['hpanel', {},
-                     ['ws', dict(name='left', width=300, show_tabs=False),
+                     ['ws', dict(name='left', width=100, show_tabs=False),
                       # (tabname, layout), ...
-                      ], 
-                     ['vpanel', {},
+                      ],
+                     ['vpanel', dict(width=700),
                       ['hpanel', dict(height=400),
                        ['vbox', dict(name='main', width=700),
                         dict(row=['ws', dict(name='report', group=1)], stretch=1)],
@@ -58,7 +57,7 @@ default_layout = ['seq', {},
                      ], stretch=1),
                     dict(row=['hbox', dict(name='status')], stretch=0),
                     ]]
-                 
+
 
 plugins = [
     # pluginName, moduleName, className, workspaceName, tabName
@@ -75,15 +74,6 @@ plugins = [
     ('semester', 'SumChart', 'SemesterSumChart', 'sub1', 'Semester Chart'),
     ]
 
-class QueuePlanner(Controller, Viewer):
-
-    def __init__(self, logger, threadPool, module_manager, preferences,
-                 ev_quit, model):
-
-        Viewer.__init__(self, logger, ev_quit)
-        Controller.__init__(self, logger, threadPool, module_manager,
-                            preferences, ev_quit, model)
-
 
 def main(options, args):
     # Create top level logger.
@@ -92,9 +82,24 @@ def main(options, args):
 
     ev_quit = threading.Event()
 
-    threadPool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
+    thread_pool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
                                  numthreads=options.numthreads)
-    
+
+    ginga_toolkit.use(options.toolkit)
+
+    from View import Viewer
+    # must import AFTER Viewer
+    from ginga.Control import GuiLogHandler
+
+    class QueuePlanner(Controller, Viewer):
+
+        def __init__(self, logger, thread_pool, module_manager, preferences,
+                     ev_quit, model):
+
+            Viewer.__init__(self, logger, ev_quit)
+            Controller.__init__(self, logger, thread_pool, module_manager,
+                                preferences, ev_quit, model)
+
     # Get settings folder
     ## if os.environ.has_key('CONFHOME'):
     ##     basedir = os.path.join(os.environ['CONFHOME'], svcname)
@@ -114,16 +119,16 @@ def main(options, args):
     ##         self.mm.loadModule(name)
 
     model = QueueModel(logger=logger)
-    
+
     # Start up the control/display engine
-    qplanner = QueuePlanner(logger, threadPool, mm, prefs, ev_quit, model)
+    qplanner = QueuePlanner(logger, thread_pool, mm, prefs, ev_quit, model)
     qplanner.set_input_dir(options.input_dir)
     qplanner.set_input_fmt(options.input_fmt)
 
     # Build desired layout
     qplanner.build_toplevel(default_layout)
     for w in qplanner.ds.toplevels:
-        w.showNormal()
+        w.show()
 
     for pluginName, moduleName, className, wsName, tabName in plugins:
         qplanner.load_plugin(pluginName, moduleName, className,
@@ -145,18 +150,20 @@ def main(options, args):
     # Raise window
     w = qplanner.w.root
     w.show()
-    qplanner.app.setActiveWindow(w)
-    w.raise_()
-    w.activateWindow()
 
     server_started = False
 
     # Create threadpool and start it
     try:
         # Startup monitor threadpool
-        threadPool.startall(wait=True)
+        thread_pool.startall(wait=True)
 
         try:
+            # if there is a network component, start it
+            if hasattr(qplanner, 'start'):
+                task = Task.FuncTask2(qplanner.start)
+                thread_pool.addTask(task)
+
             # Main loop to handle GUI events
             qplanner.mainloop(timeout=0.001)
 
@@ -165,19 +172,19 @@ def main(options, args):
 
     finally:
         logger.info("Shutting down...")
-        threadPool.stopall(wait=True)
+        thread_pool.stopall(wait=True)
 
     sys.exit(0)
-        
+
 
 if __name__ == "__main__":
-   
+
     # Parse command line options with nifty new optparse module
     from optparse import OptionParser
 
     usage = "usage: %prog [options] cmd [args]"
     optprs = OptionParser(usage=usage, version=('%%prog %s' % version))
-    
+
     optprs.add_option("--date-start", dest="date_start", default=None,
                       help="Define the start of the schedule ('YYYY-MM-DD HH:MM')")
     optprs.add_option("--date-stop", dest="date_stop", default=None,
@@ -187,7 +194,7 @@ if __name__ == "__main__":
     optprs.add_option("--display", dest="display", metavar="HOST:N",
                       help="Use X display on HOST:N")
     optprs.add_option("-g", "--geometry", dest="geometry",
-                      metavar="GEOM", default="+20+100",
+                      metavar="GEOM", default=None,
                       help="X geometry for initial size and placement")
     optprs.add_option("-i", "--input", dest="input_dir", default=".",
                       metavar="DIRECTORY",
@@ -205,7 +212,7 @@ if __name__ == "__main__":
     ## optprs.add_option("--monitor", dest="monitor", metavar="NAME",
     ##                   default='monitor',
     ##                   help="Synchronize from monitor named NAME")
-    ## optprs.add_option("--monchannels", dest="monchannels", 
+    ## optprs.add_option("--monchannels", dest="monchannels",
     ##                   default='status', metavar="NAMES",
     ##                   help="Specify monitor channels to subscribe to")
     ## optprs.add_option("--monport", dest="monport", type="int",
@@ -229,6 +236,9 @@ if __name__ == "__main__":
     optprs.add_option("--stderr", dest="logstderr", default=False,
                       action="store_true",
                       help="Copy logging also to stderr")
+    optprs.add_option("-t", "--toolkit", dest="toolkit", metavar="NAME",
+                      default='qt4',
+                      help="Prefer GUI toolkit (gtk|qt)")
 
     (options, args) = optprs.parse_args(sys.argv[1:])
 

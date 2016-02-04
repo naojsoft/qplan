@@ -300,12 +300,14 @@ class BaseTarget(object):
     pass
 
 class StaticTarget(object):
-    def __init__(self, name=None, ra=None, dec=None, equinox=2000.0):
+    def __init__(self, name=None, ra=None, dec=None, equinox=2000.0,
+                 comment=''):
         super(StaticTarget, self).__init__()
         self.name = name
         self.ra = ra
         self.dec = dec
         self.equinox = equinox
+        self.comment = comment
 
         if self.ra is not None:
             self._recalc_body()
@@ -331,6 +333,7 @@ class StaticTarget(object):
                 eq = float(eq)
         eq = int(eq)
         self.equinox = eq
+        self.comment = rec.comment.strip()
 
         self._recalc_body()
         return code
@@ -759,7 +762,7 @@ class HST(tzinfo):
 
 class TelescopeConfiguration(object):
 
-    def __init__(self, focus=None, dome=None):
+    def __init__(self, focus=None, dome=None, comment=''):
         super(TelescopeConfiguration, self).__init__()
         self.focus = focus
         if dome is None:
@@ -769,6 +772,7 @@ class TelescopeConfiguration(object):
         self.dome = dome
         self.min_el = 15.0
         self.max_el = 89.0
+        self.comment = comment
 
     def get_el_minmax(self):
         return (self.min_el, self.max_el)
@@ -777,6 +781,7 @@ class TelescopeConfiguration(object):
         code = rec.code.strip()
         self.focus = rec.focus.upper()
         self.dome = rec.dome.lower()
+        self.comment = rec.comment.strip()
         return code
 
 class InstrumentConfiguration(object):
@@ -786,6 +791,7 @@ class InstrumentConfiguration(object):
 
         self.insname = None
         self.mode = None
+        self.comment = ''
 
 class SPCAMConfiguration(InstrumentConfiguration):
 
@@ -821,7 +827,7 @@ class HSCConfiguration(InstrumentConfiguration):
 
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
                  mode='IMAGE', dither=1, offset_ra=0, offset_dec=0, pa=90,
-                 dith1=60, dith2=None):
+                 dith1=60, dith2=None, skip=0, stop=None, comment=''):
         super(HSCConfiguration, self).__init__()
 
         self.insname = 'HSC'
@@ -837,10 +843,15 @@ class HSCConfiguration(InstrumentConfiguration):
         self.offset_dec = offset_dec
         self.pa = pa
         self.dith1 = dith1
-        if dith2 == None:
+        if dith2 is None:
             # TODO: defaults for this depends on mode
             dith2 = 0
         self.dith2 = dith2
+        self.skip = skip
+        if stop is None:
+            stop = num_exp
+        self.stop = stop
+        self.comment = comment
 
     def calc_filter_change_time(self):
         # TODO: this needs to become more accurate
@@ -861,6 +872,9 @@ class HSCConfiguration(InstrumentConfiguration):
         self.offset_dec = float(rec.offset_dec)
         self.dith1 = float(rec.dith1)
         self.dith2 = float(rec.dith2)
+        self.skip = int(rec.skip)
+        self.stop = int(rec.stop)
+        self.comment = rec.comment.strip()
         return code
 
 class FOCASConfiguration(InstrumentConfiguration):
@@ -911,7 +925,7 @@ class FOCASConfiguration(InstrumentConfiguration):
 class EnvironmentConfiguration(object):
 
     def __init__(self, seeing=None, airmass=None, moon='any',
-                 transparency=None, moon_sep=None):
+                 transparency=None, moon_sep=None, comment=''):
         super(EnvironmentConfiguration, self).__init__()
         self.seeing = seeing
         self.airmass = airmass
@@ -920,6 +934,7 @@ class EnvironmentConfiguration(object):
         if (moon == None) or (len(moon) == 0):
             moon = 'any'
         self.moon = moon.lower()
+        self.comment = comment
 
     def import_record(self, rec):
         code = rec.code.strip()
@@ -939,6 +954,7 @@ class EnvironmentConfiguration(object):
         self.moon = rec.moon
         self.moon_sep = float(rec.moon_sep)
         self.transparency = float(rec.transparency)
+        self.comment = rec.comment.strip()
         return code
 
 
