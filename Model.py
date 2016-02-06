@@ -416,8 +416,11 @@ class QueueModel(Callback.Callbacks):
             night_start = site.get_date("%s %s" % (rec.date, rec.starttime))
             next_day = night_start + timedelta(0, 3600*14)
             next_day_s = next_day.strftime("%Y-%m-%d")
-            # TODO: does this assume that stoptime is on the next day!??
-            night_stop = site.get_date("%s %s" % (next_day_s, rec.stoptime))
+            # Assume that stoptime is on the next day, but revert to same
+            # day if resulting end time is less than the start time
+            night_stop = site.get_date("%s %s" % (rec.date, rec.stoptime))
+            if night_stop < night_start:
+                night_stop = site.get_date("%s %s" % (next_day_s, rec.stoptime))
 
             # associate available filters and other items with this schedule
             schedules.append(entity.Schedule(night_start, night_stop,

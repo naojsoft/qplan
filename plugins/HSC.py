@@ -44,12 +44,35 @@ class Converter(BaseConverter):
 
         # prepare target parameters substring common to all SETUPFIELD
         # and GETOBJECT commands
-        tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"' % d
+        if ob.target not in self._tgts:
+            tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"' % d
+        else:
+            # we have a named target defined for this
+            d['tgtname'] = self._tgts[ob.target]
+            tgtstr = '$%(tgtname)s INSROT_PA=%(pa).1f OFFSET_RA=%(offset_ra)d OFFSET_DEC=%(offset_dec)d Filter="%(filter)s"' % d
+
         d.update(dict(tgtstr=tgtstr))
 
-    def write_ope_header(self, out_f):
+    def write_ope_header(self, out_f, targets):
 
         out = self._mk_out(out_f)
+        self._tgts = {}
+
+        # prepare list of targets
+        lines = ["# --- TARGETS ---"]
+        count = 1
+        for target in targets:
+            d = dict(tgtname = "T%d_%s" % (count, target.name),
+                     objname = target.name,
+                     ra = self.ra_to_funky(target.ra),
+                     dec = self.dec_to_funky(target.dec),
+                     equinox = target.equinox)
+            count += 1
+            self._tgts[target] = d['tgtname']
+
+            line = '''%(tgtname)s=OBJECT="%(objname)s" RA=%(ra)010.3f DEC=%(dec)+010.2f EQUINOX=%(equinox)6.1f''' % d
+            lines.append(line)
+        tgts_buf = '\n'.join(lines)
 
         preamble = """
 :header
@@ -75,11 +98,14 @@ DEF_IMAGEN_VGW=OBE_ID=HSC OBE_MODE=IMAG_N_VGW
 #ZOPT=Z=7.00
 Z=7.00
 
+%(targets)s
+
 :command
         """
 
         d = dict(curtime=time.strftime("%Y-%m-%d %H:%M:%S",
                                        time.localtime()),
+                 targets=tgts_buf,
                  )
         out(preamble % d)
 
@@ -90,7 +116,7 @@ Z=7.00
         d = {}
         self._setup_target(d, ob)
 
-        cmd_str = '''FOCUSOBE $DEF_IMAGE OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f EXPTIME=%(exptime)d Z=$Z DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s"''' % d
+        cmd_str = '''FOCUSOBE $DEF_IMAGE %(tgtstr)s INSROT_PA=%(pa).1f EXPTIME=%(exptime)d Z=$Z DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s"''' % d
         out(cmd_str)
 
     def out_filterchange(self, ob, out_f):
@@ -101,7 +127,7 @@ Z=7.00
         # HSC uses two commands to change the filter
         cmd_str = '''FilterChange1 $DEF_TOOLS FILTER="%(filter)s"''' % d
         out(cmd_str)
-        cmd_str = '''FilterChange2 $DEF_TOOLS FILTER="%(filter)s"''' % d
+        cmd_str = '''FilterChange2 $DEF_TOOLS FILTER="%(filter)s" MIRROR=OPEN''' % d
         out(cmd_str)
 
     def ob_to_ope(self, ob, out_f):

@@ -1,6 +1,6 @@
 #
 # Execute.py -- Execute plugin
-# 
+#
 # Eric Jeschke (eric@naoj.org)
 #
 import os
@@ -46,10 +46,17 @@ class Execute(Report.Report):
         if self.ig is None:
             ro.init()
         self.ig = ro.remoteObjectProxy(self.svcname)
-            
+
+    def _get_targets(self, oblist):
+        targets = set([])
+        for ob in oblist:
+            targets.add(ob.target)
+        return targets
+
     def send_cb(self, w):
 
         oblist = self._get_selected_obs()
+        targets = self._get_targets(oblist)
 
         try:
             #converter = FOCAS.Converter(self.logger)
@@ -59,7 +66,7 @@ class Execute(Report.Report):
             out_f = StringIO.StringIO()
 
             # write preamble
-            converter.write_ope_header(out_f)
+            converter.write_ope_header(out_f, targets)
 
             # convert each OB
             for ob in oblist:
