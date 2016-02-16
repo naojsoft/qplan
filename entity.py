@@ -12,7 +12,7 @@ import pytz
 import ephem
 import numpy
 # ZOPE imports
-#import persistent
+import persistent
 
 # local imports
 import misc
@@ -20,13 +20,13 @@ import misc
 from ginga.misc import Bunch
 
 
-## class BaseEntity(persistent.Persistent):
+class BaseEntity(persistent.Persistent):
 
-##     def __init__(self):
-##         super(BaseEntity, self).__init__()
+    def __init__(self):
+        super(BaseEntity, self).__init__()
 
-class BaseEntity(object):
-    pass
+## class BaseEntity(object):
+##     pass
 
 class Program(object):
     """
