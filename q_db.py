@@ -32,15 +32,13 @@ class QueueDatabase(object):
         self.conn = self.db.open()
         self.dbroot = self.conn.root()
 
-        # Ensure that a 'ob_db' key is present
-        # in the root
-        if not self.dbroot.has_key('ob_db'):
-            self.dbroot['ob_db'] = OOBTree()
-            transaction.commit()
+        # Check whether database is initialized
+        for name in ['program', 'ob', 'executed_ob']:
+            key = '%s_db' % name
+            if not self.dbroot.has_key(key):
+                self.dbroot[key] = OOBTree()
 
-        if not self.dbroot.has_key('programs_db'):
-            self.dbroot['programs_db'] = OOBTree()
-            transaction.commit()
+                transaction.commit()
 
     def close(self):
         self.conn.close()
@@ -65,8 +63,9 @@ class QueueAdaptor(object):
         self.conn = self._qdb.db.open()
         self.dbroot = self.conn.root()
 
-        self.ob_db = self.dbroot['ob_db']
-        self.programs_db = self.dbroot['programs_db']
+    def get_table(self, name):
+        key = '%s_db' % name
+        return self.dbroot[key]
 
     def close(self):
         self.conn.close()

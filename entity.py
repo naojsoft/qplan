@@ -20,15 +20,15 @@ import misc
 from ginga.misc import Bunch
 
 
-class BaseEntity(persistent.Persistent):
+class PersistentEntity(persistent.Persistent):
 
     def __init__(self):
-        super(BaseEntity, self).__init__()
+        super(PersistentEntity, self).__init__()
 
-## class BaseEntity(object):
+## class PersistentEntity(object):
 ##     pass
 
-class Program(object):
+class Program(PersistentEntity):
     """
     Program
     Defines a program that has been accepted for observation.
@@ -263,7 +263,7 @@ class Schedule(object):
     __str__ = __repr__
 
 
-class OB(BaseEntity):
+class OB(PersistentEntity):
     """
     Observing Block
     Defines an item that can be scheduled during the night.
@@ -296,9 +296,7 @@ class OB(BaseEntity):
         # other fields
         self.derived = derived
         self.comment = comment
-        self.status = 'new'
         self.acct_time = acct_time
-        self.data_quality = 0
 
     def __repr__(self):
         return self.id
@@ -309,7 +307,7 @@ class OB(BaseEntity):
 class BaseTarget(object):
     pass
 
-class StaticTarget(object):
+class StaticTarget(BaseTarget):
     def __init__(self, name=None, ra=None, dec=None, equinox=2000.0,
                  comment=''):
         super(StaticTarget, self).__init__()
@@ -1147,5 +1145,29 @@ class CalculationResult(object):
         delta_az = float(self.body.az) - float(target.az)
         delta_alt = float(self.body.alt) - float(target.alt)
         return (delta_alt, delta_az)
+
+
+class Executed_OB(PersistentEntity):
+    """
+    Describes the result of executing an OB.
+    """
+    def __init__(self, ob=None):
+        super(Executed_OB, self).__init__()
+
+        self.ob = ob
+        self.time_start = None
+        self.time_stop = None
+        self.comment = ''
+        self.iqa = ''
+        self.fqa = ''
+        self.exp_ids = []
+        self.env_log = []
+
+
+class HSC_Executed_OB(Executed_OB):
+
+    def __init__(self, ob=None):
+        super(HSC_Executed_OB, self).__init__(ob=ob)
+
 
 #END
