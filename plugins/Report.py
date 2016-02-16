@@ -24,9 +24,11 @@ class Report(PlBase.Plugin):
         self.schedules = {}
         self.cur_schedule = None
 
-        model.add_callback('schedule-added', self.new_schedule_cb)
+        sdlr = self.model.get_scheduler()
+        sdlr.add_callback('schedule-added', self.new_schedule_cb)
+        sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
+
         model.add_callback('schedule-selected', self.show_schedule_cb)
-        model.add_callback('schedule-cleared', self.clear_schedule_cb)
 
         self.gui_up = False
 
@@ -69,7 +71,8 @@ class Report(PlBase.Plugin):
         res = qsim.eval_schedule(schedule)
 
         start_time = schedule.start_time
-        t = start_time.astimezone(self.model.timezone)
+        sdlr = self.model.get_scheduler()
+        t = start_time.astimezone(sdlr.timezone)
         ndate = t.strftime("%Y-%m-%d")
         filters = ', '.join(schedule.data.filters)
 
@@ -85,7 +88,7 @@ class Report(PlBase.Plugin):
         targets = {}
         for slot in schedule.slots:
 
-            t = slot.start_time.astimezone(self.model.timezone)
+            t = slot.start_time.astimezone(sdlr.timezone)
             date = t.strftime("%Y-%m-%d %H:%M")
             ob = slot.ob
             if ob != None:
@@ -116,11 +119,11 @@ class Report(PlBase.Plugin):
 
         return True
 
-    def new_schedule_cb(self, model, schedule):
+    def new_schedule_cb(self, sdlr, schedule):
         self.add_schedule(schedule)
         return True
 
-    def clear_schedule_cb(self, qmodel):
+    def clear_schedule_cb(self, sdlr):
         self.cur_schedule = None
         if self.gui_up:
             self.view.gui_do(self.tw.set_text, '')

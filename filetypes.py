@@ -1007,7 +1007,8 @@ class TgtCfgFile(QueueFile):
 
                 rec = self.parse_row(row, self.columnNames,
                                      self.column_map)
-                target = entity.StaticTarget()
+                #target = entity.StaticTarget()
+                target = entity.HSCTarget()
                 code = target.import_record(rec)
 
                 # update existing old record if it exists

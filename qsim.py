@@ -67,6 +67,15 @@ def delay_ob(ob, total_time):
     return new_ob
 
 
+def setup_ob(ob, total_time):
+    new_ob = entity.OB(program=ob.program, target=ob.target,
+                       telcfg=ob.telcfg,
+                       inscfg=ob.inscfg, envcfg=ob.envcfg,
+                       total_time=total_time, derived=True,
+                       comment="Setup OB %s" % (ob))
+    return new_ob
+
+
 def obs_to_slots(slots, site, obs):
     obmap = {}
     for slot in slots:

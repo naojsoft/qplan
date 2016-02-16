@@ -24,9 +24,11 @@ class AirMassChart(PlBase.Plugin):
 
         # Set preferred timezone for plot
         #self.tz = pytz.utc
-        self.tz = model.timezone
 
-        model.add_callback('schedule-added', self.new_schedule_cb)
+        sdlr = model.get_scheduler()
+        self.tz = sdlr.timezone
+        sdlr.add_callback('schedule-added', self.new_schedule_cb)
+
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
     def build_gui(self, container):
@@ -76,7 +78,8 @@ class AirMassChart(PlBase.Plugin):
         self.logger.debug("adding schedule %s" % (schedule))
 
         start_time = schedule.start_time
-        t = start_time.astimezone(self.model.timezone)
+        sdlr = self.model.get_scheduler()
+        t = start_time.astimezone(sdlr.timezone)
         # if schedule starts after midnight, change start date to the
         # day before, this is due to the way the Observer module charts
         # airmass
@@ -85,7 +88,7 @@ class AirMassChart(PlBase.Plugin):
         ndate = t.strftime("%Y/%m/%d")
 
         targets = []
-        site = self.model.site
+        site = sdlr.site
         site.set_date(start_time)
 
         for slot in schedule.slots:
@@ -115,7 +118,7 @@ class AirMassChart(PlBase.Plugin):
         self.schedules[schedule] = Bunch.Bunch(site=site, num_tgts=num_tgts,
                                                target_data=target_data)
 
-    def new_schedule_cb(self, qmodel, schedule):
+    def new_schedule_cb(self, qscheduler, schedule):
         self.add_schedule(schedule)
 
 

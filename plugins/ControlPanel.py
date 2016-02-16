@@ -1,5 +1,5 @@
 #
-# ControlPanel.py -- AirMass chart plugin
+# ControlPanel.py -- Controller plugin for operating scheduler
 #
 # Eric Jeschke (eric@naoj.org)
 #
@@ -158,11 +158,12 @@ class ControlPanel(PlBase.Plugin):
             self.logger.error("Error initializing: %s" % (str(e)))
 
 
-    def update_model(self):
+    def update_scheduler(self):
+        sdlr = self.model.get_scheduler()
         try:
-            self.model.set_weights(self.weights_qf.weights)
-            self.model.set_schedule_info(self.schedule_qf.schedule_info)
-            self.model.set_programs_info(self.programs_qf.programs_info)
+            sdlr.set_weights(self.weights_qf.weights)
+            sdlr.set_schedule_info(self.schedule_qf.schedule_info)
+            sdlr.set_programs_info(self.programs_qf.programs_info)
 
             # TODO: this maybe should be done in the Model
             self.oblist_info = []
@@ -172,16 +173,16 @@ class ControlPanel(PlBase.Plugin):
             for propname in propnames:
                 self.oblist_info.extend(self.ob_qf_dict[propname].obs_info)
             # TODO: only needed if we ADD or REMOVE programs
-            self.model.set_oblist_info(self.oblist_info)
+            sdlr.set_oblist_info(self.oblist_info)
 
         except Exception as e:
-            self.logger.error("Error storing into model: %s" % (str(e)))
+            self.logger.error("Error storing into scheduler: %s" % (str(e)))
 
-        self.logger.info("model initialized")
+        self.logger.info("scheduler initialized")
 
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI
-        self.update_model()
+        self.update_scheduler()
 
         self.view.nongui_do(self.model.schedule_all)
 

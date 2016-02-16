@@ -7,8 +7,41 @@ import time
 
 from q2ope import BaseConverter
 
+# the set of OPE friendly characters--for mangling target names
+ope_friendly_chars = []
+letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ope_friendly_chars.extend(list(letters))
+ope_friendly_chars.extend(list(letters.lower()))
+ope_friendly_chars.extend(list("0123456789_"))
+ope_friendly_chars = set(ope_friendly_chars)
+
+# the mapping of HSC filters
+filternames = dict(G="HSC-G", R="HSC-R", I="HSC-I2", Z="HSC-Z", Y="HSC-Y")
+
 
 class Converter(BaseConverter):
+
+    def out_setup_ob(self, ob, out_f):
+        out = self._mk_out(out_f)
+
+        out("\n#######################################")
+        d = dict(obid=str(ob), propid=ob.program.propid,
+                 proposal=ob.program.proposal,
+                 observer=ob.program.pi, obname=ob.name,
+                 tgtname=ob.target.name)
+        out("\n# %(obid)s  %(propid)s %(obname)s: %(tgtname)s" % d)
+        # write out any comments
+        # TODO: need the comment from the root OB
+        #out("\n## ob: %s" % (ob.comment))
+        if len(ob.target.comment) > 0:
+            out("\n## tgt: %s" % (ob.target.comment))
+        if len(ob.inscfg.comment) > 0:
+            out("\n## ins: %s" % (ob.inscfg.comment))
+        if len(ob.envcfg.comment) > 0:
+            out("\n## env: %s" % (ob.envcfg.comment))
+
+        cmd_str = '''Setup_OB OB_ID="%(obname)s" OB_COUNT=0 PROP_ID="%(propid)s" OBSERVER="%(observer)s"''' % d
+        out(cmd_str)
 
     def _setup_target(self, d, ob):
 
@@ -24,7 +57,8 @@ class Converter(BaseConverter):
             # TODO: should we raise an error here?
             filtername = 'NOP'
         else:
-            filtername = ob.inscfg.filter.upper()
+            filtername = self.get_filtername(ob.inscfg.filter)
+
 
         d.update(dict(object=ob.target.name,
                       ra="%010.3f" % funky_ra, dec="%+010.2f" % funky_dec,
@@ -35,7 +69,7 @@ class Converter(BaseConverter):
                       offset_dec=ob.inscfg.offset_dec,
                       dith1=ob.inscfg.dith1, dith2=ob.inscfg.dith2,
                       skip=ob.inscfg.skip, stop=ob.inscfg.stop,
-                      filter='HSC-%s' % ob.inscfg.filter,
+                      filter=filtername,
                       autoguide=autoguide))
 
         # TODO: build guiding params from table as described below
@@ -62,7 +96,8 @@ class Converter(BaseConverter):
         lines = ["# --- TARGETS ---"]
         count = 1
         for target in targets:
-            d = dict(tgtname = "T%d_%s" % (count, target.name),
+            name = self.mangle_name(target.name)
+            d = dict(tgtname = "T%d_%s" % (count, name),
                      objname = target.name,
                      ra = self.ra_to_funky(target.ra),
                      dec = self.dec_to_funky(target.dec),
@@ -111,19 +146,19 @@ Z=7.00
 
     def out_focusobe(self, ob, out_f):
         out = self._mk_out(out_f)
-        out("\n# %s" % (ob.comment))
+        out("\n# focusing after filter change")
 
         d = {}
         self._setup_target(d, ob)
 
-        cmd_str = '''FOCUSOBE $DEF_IMAGE %(tgtstr)s INSROT_PA=%(pa).1f EXPTIME=%(exptime)d Z=$Z DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s"''' % d
+        cmd_str = '''FOCUSOBE $DEF_IMAGE %(tgtstr)s INSROT_PA=%(pa).1f Z=$Z DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s"''' % d
         out(cmd_str)
 
     def out_filterchange(self, ob, out_f):
         out = self._mk_out(out_f)
         out("\n# %s" % (ob.comment))
 
-        d = dict(filter='HSC-%s' % ob.inscfg.filter)
+        d = dict(filter=self.get_filtername(ob.inscfg.filter))
         # HSC uses two commands to change the filter
         cmd_str = '''FilterChange1 $DEF_TOOLS FILTER="%(filter)s"''' % d
         out(cmd_str)
@@ -136,7 +171,11 @@ Z=7.00
 
         # special cases: filter change, long slew, calibrations, etc.
         if ob.derived:
-            if ob.comment.startswith('Filter change'):
+            if ob.comment.startswith('Setup OB'):
+                self.out_setup_ob(ob, out_f)
+                return
+
+            elif ob.comment.startswith('Filter change'):
                 self.out_filterchange(ob, out_f)
                 self.out_focusobe(ob, out_f)
                 return
@@ -169,7 +208,7 @@ Z=7.00
 
             out("\n# Take dome flats")
             d = dict(num_exp=ob.inscfg.num_exp, exptime=ob.inscfg.exp_time,
-                     filter='HSC-%s' % ob.inscfg.filter)
+                     filter=self.get_filtername(ob.inscfg.filter))
             cmd_str = 'GetDomeFlat $DEF_IMAGE EXPTIME=%(exptime)d Filter="%(filter)s" NUMBER=%(num_exp)d' % d
             out(cmd_str)
             return
@@ -200,19 +239,7 @@ Z=7.00
 
         # <-- normal OBs
         out = self._mk_out(out_f)
-
-        out("\n# %s (%s %s) %s: %s" % (ob, ob.program.proposal,
-                                       ob.program.pi, ob.name,
-                                       ob.target.name))
-        # write out any comments
-        if len(ob.comment) > 0:
-            out("\n## ob: %s" % (ob.comment))
-        if len(ob.target.comment) > 0:
-            out("\n## tgt: %s" % (ob.target.comment))
-        if len(ob.inscfg.comment) > 0:
-            out("\n## ins: %s" % (ob.inscfg.comment))
-        if len(ob.envcfg.comment) > 0:
-            out("\n## env: %s" % (ob.envcfg.comment))
+        out("\n# %s" % (ob.comment))
 
         d = {}
         self._setup_target(d, ob)
@@ -262,8 +289,19 @@ Z=7.00
         else:
             raise ValueError("Instrument dither must be one of {1, 5, N}")
 
-        out("\n#######################################")
 
+    def mangle_name(self, name):
+        for char in str(name):
+            if not char in ope_friendly_chars:
+                name = name.replace(char, '_')
+        return name
+
+    def get_filtername(self, name):
+        name = name.upper()
+        if name in filternames:
+            return filternames[name]
+        # narrowband filter
+        return "HSC-%s" % (name)
 
 '''
 ########################################################################

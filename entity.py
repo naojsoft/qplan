@@ -5,18 +5,28 @@
 #
 from datetime import tzinfo, timedelta, datetime
 import string
+import math
+import pytz
+
+# 3rd party imports
+import ephem
+import numpy
+# ZOPE imports
+#import persistent
 
 # local imports
 import misc
 
-# 3rd party imports
-import ephem
-import pytz
-import numpy
-import math
-
 from ginga.misc import Bunch
 
+
+## class BaseEntity(persistent.Persistent):
+
+##     def __init__(self):
+##         super(BaseEntity, self).__init__()
+
+class BaseEntity(object):
+    pass
 
 class Program(object):
     """
@@ -253,7 +263,7 @@ class Schedule(object):
     __str__ = __repr__
 
 
-class OB(object):
+class OB(BaseEntity):
     """
     Observing Block
     Defines an item that can be scheduled during the night.
@@ -352,6 +362,21 @@ class StaticTarget(object):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.body = ephem.readdb(self.xeph_line)
+
+
+class HSCTarget(StaticTarget):
+    def __init__(self, *args, **kwdargs):
+        super(HSCTarget, self).__init__(*args, **kwdargs)
+
+        self.sdss_calib = None
+
+    def import_record(self, rec):
+        code = super(HSCTarget, self).import_record(rec)
+
+        if (rec.sdss_ra is not None) and (len(rec.sdss_ra.strip()) > 0):
+            self.sdss_calib = StaticTarget(name='SDSS_calib',
+                                           ra=rec.sdss_ra, dec=rec.sdss_dec)
+        return code
 
 
 class Observer(object):

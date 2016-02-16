@@ -21,7 +21,8 @@ class SlewChart(PlBase.Plugin):
         self.schedules = {}
         self.initialized = False
 
-        model.add_callback('schedule-added', self.new_schedule_cb)
+        sdlr = self.model.get_scheduler()
+        sdlr.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
         # the solar system objects
@@ -67,7 +68,8 @@ class SlewChart(PlBase.Plugin):
         self.view.gui_do(self.plot.plot_coords, targets)
 
         # plot the current location of solar system objects
-        site = model.site
+        sdlr = model.get_scheduler()
+        site = sdlr.site
         dt = datetime.now(site.tz_local)
         self.view.gui_do(self.plot.plot_targets, site,
                          self.ss, dt, self.ss_colors)
@@ -77,6 +79,8 @@ class SlewChart(PlBase.Plugin):
     def add_schedule(self, schedule):
         target_list = []
         i = 0
+        sdlr = self.model.get_scheduler()
+
         for slot in schedule.slots:
 
             ob = slot.ob
@@ -84,7 +88,7 @@ class SlewChart(PlBase.Plugin):
                 if not ob.derived:
                     # not an OB generated to serve another OB
                     key = (ob.target.ra, ob.target.dec)
-                    info = ob.target.calc(self.model.site, slot.start_time)
+                    info = ob.target.calc(sdlr.site, slot.start_time)
 
                     i += 1
                     #txt = "%d [%s]" % (i, ob.target.name)
@@ -94,7 +98,7 @@ class SlewChart(PlBase.Plugin):
         self.schedules[schedule] = Bunch.Bunch(targets=target_list)
         return True
 
-    def new_schedule_cb(self, model, schedule):
+    def new_schedule_cb(self, sdlr, schedule):
         self.add_schedule(schedule)
         return True
 

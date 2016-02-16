@@ -15,9 +15,10 @@ class BaseSumChart(PlBase.Plugin):
 
         self.initialized = False
 
-        model.add_callback('schedule-completed', self.schedule_completed_cb)
+        sdlr = self.model.get_scheduler()
+        sdlr.add_callback('schedule-completed', self.schedule_completed_cb)
 
-    def schedule_completed_cb(self, model, completed, uncompleted, schedules):
+    def schedule_completed_cb(self, sdlr, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
 
 class NightSumChart(BaseSumChart):

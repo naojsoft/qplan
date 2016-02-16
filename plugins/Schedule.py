@@ -15,8 +15,9 @@ class Schedule(PlBase.Plugin):
 
         self.schedules = []
 
-        model.add_callback('schedule-cleared', self.clear_schedule_cb)
-        model.add_callback('schedule-added', self.new_schedule_cb)
+        sdlr = self.model.get_scheduler()
+        sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
+        sdlr.add_callback('schedule-added', self.new_schedule_cb)
 
     def build_gui(self, container):
 
@@ -72,13 +73,13 @@ class Schedule(PlBase.Plugin):
         if model is not None:
             model.clear()
 
-    def new_schedule_cb(self, qmodel, schedule):
+    def new_schedule_cb(self, sdlr, schedule):
         if not schedule in self.schedules:
             self.schedules.append(schedule)
         self.view.gui_do(self.build_table, self.schedules)
         return True
 
-    def clear_schedule_cb(self, qmodel):
+    def clear_schedule_cb(self, sdlr):
         self.view.gui_do(self.clear_table)
         return True
 
