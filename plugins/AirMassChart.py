@@ -27,6 +27,7 @@ class AirMassChart(PlBase.Plugin):
 
         sdlr = model.get_scheduler()
         self.tz = sdlr.timezone
+        sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
         sdlr.add_callback('schedule-added', self.new_schedule_cb)
 
         model.add_callback('schedule-selected', self.show_schedule_cb)
@@ -120,6 +121,10 @@ class AirMassChart(PlBase.Plugin):
 
     def new_schedule_cb(self, qscheduler, schedule):
         self.add_schedule(schedule)
+
+    def clear_schedule_cb(self, qscheduler):
+        #self.view.gui_do(self.plot.clear)
+        self.logger.info("cleared plot")
 
 
 #END

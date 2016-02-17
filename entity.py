@@ -12,21 +12,27 @@ import pytz
 import ephem
 import numpy
 # ZOPE imports
-import persistent
+try:
+    import persistent
+
+    class PersistentEntity(persistent.Persistent):
+
+        def __init__(self):
+            super(PersistentEntity, self).__init__()
+
+except ImportError:
+    # No ZOPE, so define as an ordinary base object
+    class PersistentEntity(object):
+
+        def __init__(self):
+            super(PersistentEntity, self).__init__()
+            self._p_changed = False
+
+from ginga.misc import Bunch
 
 # local imports
 import misc
 
-from ginga.misc import Bunch
-
-
-class PersistentEntity(persistent.Persistent):
-
-    def __init__(self):
-        super(PersistentEntity, self).__init__()
-
-## class PersistentEntity(object):
-##     pass
 
 class Program(PersistentEntity):
     """
@@ -1155,19 +1161,40 @@ class Executed_OB(PersistentEntity):
         super(Executed_OB, self).__init__()
 
         self.ob = ob
+        # time this OB started and stopped
         self.time_start = None
         self.time_stop = None
-        self.comment = ''
-        self.iqa = ''
+        # list of Exp_History objects, one for each exposure
+        self.exp_history = []
         self.fqa = ''
-        self.exp_ids = []
-        self.env_log = []
+        self.comment = ''
+
+    def add_history(self, hist_obj):
+        self.exp_history.append(hist_obj)
+        self._p_changed = True
 
 
-class HSC_Executed_OB(Executed_OB):
+class Exp_History(object):
+    """
+    Describes the result of executing one dither position or one exposure
+    from an OB.
+    """
+    def __init__(self):
+        super(Executed_OB, self).__init__()
 
-    def __init__(self, ob=None):
-        super(HSC_Executed_OB, self).__init__(ob=ob)
-
+        # time this exposure started and stopped
+        self.time_start = None
+        self.time_stop = None
+        # per exposure comment
+        self.comment = ''
+        # exposure id that links a data frame with this OB
+        self.exp_id = ''
+        # per exposure iqa
+        self.iqa = ''
+        # environment data
+        self.transparency = None
+        self.seeing = None
+        self.moon_illumination = None
+        self.moon_separation = None
 
 #END

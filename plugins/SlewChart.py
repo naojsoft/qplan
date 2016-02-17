@@ -22,6 +22,7 @@ class SlewChart(PlBase.Plugin):
         self.initialized = False
 
         sdlr = self.model.get_scheduler()
+        sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
         sdlr.add_callback('schedule-added', self.new_schedule_cb)
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
@@ -100,6 +101,10 @@ class SlewChart(PlBase.Plugin):
 
     def new_schedule_cb(self, sdlr, schedule):
         self.add_schedule(schedule)
+        return True
+
+    def clear_schedule_cb(self, sdlr):
+        #self.view.gui_do(self.plot.clear)
         return True
 
 

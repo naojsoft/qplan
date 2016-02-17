@@ -24,7 +24,8 @@ minimum_slot_size = 60.0
 #minimum_slot_size = 10.0
 
 # telescope parked position
-parked_az_deg = -90.0
+#parked_az_deg = -90.0
+parked_az_deg = 270.0
 parked_alt_deg = 90.0
 
 # Subaru defines a dark night as one that is 2-3 days before or
@@ -55,6 +56,15 @@ def longslew_ob(prev_ob, ob, total_time):
                        inscfg=inscfg, envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
                        comment="Long slew for %s" % (ob))
+    return new_ob
+
+
+def calibration_ob(ob, sdss_target, total_time):
+    new_ob = entity.OB(program=ob.program, target=sdss_target,
+                       telcfg=ob.telcfg,
+                       inscfg=ob.inscfg, envcfg=ob.envcfg,
+                       total_time=total_time, derived=True,
+                       comment="SDSS calibration for %s" % (ob))
     return new_ob
 
 
@@ -379,7 +389,8 @@ def eval_schedule(schedule):
             time_waste_sec += delta
             continue
 
-        if ob.inscfg.filter != current_filter:
+        if ((ob.inscfg.filter is not None) and
+            (ob.inscfg.filter != current_filter)):
             num_filter_exchanges += 1
             current_filter = ob.inscfg.filter
 

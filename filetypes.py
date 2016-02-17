@@ -534,6 +534,7 @@ class ProgramsFile(QueueFile):
         self.programs_info = {}
         self.column_map = {
             'proposal': 'proposal',
+            'pi_name': 'pi_name',
             'propid': 'propid',
             'rank': 'rank',
             'category': 'category',
@@ -584,6 +585,7 @@ class ProgramsFile(QueueFile):
 
                 key = rec.proposal.upper()
                 pgm = entity.Program(key, propid=rec.propid,
+                                     pi=rec.pi_name,
                                      rank=float(rec.rank),
                                      grade=rec.grade.upper(),
                                      partner=rec.partner,

@@ -267,16 +267,21 @@ class Scheduler(Callback.Callbacks):
                 schedule.insert_slot(f_slot)
 
             # if a long slew is required, insert a separate OB for that
-            ## self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
-            ##     res.slew_sec, res.delta_az, res.delta_alt))
-            ## if res.slew_sec > slew_breakout_limit:
-            ##     _xx, s_slot, slot = slot.split(slot.start_time,
-            ##                                    res.slew_sec)
-            ##     new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
-            ##     s_slot.set_ob(new_ob)
-            ##     schedule.insert_slot(s_slot)
-            ## if ob.sdss_calib is not None:
+            self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
+                res.slew_sec, res.delta_az, res.delta_alt))
+            if res.slew_sec > slew_breakout_limit:
+                _xx, s_slot, slot = slot.split(slot.start_time,
+                                               res.slew_sec)
+                new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
+                s_slot.set_ob(new_ob)
+                schedule.insert_slot(s_slot)
 
+            ## if ob.sdss_calib is not None:
+            ##     _xx, f_slot, slot = slot.split(slot.start_time,
+            ##                                    res.calibration_sec)
+            ##     new_ob = qsim.calibration_ob(ob, res.calibration_sec)
+            ##     f_slot.set_ob(new_ob)
+            ##     schedule.insert_slot(f_slot)
 
             self.logger.debug("assigning %s(%.2fm) to %s" % (ob, dur, slot))
             _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)

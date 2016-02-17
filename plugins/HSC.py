@@ -27,7 +27,7 @@ class Converter(BaseConverter):
         out("\n#######################################")
         d = dict(obid=str(ob), propid=ob.program.propid,
                  proposal=ob.program.proposal,
-                 observer=ob.program.pi, obname=ob.name,
+                 observer='!FITS.HSC.OBSERVER', obname=ob.name,
                  tgtname=ob.target.name)
         out("\n# %(obid)s  %(propid)s %(obname)s: %(tgtname)s" % d)
         # write out any comments
@@ -40,7 +40,7 @@ class Converter(BaseConverter):
         if len(ob.envcfg.comment) > 0:
             out("\n## env: %s" % (ob.envcfg.comment))
 
-        cmd_str = '''Setup_OB OB_ID="%(obname)s" OB_COUNT=0 PROP_ID="%(propid)s" OBSERVER="%(observer)s"''' % d
+        cmd_str = '''Setup_OB OB_ID="%(obname)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s"''' % d
         out(cmd_str)
 
     def _setup_target(self, d, ob):
