@@ -4,7 +4,6 @@
 # Eric Jeschke (eric@naoj.org)
 #
 import os
-import StringIO
 
 from ginga.misc import Widgets
 from ginga.qtw import QtHelp
@@ -13,8 +12,6 @@ from ginga.qtw import QtHelp
 import remoteObjects as ro
 
 import Report
-#import FOCAS
-import HSC
 
 class Execute(Report.Report):
 
@@ -28,20 +25,16 @@ class Execute(Report.Report):
 
         self.refresh_ig()
 
+        self.captions = (('Send', 'button', #'Resolve', 'button',
+                          'Refresh', 'button'),
+                         )
+
     def build_gui(self, container):
         super(Execute, self).build_gui(container)
 
-        captions = (('Send', 'button', #'Resolve', 'button',
-                     'Refresh', 'button'),
-                    )
-        w, b = Widgets.build_info(captions, orientation='vertical')
-        self.w = b
-
-        b.send.add_callback('activated', self.send_cb)
         #b.resolve.add_callback('activated', self.resolve_cb)
         b.refresh.add_callback('activated', self.refresh_cb)
 
-        self.vbox.add_widget(w, stretch=0)
 
     def refresh_ig(self):
         if not self.debug_mode:
@@ -51,33 +44,10 @@ class Execute(Report.Report):
 
         self.ig = ro.remoteObjectProxy(self.svcname)
 
-    def _get_targets(self, oblist):
-        targets = set([])
-        for ob in oblist:
-            targets.add(ob.target)
-        return targets
-
     def send_cb(self, w):
 
-        oblist = self._get_selected_obs()
-        targets = self._get_targets(oblist)
-
         try:
-            converter = HSC.Converter(self.logger)
-
-            # buffer for OPE output
-            out_f = StringIO.StringIO()
-
-            # write preamble
-            converter.write_ope_header(out_f, targets)
-
-            # convert each OB
-            for ob in oblist:
-                converter.ob_to_ope(ob, out_f)
-
-            # here's the OPE file
-            ope_buf = out_f.getvalue()
-            self.logger.debug("Conversion produced:\n" + ope_buf)
+            ope_buf = self.make_ope()
 
             # write buffer to a file
             filepath = os.path.join(os.environ['HOME'], 'Procedure', 'OCS',
@@ -85,7 +55,6 @@ class Execute(Report.Report):
             with open(filepath, 'w') as out_f:
                 out_f.write(ope_buf)
 
-            self.logger.debug("Ope result:\n" + ope_buf + "\n")
             if not self.debug_mode:
                 # tell integgui2 to reload this file
                 self.ig.load_page(filepath)

@@ -9,14 +9,12 @@ Usage:
     q2ope.py
 """
 from __future__ import print_function
-
 # stdlib imports
 import sys, os
 import StringIO
 
 # 3rd party imports
-#from ginga.misc import ModuleManager, Settings, Task, Bunch
-import ssdlog
+from ginga.misc import log
 
 # Local imports
 import entity
@@ -37,7 +35,7 @@ class QueueLoader(object):
         self.programs_qf = None
         self.ob_qf_dict = None
         self.oblist_info = []
-        
+
     def initialize_model(self):
         try:
             # read schedule
@@ -104,7 +102,7 @@ class BaseConverter(object):
 
     def __init__(self, logger):
         self.logger = logger
-        
+
     def _mk_out(self, out_f):
         def out(*args):
             print(*args, file=out_f)
@@ -120,7 +118,7 @@ class BaseConverter(object):
 def main(options, args):
 
     # Create top level logger.
-    logger = ssdlog.make_logger('ob2ope', options)
+    logger = log.make_logger('ob2ope', options=options)
 
     # create queue model, loader and OPE converter
     model = QueueModel(logger=logger)
@@ -147,13 +145,13 @@ def main(options, args):
 
 
 if __name__ == "__main__":
-   
+
     # Parse command line options with nifty new optparse module
     from optparse import OptionParser
 
     usage = "usage: %prog [options] cmd [args]"
     optprs = OptionParser(usage=usage, version=('%%prog %s' % version))
-    
+
     optprs.add_option("--debug", dest="debug", default=False, action="store_true",
                       help="Enter the pdb debugger on main()")
     optprs.add_option("-i", "--input", dest="input_dir", default="input",
@@ -165,7 +163,7 @@ if __name__ == "__main__":
     optprs.add_option("--profile", dest="profile", action="store_true",
                       default=False,
                       help="Run the profiler on main()")
-    ssdlog.addlogopts(optprs)
+    log.addlogopts(optprs)
 
     (options, args) = optprs.parse_args(sys.argv[1:])
 

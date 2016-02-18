@@ -15,6 +15,8 @@ from ginga.misc import Bunch
 
 import qsim
 
+import HSC
+
 
 class Report(PlBase.Plugin):
 
@@ -30,6 +32,8 @@ class Report(PlBase.Plugin):
 
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
+        self.captions = (('Send', 'button'),
+                    )
         self.gui_up = False
 
     def build_gui(self, container):
@@ -48,7 +52,78 @@ class Report(PlBase.Plugin):
 
         container.add_widget(vbox, stretch=1)
 
+        w, b = Widgets.build_info(self.captions, orientation='vertical')
+        self.w = b
+
+        b.send.add_callback('activated', self.send_cb)
+
+        self.vbox.add_widget(w, stretch=0)
+
         self.gui_up = True
+
+    def send_cb(self, w):
+
+        try:
+            ope_buf = self.make_ope()
+
+            top_w = Widgets.TopLevel()
+            vbox = Widgets.VBox()
+            vbox.set_border_width(2)
+            vbox.set_spacing(2)
+
+            tw = Widgets.TextArea(wrap=False)
+            vbox.add_widget(tw, stretch=1)
+
+            hbox = Widgets.HBox()
+            btn = Widgets.Button('Close')
+            hbox.add_widget(btn, stretch=0)
+            hbox.add_widget(Widgets.Label(''), stretch=1)
+            vbox.add_widget(hbox, stretch=0)
+
+            top_w.set_widget(vbox)
+            btn.add_callback('activated', lambda w: top_w.delete())
+            top_w.add_callback('close', lambda *args: top_w.delete())
+
+            tw.set_text(ope_buf)
+            top_w.resize(700, 900)
+            # TODO: better title
+            top_w.set_title("Generated OPE file")
+
+            top_w.show()
+
+        except Exception as e:
+            self.logger.error("Error creating OPE file: %s" % (str(e)))
+
+        return True
+
+
+    def make_ope(self):
+
+        oblist = self._get_selected_obs()
+        targets = self._get_targets(oblist)
+
+        try:
+            converter = HSC.Converter(self.logger)
+
+            # buffer for OPE output
+            out_f = StringIO.StringIO()
+
+            # write preamble
+            converter.write_ope_header(out_f, targets)
+
+            # convert each OB
+            for ob in oblist:
+                converter.ob_to_ope(ob, out_f)
+
+            # here's the OPE file
+            ope_buf = out_f.getvalue()
+            self.logger.debug("Conversion produced:\n" + ope_buf)
+
+            return ope_buf
+
+        except Exception as e:
+            self.logger.error("Error making OPE file: %s" % (str(e)))
+
 
     def set_text(self, text):
         # TODO: figure out why we have to keep setting the font
@@ -184,6 +259,12 @@ class Report(PlBase.Plugin):
         except Exception as e:
             self.logger.error("Error selecting OBs: %s" % (str(e)))
             return []
+
+    def _get_targets(self, oblist):
+        targets = set([])
+        for ob in oblist:
+            targets.add(ob.target)
+        return targets
 
 
 #END
