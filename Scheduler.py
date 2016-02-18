@@ -250,14 +250,6 @@ class Scheduler(Callback.Callbacks):
             s_slot.set_ob(new_ob)
             schedule.insert_slot(s_slot)
 
-            # if a delay is required, insert a separate OB for that
-            if res.delay_sec > 0.0:
-                _xx, d_slot, slot = slot.split(slot.start_time,
-                                               res.delay_sec)
-                new_ob = qsim.delay_ob(ob, res.delay_sec)
-                d_slot.set_ob(new_ob)
-                schedule.insert_slot(d_slot)
-
             # if a filter change is required, insert a separate OB for that
             if res.filterchange:
                 _xx, f_slot, slot = slot.split(slot.start_time,
@@ -266,22 +258,38 @@ class Scheduler(Callback.Callbacks):
                 f_slot.set_ob(new_ob)
                 schedule.insert_slot(f_slot)
 
-            # if a long slew is required, insert a separate OB for that
-            self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
-                res.slew_sec, res.delta_az, res.delta_alt))
-            if res.slew_sec > slew_breakout_limit:
-                _xx, s_slot, slot = slot.split(slot.start_time,
-                                               res.slew_sec)
-                new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
-                s_slot.set_ob(new_ob)
-                schedule.insert_slot(s_slot)
+            # if a delay is required, insert a separate OB for that
+            if res.delay_sec > 0.0:
+                _xx, d_slot, slot = slot.split(slot.start_time,
+                                               res.delay_sec)
+                new_ob = qsim.delay_ob(ob, res.delay_sec)
+                d_slot.set_ob(new_ob)
+                schedule.insert_slot(d_slot)
 
-            ## if ob.sdss_calib is not None:
-            ##     _xx, f_slot, slot = slot.split(slot.start_time,
-            ##                                    res.calibration_sec)
-            ##     new_ob = qsim.calibration_ob(ob, res.calibration_sec)
-            ##     f_slot.set_ob(new_ob)
-            ##     schedule.insert_slot(f_slot)
+            # is there an SDSS calibration target?
+            if ob.target.sdss_calib is not None:
+                time_add_sec = res.calibration_sec + res.slew_sec
+                _xx, f_slot, slot = slot.split(slot.start_time,
+                                               time_add_sec)
+                sdss_target = ob.target.sdss_calib
+                new_ob = qsim.calibration_ob(ob, sdss_target,
+                                             time_add_sec)
+                f_slot.set_ob(new_ob)
+                schedule.insert_slot(f_slot)
+
+                slew_sec = res.slew2_sec
+            else:
+                slew_sec = res.slew_sec
+
+            ## # if a long slew is required, insert a separate OB for that
+            ## self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
+            ##     res.slew_sec, res.delta_az, res.delta_alt))
+            ## if res.slew_sec > slew_breakout_limit:
+            ##     _xx, s_slot, slot = slot.split(slot.start_time,
+            ##                                    res.slew_sec)
+            ##     new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
+            ##     s_slot.set_ob(new_ob)
+            ##     schedule.insert_slot(s_slot)
 
             self.logger.debug("assigning %s(%.2fm) to %s" % (ob, dur, slot))
             _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)

@@ -78,11 +78,16 @@ def delay_ob(ob, total_time):
 
 
 def setup_ob(ob, total_time):
+    d = dict(obid=str(ob), obname=ob.name,
+             comment=ob.comment,    # root OB's comment
+             proposal=ob.program.proposal)
+    # make this derived OB's comment include root OB comment
+    comment = "%(proposal)s %(obname)s: %(comment)s" % d
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
                        inscfg=ob.inscfg, envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
-                       comment="Setup OB %s" % (ob))
+                       comment="Setup OB: %s" % (comment))
     return new_ob
 
 
@@ -104,6 +109,13 @@ def obs_to_slots(slots, site, obs):
                 pass
 
     return obmap
+
+def calc_slew_time(cur_alt_deg, cur_az_deg, to_alt_deg, to_az_deg):
+
+    delta_alt, delta_az = to_alt_deg - cur_alt_deg, to_az_deg - cur_az_deg
+
+    slew_sec = misc.calc_slew_time(delta_az, delta_alt)
+    return slew_sec
 
 
 def check_schedule_invariant(site, schedule, ob):
@@ -278,10 +290,11 @@ def check_slot(site, prev_slot, slot, ob):
             ob.telcfg.dome, slot.data.dome))
         return res
 
+    start_time = slot.start_time + timedelta(0, prep_sec)
+
     if slot.data.dome == 'closed':
         # <-- dome closed
 
-        start_time = slot.start_time + timedelta(0, prep_sec)
         stop_time = start_time + timedelta(0, ob.total_time)
 
         # Check whether OB will fit in this slot
@@ -290,10 +303,11 @@ def check_slot(site, prev_slot, slot, ob):
             return res
 
         res.setvals(obs_ok=True, prev_ob=prev_ob,
-                    prep_sec=prep_sec, slew_sec=0.0,
-                    delta_az=0.0, delta_alt=0.0,
+                    prep_sec=prep_sec, slew_sec=0.0, slew2_sec=0.0,
+                    #delta_az=0.0, delta_alt=0.0,
                     filterchange=filterchange,
                     filterchange_sec=filterchange_sec,
+                    calibration_sec=0.0,
                     start_time=start_time, stop_time=stop_time,
                     delay_sec=0.0)
         return res
@@ -315,29 +329,54 @@ def check_slot(site, prev_slot, slot, ob):
                 slot.data.transparency, ob.envcfg.transparency))
             return res
 
-    c1 = ob.target.calc(site, slot.start_time)
+    # Calculate cost of slew to this target
+    # Assume that we want to do the SDSS calibration target first
+    target = ob.target.sdss_calib
+    if target is None:
+        # No SDSS calibration target specified--go with OB main target
+        target = ob.target
 
-    # calculate cost of slew to this target
     if prev_ob == None:
         # no previous target--calculate cost from telescope parked position
-        delta_alt, delta_az = parked_alt_deg - c1.alt_deg, parked_az_deg - c1.az_deg
+        cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
 
     else:
-        c0 = prev_ob.target.calc(site, slot.start_time)
-        delta_alt, delta_az = c0.alt_deg - c1.alt_deg, c0.az_deg - c1.az_deg
+        # assume telescope is at previous target
+        c0 = prev_ob.target.calc(site, start_time)
+        cur_alt_deg, cur_az_deg = c0.alt_deg, c0.az_deg
 
-    #print "print delta alt,az=%f,%f sec" % (delta_alt, delta_az)
-    slew_sec = misc.calc_slew_time(delta_az, delta_alt)
-    #print "slew time for new ob is %f sec" % (slew_sec)
+    c1 = target.calc(site, start_time)
+
+    slew_sec = calc_slew_time(cur_alt_deg, cur_az_deg, c1.alt_deg, c1.az_deg)
+    #print("first slew time for new ob is %f sec" % (slew_sec))
 
     prep_sec += slew_sec
-    #print "total delay is %f sec" % (prep_sec)
+    # adjust on-target start time
+    start_time += timedelta(0, slew_sec)
 
-    # adjust slot start time
-    start_time = slot.start_time + timedelta(0, prep_sec)
+    # Is there an SDSS calibration target?  If so, then calculate in
+    # calibration exposure and slew to main OB target
+    calibration_sec = 0.0
+    slew2_sec = 0.0
+    if ob.target.sdss_calib is not None:
+
+        calibration_sec = 30.0
+
+        prep_sec += calibration_sec
+        # adjust on-target start time
+        start_time += timedelta(0, calibration_sec)
+
+        # add slew time from calibration target to main target
+        c2 = ob.target.calc(site, start_time)
+        slew2_sec = calc_slew_time(c1.alt_deg, c1.az_deg, c2.alt_deg, c2.az_deg)
+        #print("slew time from calib tgt to ob target is %f sec" % (slew2_sec))
+
+        prep_sec += slew2_sec
+        # adjust on-target start time
+        start_time += timedelta(0, slew2_sec)
 
     # Check whether OB will fit in this slot
-    ## delta = (slot.stop_time - slot.start_time).total_seconds()
+    ## delta = (slot.stop_time - start_time).total_seconds()
     ## if ob.total_time > delta:
     ##     return False
 
@@ -367,9 +406,11 @@ def check_slot(site, prev_slot, slot, ob):
 
     res.setvals(obs_ok=obs_ok, prev_ob=prev_ob,
                 prep_sec=prep_sec, slew_sec=slew_sec,
-                delta_az=delta_az, delta_alt=delta_alt,
+                slew2_sec=slew2_sec,
+                #delta_az=delta_az, delta_alt=delta_alt,
                 filterchange=filterchange,
                 filterchange_sec=filterchange_sec,
+                calibration_sec=calibration_sec,
                 start_time=t_start, stop_time=stop_time,
                 delay_sec=delay_sec)
     return res

@@ -21,28 +21,6 @@ filternames = dict(G="HSC-G", R="HSC-R", I="HSC-I2", Z="HSC-Z", Y="HSC-Y")
 
 class Converter(BaseConverter):
 
-    def out_setup_ob(self, ob, out_f):
-        out = self._mk_out(out_f)
-
-        out("\n#######################################")
-        d = dict(obid=str(ob), propid=ob.program.propid,
-                 proposal=ob.program.proposal,
-                 observer='!FITS.HSC.OBSERVER', obname=ob.name,
-                 tgtname=ob.target.name)
-        out("\n# %(obid)s  %(propid)s %(obname)s: %(tgtname)s" % d)
-        # write out any comments
-        # TODO: need the comment from the root OB
-        #out("\n## ob: %s" % (ob.comment))
-        if len(ob.target.comment) > 0:
-            out("\n## tgt: %s" % (ob.target.comment))
-        if len(ob.inscfg.comment) > 0:
-            out("\n## ins: %s" % (ob.inscfg.comment))
-        if len(ob.envcfg.comment) > 0:
-            out("\n## env: %s" % (ob.envcfg.comment))
-
-        cmd_str = '''Setup_OB OB_ID="%(obname)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s"''' % d
-        out(cmd_str)
-
     def _setup_target(self, d, ob):
 
         funky_ra = self.ra_to_funky(ob.target.ra)
@@ -144,6 +122,29 @@ Z=7.00
                  )
         out(preamble % d)
 
+    def out_setup_ob(self, ob, out_f):
+        out = self._mk_out(out_f)
+
+        out("\n#######################################")
+        d = dict(obid=str(ob), obname=ob.name,
+                 propid=ob.program.propid,
+                 proposal=ob.program.proposal,
+                 observer='!FITS.HSC.OBSERVER',
+                 pi=ob.program.pi,
+                 tgtname=ob.target.name)
+        # write out any comments
+        out("\n## ob: %s" % (ob.comment))
+        # TODO: need the comment from the root OB
+        if len(ob.target.comment) > 0:
+            out("\n## tgt: %s" % (ob.target.comment))
+        if len(ob.inscfg.comment) > 0:
+            out("\n## ins: %s" % (ob.inscfg.comment))
+        if len(ob.envcfg.comment) > 0:
+            out("\n## env: %s" % (ob.envcfg.comment))
+
+        cmd_str = '''Setup_OB OB_ID="%(obname)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s" PI="%(pi)s"''' % d
+        out(cmd_str)
+
     def out_focusobe(self, ob, out_f):
         out = self._mk_out(out_f)
         out("\n# focusing after filter change")
@@ -184,14 +185,27 @@ Z=7.00
                 out("\n# %s" % (ob.comment))
                 d = {}
                 self._setup_target(d, ob)
-                cmd_str = 'SetupField $DEF_IMAGE %(tgtstr)s' % d
+                cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s''' % d
                 out(cmd_str)
                 return
 
             elif ob.comment.startswith('Delay for'):
                 out("\n# %s" % (ob.comment))
                 d = dict(sleep_time=int(ob.total_time))
-                cmd_str = 'EXEC OBS TIMER SLEEP_TIME=%(sleep_time)d' % d
+                cmd_str = '''EXEC OBS TIMER SLEEP_TIME=%(sleep_time)d''' % d
+                out(cmd_str)
+                return
+
+            elif ob.comment.startswith('SDSS calibration'):
+                out("\n# %s" % (ob.comment))
+                d = {}
+                self._setup_target(d, ob)
+                # TODO: get this from the OB
+                d['exptime'] = 30.0
+                cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s''' % d
+                out(cmd_str)
+
+                cmd_str = '''GetObject $DEF_IMAGE %(tgtstr)s EXPTIME=%(exptime)d''' % d
                 out(cmd_str)
                 return
 

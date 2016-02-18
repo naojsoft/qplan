@@ -145,27 +145,13 @@ class QueueModel(Callback.Callbacks):
         #self.set_schedule_info(self.schedule.schedule_info)
         self.make_callback('schedule-updated')
 
-    # TODO: call these on the scheduler object directly
+    ## def schedule_all(self):
 
-    ## def set_oblist_info(self, info):
-    ##     self.sdlr.set_oblist_info(info)
+    ##     #self.make_callback('schedule-cleared')
 
-    ## def set_weights(self, weights):
-    ##     self.sdlr.set_weights(weights)
+    ##     self.sdlr.schedule_all()
 
-    ## def set_programs_info(self, info):
-    ##     self.sdlr.set_programs_info(info)
-
-    ## def set_schedule_info(self, info):
-    ##     self.sdlr.set_schedule_info(info)
-
-    def schedule_all(self):
-
-        #self.make_callback('schedule-cleared')
-
-        self.sdlr.schedule_all()
-
-        #self.make_callback('schedule-completed', completed, uncompleted, self.schedules)
+    ##     #self.make_callback('schedule-completed', completed, uncompleted, self.schedules)
 
     def select_schedule(self, schedule):
         self.selected_schedule = schedule

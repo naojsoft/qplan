@@ -184,7 +184,8 @@ class ControlPanel(PlBase.Plugin):
         # update the model with any changes from GUI
         self.update_scheduler()
 
-        self.view.nongui_do(self.model.schedule_all)
+        sdlr = self.model.get_scheduler()
+        self.view.nongui_do(sdlr.schedule_all)
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))

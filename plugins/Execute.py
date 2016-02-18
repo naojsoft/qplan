@@ -23,28 +23,32 @@ class Execute(Report.Report):
 
         self.svcname = 'integgui0'
         self.ig = None
+        #self.debug_mode = False
+        self.debug_mode = True
+
         self.refresh_ig()
-        self.debug_mode = False
-        #self.debug_mode = True
 
     def build_gui(self, container):
         super(Execute, self).build_gui(container)
 
-        captions = (('Send', 'button', 'Resolve', 'button',
+        captions = (('Send', 'button', #'Resolve', 'button',
                      'Refresh', 'button'),
                     )
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w = b
 
         b.send.add_callback('activated', self.send_cb)
-        b.resolve.add_callback('activated', self.resolve_cb)
+        #b.resolve.add_callback('activated', self.resolve_cb)
         b.refresh.add_callback('activated', self.refresh_cb)
 
         self.vbox.add_widget(w, stretch=0)
 
     def refresh_ig(self):
+        if not self.debug_mode:
+            return
         if self.ig is None:
             ro.init()
+
         self.ig = ro.remoteObjectProxy(self.svcname)
 
     def _get_targets(self, oblist):
@@ -59,7 +63,6 @@ class Execute(Report.Report):
         targets = self._get_targets(oblist)
 
         try:
-            #converter = FOCAS.Converter(self.logger)
             converter = HSC.Converter(self.logger)
 
             # buffer for OPE output
