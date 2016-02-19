@@ -1166,7 +1166,9 @@ class Executed_OB(PersistentEntity):
         self.time_stop = None
         # list of Exp_History objects, one for each exposure
         self.exp_history = []
+        self.iqa = ''
         self.fqa = ''
+        # overall per OB-execution comment
         self.comment = ''
 
     def add_history(self, hist_obj):
@@ -1189,8 +1191,6 @@ class Exp_History(object):
         self.comment = ''
         # exposure id that links a data frame with this OB
         self.exp_id = ''
-        # per exposure iqa
-        self.iqa = ''
         # environment data
         self.transparency = None
         self.seeing = None
