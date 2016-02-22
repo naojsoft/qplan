@@ -580,7 +580,9 @@ class ProgramsFile(QueueFile):
 
                 rec = self.parse_row(row, self.columnNames,
                                      self.column_map)
-                if rec.skip.strip() != '':
+
+                skip = rec.skip.strip() != ''
+                if skip:
                     continue
 
                 key = rec.proposal.upper()
@@ -590,6 +592,7 @@ class ProgramsFile(QueueFile):
                                      grade=rec.grade.upper(),
                                      partner=rec.partner,
                                      category=rec.category,
+                                     #skip=skip,
                                      instruments=rec.instruments.upper().split(','),
                                      hours=float(rec.hours))
 

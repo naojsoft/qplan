@@ -1,5 +1,6 @@
-import sys, os
-import threading
+#
+# Eric Jeschke (eric@naoj.org)
+#
 
 # third-party imports
 from ZODB import FileStorage, DB
@@ -33,7 +34,7 @@ class QueueDatabase(object):
         self.dbroot = self.conn.root()
 
         # Check whether database is initialized
-        for name in ['program', 'ob', 'executed_ob']:
+        for name in ['program', 'ob', 'executed_ob', 'exp_history']:
             key = '%s_db' % name
             if not self.dbroot.has_key(key):
                 self.dbroot[key] = OOBTree()

@@ -143,7 +143,8 @@ class StandAlone_Scheduler(object):
         # store OBs into db
         ob_db = qa.get_table('ob')
         for ob in sdlr.oblist:
-            ob_db[str(ob)] = ob
+            key = (ob.program.proposal, ob.name)
+            ob_db[key] = ob
 
         transaction.commit()
 
@@ -190,9 +191,9 @@ def main(options, args):
     sdl = StandAlone_Scheduler(logger, options.input_dir,
                                options.host, options.port)
 
-    #sdl.init_db()
+    sdl.init_db()
     #sdl.schedule_files()
-    sdl.schedule_db()
+    #sdl.schedule_db()
 
     sys.exit(0)
 

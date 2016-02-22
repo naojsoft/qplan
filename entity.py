@@ -1176,13 +1176,13 @@ class Executed_OB(PersistentEntity):
         self._p_changed = True
 
 
-class Exp_History(object):
+class Exp_History(PersistentEntity):
     """
     Describes the result of executing one dither position or one exposure
     from an OB.
     """
     def __init__(self):
-        super(Executed_OB, self).__init__()
+        super(Exp_History, self).__init__()
 
         # time this exposure started and stopped
         self.time_start = None
