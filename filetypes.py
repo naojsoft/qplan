@@ -514,6 +514,7 @@ class ScheduleFile(QueueFile):
             # All OBs for this schedule slot should end up pointing to this
             # static record
             data = Bunch.Bunch(filters=filters,
+                               cur_filter=None, cur_az=None, cur_el=None,
                                seeing=seeing, transparency=transparency,
                                dome=dome, categories=categories,
                                instruments=instruments)
@@ -582,8 +583,6 @@ class ProgramsFile(QueueFile):
                                      self.column_map)
 
                 skip = rec.skip.strip() != ''
-                if skip:
-                    continue
 
                 key = rec.proposal.upper()
                 pgm = entity.Program(key, propid=rec.propid,
@@ -592,7 +591,7 @@ class ProgramsFile(QueueFile):
                                      grade=rec.grade.upper(),
                                      partner=rec.partner,
                                      category=rec.category,
-                                     #skip=skip,
+                                     skip=skip,
                                      instruments=rec.instruments.upper().split(','),
                                      hours=float(rec.hours))
 

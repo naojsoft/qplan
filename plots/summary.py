@@ -130,7 +130,10 @@ class ProposalSumPlot(BaseSumPlot):
             uncompleted_count = len(proposal.obs)
             completed_count = float(total_ob_count - uncompleted_count)
             propID = str(proposal.pgm)
-            propID_comp_percent[propID] = completed_count / total_ob_count * 100.0
+            completed_pct = 0.0
+            if total_ob_count > 0:
+                completed_pct = completed_count / total_ob_count
+            propID_comp_percent[propID] = completed_pct * 100.0
             if propID not in grades_dict[proposal.pgm.grade]:
                 grades_dict[proposal.pgm.grade].append(propID)
 
@@ -241,8 +244,10 @@ class SemesterSumPlot(BaseSumPlot):
         sizes.append(total_time_waste)
         colors.append('darkred')
         plt.pie(sizes, labels=labels, colors=colors, autopct='%1.0f%%', shadow=True)
-        semester, ident = labels[0].split('-')
-        plt.set_title('Total for Semester %s = %5.0f Hours' % (semester, total_time_avail / 60.0))
+        if '-' in labels[0]:
+            # TODO: title if nothing can be scheduled
+            semester, ident = labels[0].split('-')
+            plt.set_title('Total for Semester %s = %5.0f Hours' % (semester, total_time_avail / 60.0))
 
         # Create some matplotlib "Patches" so that we can use them in
         # the legend

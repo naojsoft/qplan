@@ -264,18 +264,20 @@ def check_slot(site, prev_slot, slot, ob):
     ##     return res
 
     filterchange = False
+    cur_filter = None
     filterchange_sec = 0.0
 
-    # get immediately previous ob
+    # get immediately previous ob and filter
     if (prev_slot == None) or (prev_slot.ob == None):
         prev_ob = None
-        filterchange = True
+        cur_filter = slot.data.cur_filter
 
     else:
         prev_ob = prev_slot.ob
+        cur_filter = prev_ob.inscfg.filter
 
     # calculate cost of filter exchange
-    if filterchange or (prev_ob.inscfg.filter != ob.inscfg.filter):
+    if cur_filter != ob.inscfg.filter:
         # filter exchange necessary
         filterchange = True
         filterchange_sec = ob.inscfg.calc_filter_change_time()
@@ -304,7 +306,6 @@ def check_slot(site, prev_slot, slot, ob):
 
         res.setvals(obs_ok=True, prev_ob=prev_ob,
                     prep_sec=prep_sec, slew_sec=0.0, slew2_sec=0.0,
-                    #delta_az=0.0, delta_alt=0.0,
                     filterchange=filterchange,
                     filterchange_sec=filterchange_sec,
                     calibration_sec=0.0,
@@ -336,9 +337,14 @@ def check_slot(site, prev_slot, slot, ob):
         # No SDSS calibration target specified--go with OB main target
         target = ob.target
 
-    if prev_ob == None:
-        # no previous target--calculate cost from telescope parked position
-        cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
+    if prev_ob is None:
+        # no previous target--calculate cost from ...
+        if slot.data.cur_az is not None:
+            # ... current telescope position
+            cur_alt_deg, cur_az_deg = slot.data.cur_el, slot.data.cur_az
+        else:
+            # ... parked position
+            cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
 
     else:
         # assume telescope is at previous target
@@ -407,7 +413,6 @@ def check_slot(site, prev_slot, slot, ob):
     res.setvals(obs_ok=obs_ok, prev_ob=prev_ob,
                 prep_sec=prep_sec, slew_sec=slew_sec,
                 slew2_sec=slew2_sec,
-                #delta_az=delta_az, delta_alt=delta_alt,
                 filterchange=filterchange,
                 filterchange_sec=filterchange_sec,
                 calibration_sec=calibration_sec,

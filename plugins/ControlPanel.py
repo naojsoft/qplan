@@ -163,14 +163,16 @@ class ControlPanel(PlBase.Plugin):
         try:
             sdlr.set_weights(self.weights_qf.weights)
             sdlr.set_schedule_info(self.schedule_qf.schedule_info)
-            sdlr.set_programs_info(self.programs_qf.programs_info)
+            pgms = self.programs_qf.programs_info
+            sdlr.set_programs_info(pgms)
 
             # TODO: this maybe should be done in the Model
             self.oblist_info = []
             propnames = list(self.programs_qf.programs_info.keys())
             propnames.sort()
-            #for propname in self.programs_qf.programs_info:
             for propname in propnames:
+                if pgms[propname].skip:
+                    continue
                 self.oblist_info.extend(self.ob_qf_dict[propname].obs_info)
             # TODO: only needed if we ADD or REMOVE programs
             sdlr.set_oblist_info(self.oblist_info)

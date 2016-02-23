@@ -65,7 +65,10 @@ class Scheduler(Callback.Callbacks):
         self.weights = weights
 
     def set_programs_info(self, info):
-        self.programs = info
+        self.programs = {}
+        for key, rec in info.items():
+            if not rec.skip:
+                self.programs[key] = rec
 
     def set_oblist_info(self, info):
         self.oblist = info
@@ -438,7 +441,9 @@ class Scheduler(Callback.Callbacks):
         # print a summary
         out_f = StringIO.StringIO()
         num_obs = len(oblist)
-        pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
+        pct = 0.0
+        if num_obs > 0:
+            pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
         out_f.write("%5.2f %% of OBs scheduled\n" % (pct*100.0))
 
         if len(unschedulable) > 0:

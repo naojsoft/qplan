@@ -41,7 +41,8 @@ class Program(PersistentEntity):
     """
     def __init__(self, proposal, pi='', observers='', rank=1.0,
                  propid=None, grade=None, partner=None, hours=None,
-                 category=None, instruments=[], description=None):
+                 category=None, instruments=[], description=None,
+                 skip=False):
         super(Program, self).__init__()
 
         self.proposal = proposal
@@ -60,6 +61,7 @@ class Program(PersistentEntity):
         self.total_time = hours * 3600.0
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
+        self.skip = skip
 
     def __repr__(self):
         return self.proposal
