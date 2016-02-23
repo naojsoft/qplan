@@ -32,8 +32,8 @@ class Execute(Report.Report):
     def build_gui(self, container):
         super(Execute, self).build_gui(container)
 
-        #b.resolve.add_callback('activated', self.resolve_cb)
-        b.refresh.add_callback('activated', self.refresh_cb)
+        #self.w.resolve.add_callback('activated', self.resolve_cb)
+        self.w.refresh.add_callback('activated', self.refresh_cb)
 
 
     def refresh_ig(self):
