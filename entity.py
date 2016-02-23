@@ -1171,19 +1171,21 @@ class Executed_OB(PersistentEntity):
         # overall per OB-execution comment
         self.comment = ''
 
-    def add_history(self, hist_obj):
-        self.exp_history.append(hist_obj)
+    def add_exposure(self, exp_obj):
+        self.exp_history.append(exp_obj)
         self._p_changed = True
 
 
-class Exp_History(PersistentEntity):
+class HSC_Exposure(PersistentEntity):
     """
     Describes the result of executing one dither position or one exposure
     from an OB.
     """
-    def __init__(self):
-        super(Exp_History, self).__init__()
+    def __init__(self, ob=None, dithpos=None):
+        super(HSC_Exposure, self).__init__()
 
+        self.ob = ob
+        self.dithpos = dithpos
         # time this exposure started and stopped
         self.time_start = None
         self.time_stop = None
@@ -1191,10 +1193,18 @@ class Exp_History(PersistentEntity):
         self.comment = ''
         # exposure id that links a data frame with this OB
         self.exp_id = ''
-        # environment data
+
+        # environment data at the time of exposure
+        # TODO: should this end up being a list of tuples of measurements
+        # taken at different times during the exposure
         self.transparency = None
         self.seeing = None
         self.moon_illumination = None
+        self.moon_altitude = None
         self.moon_separation = None
+
+    def __str__(self):
+        return self.exp_id
+
 
 #END

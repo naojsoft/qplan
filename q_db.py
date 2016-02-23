@@ -34,7 +34,7 @@ class QueueDatabase(object):
         self.dbroot = self.conn.root()
 
         # Check whether database is initialized
-        for name in ['program', 'ob', 'executed_ob', 'exp_history']:
+        for name in ['program', 'ob', 'executed_ob', 'exposure']:
             key = '%s_db' % name
             if not self.dbroot.has_key(key):
                 self.dbroot[key] = OOBTree()
