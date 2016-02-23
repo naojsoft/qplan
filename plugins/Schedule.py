@@ -133,8 +133,8 @@ class GenericTableModel(QtCore.QAbstractTableModel):
             return None
 
         row, col = index.row(), index.column()
-        schedule = self.get_data(row, col)
-        return str(schedule)
+        value = self.get_data(row, col)
+        return str(value)
 
     def headerData(self, col, orientation, role):
         if (orientation == QtCore.Qt.Horizontal) and \

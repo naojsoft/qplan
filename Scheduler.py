@@ -464,10 +464,13 @@ class Scheduler(Callback.Callbacks):
             else:
                 uncompleted.append(bnch)
 
-        completed = sorted(completed, key=lambda bnch: max_rank - bnch.pgm.rank)
-        uncompleted = sorted(uncompleted, key=lambda bnch: max_rank - bnch.pgm.rank)
+        completed = sorted(completed,
+                           key=lambda bnch: max_rank - bnch.pgm.rank)
+        uncompleted = sorted(uncompleted,
+                             key=lambda bnch: max_rank - bnch.pgm.rank)
 
-        self.make_callback('schedule-completed', completed, uncompleted, self.schedules)
+        self.make_callback('schedule-completed',
+                           completed, uncompleted, self.schedules)
 
         out_f.write("Completed programs\n")
         for bnch in completed:
