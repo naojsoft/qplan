@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 #
-# qplan.py -- Queue simulation/scheduler
+# qplan -- Queue planner/scheduler
 #
-# Eric Jeschke (eric@naoj.org)
+# eric@naoj.org, rkackley@naoj.org, tinagaki@naoj.org
 #
 """
 Usage:
-    qplan.py
+    qplan --loglevel=20 --log=/tmp/qplan.log -i input-files-dir
 """
 
 # stdlib imports
@@ -14,23 +14,22 @@ import sys, os
 import threading
 import logging
 
-moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
-sys.path.insert(0, moduleHome)
-pluginHome = os.path.join(moduleHome, 'plugins')
-sys.path.insert(0, pluginHome)
-
 # Subaru python stdlib imports
 from ginga.misc import ModuleManager, Settings, Task, Bunch
 from ginga.misc import log
 import ginga.toolkit as ginga_toolkit
 
 # Local application imports
-from Control import Controller
-from Model import QueueModel
+from qplan.Control import Controller
+from qplan.Model import QueueModel
+from qplan.version import version
 
-version = "20151202.0"
+moduleHome = os.path.split(sys.modules['qplan.version'].__file__)[0]
+sys.path.insert(0, moduleHome)
+pluginHome = os.path.join(moduleHome, 'plugins')
+sys.path.insert(0, pluginHome)
 
-defaultServiceName = 'queueplanner'
+defaultServiceName = 'qplan'
 
 default_layout = ['seq', {},
                    ['vbox', dict(name='top', width=1440, height=900),
@@ -86,7 +85,7 @@ def main(options, args):
 
     ginga_toolkit.use(options.toolkit)
 
-    from View import Viewer
+    from qplan.View import Viewer
     # must import AFTER Viewer
     from ginga.Control import GuiLogHandler
 
