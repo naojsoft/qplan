@@ -23,7 +23,9 @@ setup(
     url = "http://naojsoft.github.com/qplan",
     packages = ['qplan',
                 # Misc
-                'qplan.plots', 'qplan.plugins',
+                'qplan.plots', 'qplan.plugins', 'qplan.util',
+                # tests
+                'qplan.tests',
                 ],
     package_data = { 'qplan.doc': ['manual/*.rst'],
                      },
