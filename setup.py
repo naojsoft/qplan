@@ -11,13 +11,17 @@ srcdir = os.path.dirname(__file__)
 
 from distutils.command.build_py import build_py
 
+long_description = '''
+qplan is the basis of Queue Planner software for Subaru Telescope.
+'''
+
 setup(
     name = "qplan",
     version = version,
     author = "Software Division, OCS Team",
-    author_email = "ocs@naoj.org",
+    author_email = "eric@naoj.org",
     description = ("Queue Observation Planner for Subaru Telescope."),
-    long_description = 'README.txt',
+    long_description = long_description,
     license = "BSD",
     keywords = "astronomy queue planner subaru telescope",
     url = "http://naojsoft.github.com/qplan",
@@ -31,7 +35,7 @@ setup(
                      },
     scripts = ['scripts/qplan', 'scripts/qexec.py'],
     install_requires = ['pandas>=0.13.1', 'ginga>=2.5',
-                        'matplotlib>=1.3.1', 'ephem>=3.7.5.3'],
+                        'matplotlib>=1.1', 'ephem>=3.7.5.3'],
     #test_suite = "",
     classifiers=[
           'Intended Audience :: Science/Research',

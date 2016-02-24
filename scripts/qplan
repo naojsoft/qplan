@@ -5,7 +5,7 @@
 """
 Usage:
     qplan --help
-    qplan [options] [fitsfile] ...
+    qplan [options]
 """
 import sys
 from qplan import main, version

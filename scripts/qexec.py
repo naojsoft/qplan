@@ -5,9 +5,9 @@
 """
 Usage:
     qexec.py --help
-    qexec.py [options] [fitsfile] ...
+    qexec.py [options]
 """
-import sys
+import sys, os
 from qplan import main, version
 
 defaultServiceName = 'qexecute'
