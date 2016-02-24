@@ -44,7 +44,7 @@ class Execute(Report.Report):
 
 
     def refresh_ig(self):
-        if not self.debug_mode:
+        if self.debug_mode:
             return
         if self.ig is None:
             ro.init()

@@ -152,7 +152,7 @@ Z=7.00
         d = {}
         self._setup_target(d, ob)
 
-        cmd_str = '''FOCUSOBE $DEF_IMAGE %(tgtstr)s INSROT_PA=%(pa).2f DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s EXPTIME=10 Z=3.75"''' % d
+        cmd_str = '''FOCUSOBE $DEF_IMAGE %(tgtstr)s INSROT_PA=%(pa).2f DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s" EXPTIME=10 Z=3.75''' % d
         out(cmd_str)
 
     def out_filterchange(self, ob, out_f):
