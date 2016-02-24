@@ -31,7 +31,7 @@ setup(
                      },
     scripts = ['scripts/qplan', 'scripts/qexec.py'],
     install_requires = ['pandas>=0.13.1', 'ginga>=2.5',
-                        'matplotlib>=1.3.1'],
+                        'matplotlib>=1.3.1', 'ephem>=3.7.5.3'],
     #test_suite = "",
     classifiers=[
           'Intended Audience :: Science/Research',

@@ -13,6 +13,9 @@ import remoteObjects as ro
 
 import Report
 
+from qplan import q_db
+
+
 class Execute(Report.Report):
 
     def __init__(self, model, view, controller, logger):
@@ -24,6 +27,10 @@ class Execute(Report.Report):
         self.debug_mode = True
 
         self.refresh_ig()
+
+        ## self.addr = ('localhost', 9800)
+        ## self.qdb = q_db.QueueDatabase(logger, self.addr)
+        ## self.qa = q_db.QueueAdapter(self.qdb)
 
         self.captions = (('Send', 'button', #'Resolve', 'button',
                           'Refresh', 'button'),
