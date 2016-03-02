@@ -6,11 +6,9 @@ import StringIO
 from ginga.misc import log
 from ginga.misc.Bunch import Bunch
 
-import filetypes
-import Model
-import Scheduler
-import q_db
 import transaction
+
+from qplan import filetypes, Model, Scheduler, q_db
 
 class StandAlone_Scheduler(object):
 
@@ -144,6 +142,7 @@ class StandAlone_Scheduler(object):
         ob_db = qa.get_table('ob')
         for ob in sdlr.oblist:
             key = (ob.program.proposal, ob.name)
+            print("adding record for OB '%s'" % (str(key)))
             ob_db[key] = ob
 
         transaction.commit()
