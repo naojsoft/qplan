@@ -12,6 +12,15 @@ import PlBase
 import filetypes
 import misc
 
+have_qdb = False
+try:
+    from qplan import q_db, q_query
+    have_qdb = True
+
+except ImportError:
+    pass
+
+
 class ControlPanel(PlBase.Plugin):
 
     def __init__(self, model, view, controller, logger):
@@ -28,6 +37,19 @@ class ControlPanel(PlBase.Plugin):
         self.inscfg_qf_dict = None
         self.telcfg_qf_dict = None
 
+        self.qdb_addr = ('localhost', 9800)
+        self.qdb = None
+        self.qa = None
+        self.qq = None
+        if have_qdb:
+            self.connect_qdb()
+
+    def connect_qdb(self):
+        # Set up Queue database access
+        self.qdb = q_db.QueueDatabase(self.logger, self.qdb_addr)
+        self.qa = q_db.QueueAdapter(self.qdb)
+        self.qq = q_query.QueueQuery(self.qa)
+
     def build_gui(self, container):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
@@ -41,7 +63,7 @@ class ControlPanel(PlBase.Plugin):
 
         captions = (('Inputs:', 'label', 'Input dir', 'entry'),
                     ('Load Info', 'button'),
-                    ('Build Schedule', 'button'))
+                    ('Build Schedule', 'button', 'Use QDB', 'checkbutton'))
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w = b
 
@@ -182,9 +204,44 @@ class ControlPanel(PlBase.Plugin):
 
         self.logger.info("scheduler initialized")
 
+    def update_scheduler_from_qdb(self):
+        sdlr = self.model.get_scheduler()
+        try:
+            sdlr.set_weights(self.weights_qf.weights)
+            sdlr.set_schedule_info(self.schedule_qf.schedule_info)
+            pgms = self.programs_qf.programs_info
+            sdlr.set_programs_info(pgms)
+
+            oblist = list(self.qq.get_schedulable_obs())
+            self.logger.info("%s schedulable OBs in ALL programs." % (
+                len(oblist)))
+
+            propnames = list(self.programs_qf.programs_info.keys())
+            propnames.sort()
+            okprops = set([])
+            for propname in propnames:
+                if not pgms[propname].skip:
+                    okprops.add(propname)
+
+            self.oblist_info = list(q_query.filter_obs_by_props(oblist, okprops))
+            self.logger.info("%s schedulable OBs after excluding skipped programs." % (
+                len(self.oblist_info)))
+
+            # TODO: only needed if we ADD or REMOVE programs
+            sdlr.set_oblist_info(self.oblist_info)
+
+        except Exception as e:
+            self.logger.error("Error storing into scheduler: %s" % (str(e)))
+
+        self.logger.info("scheduler initialized")
+
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI
-        self.update_scheduler()
+        use_db = self.w.use_qdb.get_state()
+        if use_db:
+            self.update_scheduler_from_qdb()
+        else:
+            self.update_scheduler()
 
         sdlr = self.model.get_scheduler()
         self.view.nongui_do(sdlr.schedule_all)

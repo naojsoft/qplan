@@ -23,7 +23,8 @@ def filter_ob_keys_by_props(ob_keys, propset):
 def filter_obs_by_props(obs, propset):
     propset = set(propset)
     def has_proposal(ob):
-        return ob.program.proposal in propset
+        proposal = ob.program.proposal.upper()
+        return proposal in propset
     return itertools.ifilter(has_proposal, obs)
 
 
