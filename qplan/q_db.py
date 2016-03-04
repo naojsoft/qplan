@@ -47,14 +47,14 @@ class QueueDatabase(object):
         self.storage.close()
 
     def get_adaptor(self):
-        return QueueAdaptor(self)
+        return QueueAdapter(self)
 
 
-class QueueAdaptor(object):
+class QueueAdapter(object):
     """
-    Each thread should use its own QueueAdaptor.
+    Each thread should use its own QueueAdapter.
 
-    qa = QueueAdaptor(db)
+    qa = QueueAdapter(db)
     """
 
     def __init__(self, qdb):

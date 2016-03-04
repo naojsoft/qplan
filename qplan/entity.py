@@ -1159,22 +1159,22 @@ class Executed_OB(PersistentEntity):
     """
     Describes the result of executing an OB.
     """
-    def __init__(self, ob=None):
+    def __init__(self, ob_key=None):
         super(Executed_OB, self).__init__()
 
-        self.ob = ob
+        self.ob_key = ob_key
         # time this OB started and stopped
         self.time_start = None
         self.time_stop = None
-        # list of Exp_History objects, one for each exposure
+        # list of exposure keys, one for each exposure
         self.exp_history = []
         self.iqa = ''
         self.fqa = ''
         # overall per OB-execution comment
         self.comment = ''
 
-    def add_exposure(self, exp_obj):
-        self.exp_history.append(exp_obj)
+    def add_exposure(self, exp_key):
+        self.exp_history.append(exp_key)
         self._p_changed = True
 
 
@@ -1183,10 +1183,10 @@ class HSC_Exposure(PersistentEntity):
     Describes the result of executing one dither position or one exposure
     from an OB.
     """
-    def __init__(self, ob=None, dithpos=None):
+    def __init__(self, ob_key=None, dithpos=None):
         super(HSC_Exposure, self).__init__()
 
-        self.ob = ob
+        self.ob_key = ob_key
         self.dithpos = dithpos
         # time this exposure started and stopped
         self.time_start = None

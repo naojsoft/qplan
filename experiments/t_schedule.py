@@ -129,7 +129,7 @@ class StandAlone_Scheduler(object):
 
         # open the queue database
         db = q_db.QueueDatabase(self.logger, self.addr)
-        qa = q_db.QueueAdaptor(db)
+        qa = q_db.QueueAdapter(db)
 
         sdlr = self.model.get_scheduler()
 
@@ -164,7 +164,7 @@ class StandAlone_Scheduler(object):
 
         # open the queue database
         db = q_db.QueueDatabase(self.logger, self.addr)
-        qa = q_db.QueueAdaptor(db)
+        qa = q_db.QueueAdapter(db)
 
         sdlr = self.model.get_scheduler()
 
