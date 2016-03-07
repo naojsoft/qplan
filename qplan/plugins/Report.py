@@ -4,6 +4,7 @@
 # Eric Jeschke (eric@naoj.org)
 #
 import time
+import os
 import re
 import StringIO
 from datetime import timedelta
@@ -32,7 +33,7 @@ class Report(PlBase.Plugin):
 
         model.add_callback('schedule-selected', self.show_schedule_cb)
 
-        self.captions = (('Send', 'button'),
+        self.captions = (('Make OPE', 'button'),
                     )
         self.gui_up = False
 
@@ -55,13 +56,13 @@ class Report(PlBase.Plugin):
         w, b = Widgets.build_info(self.captions, orientation='vertical')
         self.w = b
 
-        b.send.add_callback('activated', self.send_cb)
+        b.make_ope.add_callback('activated', self.make_ope_cb)
 
         self.vbox.add_widget(w, stretch=0)
 
         self.gui_up = True
 
-    def send_cb(self, w):
+    def make_ope_cb(self, w):
 
         try:
             ope_buf = self.make_ope()
@@ -77,8 +78,20 @@ class Report(PlBase.Plugin):
             hbox = Widgets.HBox()
             btn = Widgets.Button('Close')
             hbox.add_widget(btn, stretch=0)
-            hbox.add_widget(Widgets.Label(''), stretch=1)
+            save_as = Widgets.Button('Save As')
+            hbox.add_widget(save_as, stretch=0)
+            ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
+                                                time.localtime()) + ".ope"
+            path = os.path.join(os.environ['HOME'], "Procedure", ope_name)
+            ent = Widgets.TextEntry('path')
+            ent.set_text(path)
+            hbox.add_widget(ent, stretch=1)
+            #hbox.add_widget(Widgets.Label(''), stretch=1)
+            hbox.cfg_expand(0x8, 0x124)
             vbox.add_widget(hbox, stretch=0)
+
+            save_as.add_callback('activated',
+                                 lambda w: self.save_as_cb(ope_buf, ent))
 
             top_w.set_widget(vbox)
             btn.add_callback('activated', lambda w: top_w.delete())
@@ -115,6 +128,9 @@ class Report(PlBase.Plugin):
             for ob in oblist:
                 converter.ob_to_ope(ob, out_f)
 
+            # write postscript
+            converter.write_ope_trailer(out_f)
+
             # here's the OPE file
             ope_buf = out_f.getvalue()
             self.logger.debug("Conversion produced:\n" + ope_buf)
@@ -123,6 +139,19 @@ class Report(PlBase.Plugin):
 
         except Exception as e:
             self.logger.error("Error making OPE file: %s" % (str(e)))
+
+
+    def save_as_cb(self, ope_buf, ent_w):
+
+        filepath = ent_w.get_text().strip()
+        try:
+            with open(filepath, 'w') as out_f:
+                out_f.write(ope_buf)
+
+        except Exception as e:
+            self.logger.error("Error writing OB file: %s" % (str(e)))
+
+        return True
 
 
     def set_text(self, text):

@@ -15,6 +15,7 @@ import misc
 have_qdb = False
 try:
     from qplan import q_db, q_query
+    from Gen2.db.db_config import qdb_addr
     have_qdb = True
 
 except ImportError:
@@ -37,7 +38,6 @@ class ControlPanel(PlBase.Plugin):
         self.inscfg_qf_dict = None
         self.telcfg_qf_dict = None
 
-        self.qdb_addr = ('localhost', 9800)
         self.qdb = None
         self.qa = None
         self.qq = None
@@ -46,7 +46,7 @@ class ControlPanel(PlBase.Plugin):
 
     def connect_qdb(self):
         # Set up Queue database access
-        self.qdb = q_db.QueueDatabase(self.logger, self.qdb_addr)
+        self.qdb = q_db.QueueDatabase(self.logger, qdb_addr)
         self.qa = q_db.QueueAdapter(self.qdb)
         self.qq = q_query.QueueQuery(self.qa)
 
@@ -212,6 +212,9 @@ class ControlPanel(PlBase.Plugin):
             pgms = self.programs_qf.programs_info
             sdlr.set_programs_info(pgms)
 
+            self.qdb.close()
+            self.connect_qdb()
+            
             oblist = list(self.qq.get_schedulable_obs())
             self.logger.info("%s schedulable OBs in ALL programs." % (
                 len(oblist)))
@@ -233,6 +236,7 @@ class ControlPanel(PlBase.Plugin):
         except Exception as e:
             self.logger.error("Error storing into scheduler: %s" % (str(e)))
 
+        self.qdb.close()
         self.logger.info("scheduler initialized")
 
     def build_schedule_cb(self, widget):

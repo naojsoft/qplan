@@ -34,12 +34,18 @@ class QueueDatabase(object):
         self.dbroot = self.conn.root()
 
         # Check whether database is initialized
-        for name in ['program', 'ob', 'executed_ob', 'exposure']:
+        for name in ['program', 'ob', 'executed_ob', 'exposure',
+                     'saved_state']:
             key = '%s_db' % name
             if not self.dbroot.has_key(key):
-                self.dbroot[key] = OOBTree()
+                tbl = OOBTree()
+                self.dbroot[key] = tbl
 
                 transaction.commit()
+
+        if not self.dbroot.has_key('queue_mgmt'):
+            self.dbroot['queue_mgmt'] = QueueMgmtRec()
+            transaction.commit()
 
     def close(self):
         self.conn.close()
@@ -68,8 +74,23 @@ class QueueAdapter(object):
         key = '%s_db' % name
         return self.dbroot[key]
 
+    def get_root_record(self, name):
+        return self.dbroot[name]
+
+    def sync(self):
+        self._qdb.conn.sync()
+
     def close(self):
         self.conn.close()
+
+
+class QueueMgmtRec(Persistent):
+
+    def __init__(self):
+        super(QueueMgmtRec, self).__init__()
+
+        self.current_executed = None
+        self.time_update = None
 
 
 #END

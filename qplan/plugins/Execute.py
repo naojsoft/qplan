@@ -9,11 +9,9 @@ from ginga.misc import Widgets
 from ginga.qtw import QtHelp
 
 # Gen2
-import remoteObjects as ro
+#import remoteObjects as ro
 
 import Report
-
-from qplan import q_db
 
 
 class Execute(Report.Report):
@@ -23,66 +21,61 @@ class Execute(Report.Report):
 
         self.svcname = 'integgui0'
         self.ig = None
-        #self.debug_mode = False
-        self.debug_mode = True
+        self.debug_mode = False
+        #self.debug_mode = True
 
-        self.refresh_ig()
+        #self.refresh_ig()
 
-        ## self.addr = ('localhost', 9800)
-        ## self.qdb = q_db.QueueDatabase(logger, self.addr)
-        ## self.qa = q_db.QueueAdapter(self.qdb)
-
-        self.captions = (('Send', 'button', #'Resolve', 'button',
+        self.captions = (('Make OPE', 'button',
                           'Refresh', 'button'),
                          )
 
     def build_gui(self, container):
         super(Execute, self).build_gui(container)
 
-        #self.w.resolve.add_callback('activated', self.resolve_cb)
         self.w.refresh.add_callback('activated', self.refresh_cb)
 
 
-    def refresh_ig(self):
-        if self.debug_mode:
-            return
-        if self.ig is None:
-            ro.init()
+    ## def refresh_ig(self):
+    ##     if self.debug_mode:
+    ##         return
+    ##     if self.ig is None:
+    ##         ro.init()
 
-        self.ig = ro.remoteObjectProxy(self.svcname)
+    ##     self.ig = ro.remoteObjectProxy(self.svcname)
 
-    def send_cb(self, w):
+    ## def send_cb(self, w):
 
-        try:
-            ope_buf = self.make_ope()
+    ##     try:
+    ##         ope_buf = self.make_ope()
 
-            # write buffer to a file
-            filepath = os.path.join(os.environ['HOME'], 'Procedure', 'OCS',
-                                    'Queue.ope')
-            with open(filepath, 'w') as out_f:
-                out_f.write(ope_buf)
+    ##         # write buffer to a file
+    ##         filepath = os.path.join(os.environ['HOME'], 'Procedure', 'OCS',
+    ##                                 'Queue.ope')
+    ##         with open(filepath, 'w') as out_f:
+    ##             out_f.write(ope_buf)
 
-            if not self.debug_mode:
-                # tell integgui2 to reload this file
-                self.ig.load_page(filepath)
+    ##         if not self.debug_mode:
+    ##             # tell integgui2 to reload this file
+    ##             self.ig.load_page(filepath)
 
-        except Exception as e:
-            self.logger.error("Error sending OBs: %s" % (str(e)))
+    ##     except Exception as e:
+    ##         self.logger.error("Error sending OBs: %s" % (str(e)))
 
-        return True
+    ##     return True
 
 
-    def resolve_cb(self, w):
-        oblist = self._get_selected_obs()
+    ## def resolve_cb(self, w):
+    ##     oblist = self._get_selected_obs()
 
-        try:
-            pInfo = self.view.get_plugin('resolution')
-            pInfo.obj.resolve_obs(oblist)
+    ##     try:
+    ##         pInfo = self.view.get_plugin('resolution')
+    ##         pInfo.obj.resolve_obs(oblist)
 
-        except Exception as e:
-            self.logger.error("Error resolving OBs: %s" % (str(e)))
+    ##     except Exception as e:
+    ##         self.logger.error("Error resolving OBs: %s" % (str(e)))
 
-        return True
+    ##     return True
 
 
     def refresh_cb(self, w):

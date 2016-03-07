@@ -88,6 +88,8 @@ def setup_ob(ob, total_time):
                        inscfg=ob.inscfg, envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
                        comment="Setup OB: %s" % (comment))
+    # 
+    new_ob.orig_ob = ob
     return new_ob
 
 

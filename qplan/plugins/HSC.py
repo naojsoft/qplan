@@ -114,6 +114,8 @@ Z=7.00
 %(targets)s
 
 :command
+
+QUEUE_MODE $DEF_CMNTOOL
         """
 
         d = dict(curtime=time.strftime("%Y-%m-%d %H:%M:%S",
@@ -122,11 +124,16 @@ Z=7.00
                  )
         out(preamble % d)
 
+    def write_ope_trailer(self, out_f):
+        out = self._mk_out(out_f)
+        out("\n#######################################")
+        out("\nCLASSICAL_MODE $DEF_CMNTOOL\n")
+
     def out_setup_ob(self, ob, out_f):
         out = self._mk_out(out_f)
 
         out("\n#######################################")
-        d = dict(obid=str(ob), obname=ob.name,
+        d = dict(obid=str(ob), obname=ob.orig_ob.name,
                  propid=ob.program.propid,
                  proposal=ob.program.proposal,
                  observer='!FITS.HSC.OBSERVER',
@@ -142,7 +149,7 @@ Z=7.00
         if len(ob.envcfg.comment) > 0:
             out("\n## env: %s" % (ob.envcfg.comment))
 
-        cmd_str = '''Setup_OB OB_ID="%(obname)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s" PI="%(pi)s"''' % d
+        cmd_str = '''Start_OB $DEF_CMNTOOL OB_ID="%(obname)s" PROPOSAL="%(proposal)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s" PROP_PI="%(pi)s"''' % d
         out(cmd_str)
 
     def out_focusobe(self, ob, out_f):
@@ -303,6 +310,9 @@ Z=7.00
         else:
             raise ValueError("Instrument dither must be one of {1, 5, N}")
 
+        cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
+        out(cmd_str)
+        
 
     def mangle_name(self, name):
         for char in str(name):
