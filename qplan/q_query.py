@@ -14,6 +14,8 @@ def get_ob_key(ob):
     ob_key = (proposal, ob.name)
     return ob_key
 
+# FILTERS
+
 def filter_ob_keys_by_props(ob_keys, propset):
     propset = set(propset)
     def has_proposal(key):
@@ -50,6 +52,15 @@ class QueueQuery(object):
     def get_ob(self, ob_key):
         tbl = self._qa.get_table('ob')
         return tbl[ob_key]
+
+    def ex_ob_to_ob(self, ex_ob):
+        """
+        Return an OB, given a record for an executed OB.
+        """
+        return self.get_ob(ex_ob.ob_key)
+
+    def map_ex_ob_to_ob(self, ex_obs):
+        return itertools.imap(self.ex_ob_to_ob, ex_obs)
 
     def get_exposures(self, executed_ob_rec):
         tbl = self._qa.get_table('exposure')
@@ -99,6 +110,13 @@ class QueueQuery(object):
             return todate > rec.time_start >= fromdate
         return itertools.ifilter(within_range, tbl.values())
 
+    ## def get_exposures_from_executed_obs(self, ex_obs):
+    ##     """
+    ##     Given a sequence of executed OBs, return the exposures for them.
+    ##     """
+    ##     tbl = self._qa.get_table('exposure')
+    ##     return itertools.ifilter(within_range, tbl.values())
+
     def get_ob_count(self, ob_key):
         """
         Get the count of how many times an OB has been executed.
@@ -110,16 +128,17 @@ class QueueQuery(object):
         return len(list(itertools.ifilter(ob_match, tbl.values())))
 
 
-    def get_finalized_executed_obs(self):
+    def get_finalized_executed_obs(self, fqa_set):
         """
         Get the OBs that have been executed with a complete FQA.
+        `fqa_set` should be a set with some combination of 'good' and
+        'bad'.
         """
         # Locate the executed_ob table
         tbl = self._qa.get_table('executed_ob')
-        def ob_match(rec):
-            if rec.fqa == 'good':
-                return self.get_ob(rec.ob_key)
-        return itertools.imap(ob_match, tbl.values())
+        def ob_finished(rec):
+            return rec.fqa in fqa_set
+        return itertools.ifilter(ob_finished, tbl.values())
 
     def get_do_not_execute_obs(self):
         """
@@ -129,9 +148,10 @@ class QueueQuery(object):
         # Locate the executed_ob table
         tbl = self._qa.get_table('executed_ob')
         def ob_match(rec):
-            if (rec.fqa == 'good') or (rec.iqa in ('good', 'marginal')):
-                return self.get_ob(rec.ob_key)
-        return itertools.imap(ob_match, tbl.values())
+            return (rec.fqa == 'good') or (rec.fqa is None and
+                                           rec.iqa in ('good', 'marginal'))
+
+        return self.map_ex_ob_to_ob(itertools.ifilter(ob_match, tbl.values()))
 
     def get_schedulable_obs(self):
         """
@@ -155,6 +175,19 @@ class QueueQuery(object):
         def ob_match(rec):
             return (rec.fqa != 'good') and (rec.iqa in ('good', 'marginal'))
         return itertools.ifilter(ob_match, tbl.values())
+
+    def divide_executed_obs_by_program(self, ex_obs):
+        """
+        Given a list of executed ob records, returns a mapping of
+        proposal names to lists of executed ob records
+        """
+        res = {}
+        for rec in ex_obs:
+            ob = self.get_ob(rec.ob_key)
+            key = ob.program.proposal
+            l = res.setdefault(key, [])
+            l.append(rec)
+        return res
 
 
 
