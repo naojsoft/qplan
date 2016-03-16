@@ -93,7 +93,7 @@ def setup_ob(ob, total_time):
     return new_ob
 
 
-def obs_to_slots(logger, slots, site, obs):
+def obs_to_slots(logger, slots, site, obs, check_moon=False, check_env=False):
     obmap = {}
     for slot in slots:
         key = str(slot)
@@ -102,7 +102,8 @@ def obs_to_slots(logger, slots, site, obs):
             continue
         for ob in obs:
             # this OB OK for this slot at this site?
-            res = check_slot(site, None, slot, ob)
+            res = check_slot(site, None, slot, ob,
+                             check_moon=check_moon, check_env=check_env)
             if res.obs_ok:
                 obmap[key].append(ob)
             else:
@@ -142,15 +143,6 @@ def check_schedule_invariant(site, schedule, ob):
             ob.program.category))
         return res
 
-    ## # if observer specified a moon phase, check it now
-    ## if ob.envcfg.moon == 'dark':
-    ##     moon_pct = site.moon_phase(date=slot.start_time)
-    ##     if moon_pct > dark_night_moon_pct_limit:
-    ##         res.setvals(obs_ok=False,
-    ##                     reason="Moon illumination=%f not acceptable" % (
-    ##             moon_pct))
-    ##         return res
-
     res.setvals(obs_ok=True)
     return res
 
@@ -181,7 +173,7 @@ def check_night_visibility(site, schedule, ob):
     return res
 
 
-def check_moon(site, start_time, stop_time, ob, res):
+def check_moon_cond(site, start_time, stop_time, ob, res):
     """Check whether the moon is at acceptable darkness for this OB
     and an acceptable distance from the target.
     """
@@ -233,7 +225,7 @@ def check_moon(site, start_time, stop_time, ob, res):
     return True
 
 
-def check_slot(site, prev_slot, slot, ob):
+def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
@@ -316,20 +308,21 @@ def check_slot(site, prev_slot, slot, ob):
 
     # <-- dome open, need to check visibility and other criteria
 
-    # check seeing on the slot is acceptable to this ob
-    if (slot.data.seeing > ob.envcfg.seeing):
-        res.setvals(obs_ok=False,
-                    reason="Seeing (%f > %f) not acceptable" % (
-            slot.data.seeing, ob.envcfg.seeing))
-        return res
-
-    # check sky condition on the slot is acceptable to this ob
-    if ob.envcfg.transparency is not None:
-        if slot.data.transparency < ob.envcfg.transparency:
+    if check_env:
+        # check seeing on the slot is acceptable to this ob
+        if (slot.data.seeing > ob.envcfg.seeing):
             res.setvals(obs_ok=False,
-                        reason="Transparency (%f < %f) not acceptable" % (
-                slot.data.transparency, ob.envcfg.transparency))
+                        reason="Seeing (%f > %f) not acceptable" % (
+                slot.data.seeing, ob.envcfg.seeing))
             return res
+
+        # check sky condition on the slot is acceptable to this ob
+        if ob.envcfg.transparency is not None:
+            if slot.data.transparency < ob.envcfg.transparency:
+                res.setvals(obs_ok=False,
+                            reason="Transparency (%f < %f) not acceptable" % (
+                    slot.data.transparency, ob.envcfg.transparency))
+                return res
 
     # Calculate cost of slew to this target
     # Assume that we want to do the SDSS calibration target first
@@ -409,7 +402,10 @@ def check_slot(site, prev_slot, slot, ob):
     stop_time = t_start + timedelta(0, ob.total_time)
 
     # check moon constraints between start and stop time
-    obs_ok = check_moon(site, start_time, stop_time, ob, res)
+    if check_moon:
+        obs_ok = check_moon_cond(site, start_time, stop_time, ob, res)
+    else:
+        obs_ok = True
 
     res.setvals(obs_ok=obs_ok, prev_ob=prev_ob,
                 prep_sec=prep_sec, slew_sec=slew_sec,
