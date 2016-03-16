@@ -88,12 +88,12 @@ def setup_ob(ob, total_time):
                        inscfg=ob.inscfg, envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
                        comment="Setup OB: %s" % (comment))
-    # 
+    #
     new_ob.orig_ob = ob
     return new_ob
 
 
-def obs_to_slots(slots, site, obs):
+def obs_to_slots(logger, slots, site, obs):
     obmap = {}
     for slot in slots:
         key = str(slot)
@@ -106,9 +106,8 @@ def obs_to_slots(slots, site, obs):
             if res.obs_ok:
                 obmap[key].append(ob)
             else:
-                ## print("OB %s no good for slot because: %s" % (
-                ##     ob, res.reason))
-                pass
+                logger.debug("OB %s no good for slot because: %s" % (
+                    ob, res.reason))
 
     return obmap
 
