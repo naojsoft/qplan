@@ -198,8 +198,8 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
         ##     c1.moon_pct, c1.moon_alt, c1.moon_sep)
         if not is_dark_night:
             res.setvals(obs_ok=False,
-                        reason="Moon illumination=%f not acceptable" % (
-                c1.moon_pct))
+                        reason="Moon illumination=%f not acceptable (alt 1=%.2f 2=%.2f" % (
+                c1.moon_pct, c1.moon_alt, c2.moon_alt))
             return False
 
     # override the observer's desired separation if it is a dark night

@@ -1187,7 +1187,6 @@ class HSC_Exposure(PersistentEntity):
         super(HSC_Exposure, self).__init__()
 
         self.ob_key = ob_key
-        self.dithpos = dithpos
         # time this exposure started and stopped
         self.time_start = None
         self.time_stop = None
@@ -1204,6 +1203,17 @@ class HSC_Exposure(PersistentEntity):
         self.moon_illumination = None
         self.moon_altitude = None
         self.moon_separation = None
+
+        # Handling can be used to exclude certain exposures
+        self.handling = 0
+        self.dithpos = dithpos
+
+        # Other items extracted from FITS header
+        self.object_name = None
+        self.filter_name = None
+        self.data_type = None
+        self.propid = None
+        self.purpose = None
 
     def __str__(self):
         return self.exp_id
