@@ -13,6 +13,7 @@ import numpy
 
 import matplotlib.dates as mpl_dt
 import matplotlib as mpl
+from matplotlib.ticker import FormatStrFormatter
 
 from ginga.misc import Bunch
 from ginga.util import plots
@@ -199,14 +200,6 @@ class AirMassPlot(plots.Plot):
         labels = ax1.get_xticklabels()
         ax1.grid(True, color='#999999')
 
-        self._plot_twilight(ax1, site, tz)
-
-        # plot current hour
-        lo = datetime.now(tz)
-        hi = lo + timedelta(0, 3600.0)
-        if lt_data[0] < lo < lt_data[-1]:
-            self._plot_current_time(ax1, lo, hi)
-
         # label axes
         localdate = lt_data[0].astimezone(tz).strftime("%Y-%m-%d")
         title = 'Visibility for the night of %s' % (localdate)
@@ -214,24 +207,36 @@ class AirMassPlot(plots.Plot):
         ax1.set_xlabel(tz.tzname(None))
         ax1.set_ylabel('Altitude')
 
+        # Plot moon trajectory and illumination
         moon_data = numpy.array(map(lambda info: info.moon_alt,
                                     tgt_data[0].history))
-        #moon_illum = site.moon_phase()
-        ax1.plot_date(lt_data, moon_data, '#666666', linewidth=2.0,
+        illum_time = lt_data[moon_data.argmax()]
+        moon_illum = site.moon_phase(date=illum_time)
+        moon_color = '#666666'
+        moon_name = "Moon (%.2f %%)" % (moon_illum)
+        ax1.plot_date(lt_data, moon_data, moon_color, linewidth=2.0,
                       alpha=0.5, aa=True, tz=tz)
+        ax1.text(mpl_dt.date2num(illum_time),
+                 moon_data.max() + 4.0, moon_name, color=moon_color,
+                 ha='center', va='center')
 
-        ## # Plot airmass scale
-        ## ax2 = ax1.twinx()
-        ## ## mxs, mys = mpl.mlab.poly_between(lt_data, 0, moon_data)
-        ## ## # ax2.fill(mxs, mys, facecolor='#666666', alpha=moon_illum)
-        ## ax2.set_ylabel('Airmass')
-        ## ax2.set_ylim(None, 0.98)
-        ## ax2.set_xlim(lt_data[0], lt_data[-1])
-        ## ax2.xaxis.set_major_locator(majorTick)
-        ## ax2.xaxis.set_minor_locator(minorTick)
-        ## ax2.xaxis.set_major_formatter(majorFmt)
-        ## ax2.set_xlabel('')
-        ## ax2.yaxis.tick_right()
+        # Plot airmass scale
+        altitude_ticks = numpy.array([20, 30, 40, 50, 60, 70, 80, 90])
+        airmass_ticks = 1.0/numpy.cos(numpy.radians(90 - altitude_ticks))
+        airmass_ticks = list(map(lambda n: "%.3f" % n, airmass_ticks))
+
+        ax2 = ax1.twinx()
+        #ax2.set_ylim(None, 0.98)
+        #ax2.set_xlim(lt_data[0], lt_data[-1])
+        ax2.set_yticks(altitude_ticks)
+        ax2.set_yticklabels(airmass_ticks)
+        ax2.set_ylim(ax1.get_ylim())
+        ax2.set_ylabel('Airmass')
+        ax2.set_xlabel('')
+        ax2.yaxis.tick_right()
+
+        ## mxs, mys = mpl.mlab.poly_between(lt_data, 0, moon_data)
+        ## # ax2.fill(mxs, mys, facecolor='#666666', alpha=moon_illum)
 
         # plot moon label
         targname = "moon"
@@ -242,6 +247,14 @@ class AirMassPlot(plots.Plot):
         # plot lower and upper safe limits for clear observing
         min_alt, max_alt = 30.0, 75.0
         self._plot_limits(ax1, min_alt, max_alt)
+
+        self._plot_twilight(ax1, site, tz)
+
+        # plot current hour
+        lo = datetime.now(tz)
+        hi = lo + timedelta(0, 3600.0)
+        if lt_data[0] < lo < lt_data[-1]:
+            self._plot_current_time(ax1, lo, hi)
 
         canvas = self.fig.canvas
         if canvas is not None:
@@ -254,6 +267,7 @@ class AirMassPlot(plots.Plot):
         # plot evening twilight
         t2 = site.tz_utc.localize(site.evening_twilight_18(t).datetime()).astimezone(tz)
 
+        #n, n2 = list(map(mpl_dt.date2num, [t, t2]))
         ymin, ymax = ax.get_ylim()
         ax.axvspan(t, t2, facecolor='#947DC0', alpha=0.20)
         ax.vlines(t, ymin, ymax, colors=['orange'],

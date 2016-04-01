@@ -65,7 +65,7 @@ class AirMassChart(PlBase.Plugin):
                 num_tgts = self.controller.num_tgt_plots
                 target_data = target_data[idx:idx+num_tgts]
 
-                self.view.gui_do(self.plot.plot_airmass, site, target_data,
+                self.view.gui_do(self.plot.plot_altitude, site, target_data,
                                  self.tz)
             self.view.gui_do(self.plot.draw)
         ## except KeyError:
