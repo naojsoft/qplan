@@ -140,9 +140,9 @@ class QueueQuery(object):
             return rec.fqa in fqa_set
         return itertools.ifilter(ob_finished, tbl.values())
 
-    def get_do_not_execute_obs(self):
+    def get_do_not_execute_ob_keys(self):
         """
-        Get the list of OBs that should not be executed because they are
+        Get the keys for OBs that should not be executed because they are
         either FQA==good or have an IQA==good/marginal.
         """
         # Locate the executed_ob table
@@ -151,14 +151,16 @@ class QueueQuery(object):
             return (rec.fqa == 'good') or (rec.fqa is None and
                                            rec.iqa in ('good', 'marginal'))
 
-        return self.map_ex_ob_to_ob(itertools.ifilter(ob_match, tbl.values()))
+        #return self.map_ex_ob_to_ob(itertools.ifilter(ob_match, tbl.values()))
+        return itertools.imap(lambda rec: rec.ob_key,
+                              itertools.ifilter(ob_match, tbl.values()))
 
-    def get_schedulable_obs(self):
+    def get_schedulable_ob_keys(self):
         """
-        Get the OBs that can be scheduled, because their IQA/FQA enables
+        Get the keys for OBs that can be scheduled, because their IQA/FQA enables
         that.
         """
-        do_not_execute = set(self.get_do_not_execute_obs())
+        do_not_execute = set(self.get_do_not_execute_ob_keys())
         tbl = self._qa.get_table('ob')
         def ob_match(ob):
             return ob not in do_not_execute

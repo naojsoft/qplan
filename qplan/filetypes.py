@@ -455,6 +455,9 @@ class ScheduleFile(QueueFile):
             'transparency': 'transparency',
             'avg_seeing': 'seeing',
             'dome': 'dome',
+            'cur_filter': 'cur_filter',
+            'cur_az': 'cur_az',
+            'cur_el': 'cur_el',
             'note': 'note',
             }
         super(ScheduleFile, self).__init__(input_dir, 'schedule', logger, file_ext)
@@ -506,6 +509,14 @@ class ScheduleFile(QueueFile):
             transparency = float(rec.transparency)
             dome = rec.dome.lower()
 
+            cur_filter = rec.get('cur_filter', None)
+            cur_az = rec.get('cur_az', None)
+            if cur_az is not None:
+                cur_az = float(cur_az)
+            cur_el = rec.get('cur_el', None)
+            if cur_el is not None:
+                cur_el = float(cur_el)
+            
             # TEMP: skip non-OPEN categories
             if not 'open' in categories:
                 continue
@@ -514,7 +525,7 @@ class ScheduleFile(QueueFile):
             # All OBs for this schedule slot should end up pointing to this
             # static record
             data = Bunch.Bunch(filters=filters,
-                               cur_filter=None, cur_az=None, cur_el=None,
+                               cur_filter=cur_filter, cur_az=cur_az, cur_el=cur_el,
                                seeing=seeing, transparency=transparency,
                                dome=dome, categories=categories,
                                instruments=instruments)

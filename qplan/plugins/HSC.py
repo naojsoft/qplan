@@ -52,7 +52,7 @@ class Converter(BaseConverter):
 
         # TODO: build guiding params from table as described below
         if autoguide:
-            d.update(dict(guidestr="GOODMAG=14.5 AG_EXP=2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO"))
+            d.update(dict(guidestr="GOODMAG=14.5 AG_EXP=0.2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO"))
 
         # prepare target parameters substring common to all SETUPFIELD
         # and GETOBJECT commands
@@ -432,14 +432,14 @@ GetObject $DEF_IMAGEN $L1551 OFFSET_RA=0 OFFSET_DEC=0 EXPTIME=240 NDITH=3 RDITH=
 ########################################################################
 # NGC6822
 #
-# AutoGuiding, only one shot. Guide star is seleceted interactively
+# AutoGuiding, only one shot. Guide star is selected interactively
 # by VGW. Appropriate combinations of GOODMAG, and AG_EXP
 # (GOODMAG, AG_EXP) are
 #   (13,   2) FOR HSC-g,  (14.5, 2) FOR HSC-r
 #   (13.5, 2) FOR HSC-i,  (12.5, 3) FOR HSC-z
 #   (13,   3) FOR HSC-Y
 # Note that these values are tentative ones, and also these values are
-# changeable due to the whether condition.
+# changeable due to the weather conditions.
 ########################################################################
 
 

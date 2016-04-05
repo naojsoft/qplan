@@ -180,7 +180,7 @@ class ControlPanel(PlBase.Plugin):
             self.logger.error("Error initializing: %s" % (str(e)))
 
 
-    def update_scheduler(self):
+    def update_scheduler(self, use_db=False):
         sdlr = self.model.get_scheduler()
         try:
             sdlr.set_weights(self.weights_qf.weights)
@@ -189,46 +189,41 @@ class ControlPanel(PlBase.Plugin):
             sdlr.set_programs_info(pgms)
 
             # TODO: this maybe should be done in the Model
-            self.oblist_info = []
+            ob_keys = set([])
             propnames = list(self.programs_qf.programs_info.keys())
-            propnames.sort()
+            okprops = []
+            ob_dict = {}
             for propname in propnames:
                 if pgms[propname].skip:
                     continue
-                self.oblist_info.extend(self.ob_qf_dict[propname].obs_info)
-            # TODO: only needed if we ADD or REMOVE programs
-            sdlr.set_oblist_info(self.oblist_info)
+                okprops.append(propname)
 
-        except Exception as e:
-            self.logger.error("Error storing into scheduler: %s" % (str(e)))
+                # get all OB keys for this program
+                for ob in self.ob_qf_dict[propname].obs_info:
+                    key = (propname, ob.name)
+                    ob_keys.add(key)
+                    ob_dict[key] = ob
 
-        self.logger.info("scheduler initialized")
+            self.logger.info("%s OBs after excluding skipped programs." % (
+                len(ob_keys)))
 
-    def update_scheduler_from_qdb(self):
-        sdlr = self.model.get_scheduler()
-        try:
-            sdlr.set_weights(self.weights_qf.weights)
-            sdlr.set_schedule_info(self.schedule_qf.schedule_info)
-            pgms = self.programs_qf.programs_info
-            sdlr.set_programs_info(pgms)
+            # TODO: remove keys for OBs that are already executed
+            if use_db:
+                do_not_execute = set(self.qq.get_do_not_execute_ob_keys())
+                ob_keys -= do_not_execute
+                self.logger.info("%s OBs after removing executed OBs." % (
+                    len(ob_keys)))
 
-            self.qdb.close()
-            self.connect_qdb()
-            
-            oblist = list(self.qq.get_schedulable_obs())
-            self.logger.info("%s schedulable OBs in ALL programs." % (
-                len(oblist)))
+            # for a deterministic result
+            ob_keys = list(ob_keys)
+            ob_keys.sort()
 
-            propnames = list(self.programs_qf.programs_info.keys())
-            propnames.sort()
-            okprops = set([])
-            for propname in propnames:
-                if not pgms[propname].skip:
-                    okprops.add(propname)
+            # Now turn the keys back into actual OB list
+            oblist_info = []
+            for key in ob_keys:
+                oblist_info.append(ob_dict[key])
 
-            self.oblist_info = list(q_query.filter_obs_by_props(oblist, okprops))
-            self.logger.info("%s schedulable OBs after excluding skipped programs." % (
-                len(self.oblist_info)))
+            self.oblist_info = oblist_info
 
             # TODO: only needed if we ADD or REMOVE programs
             sdlr.set_oblist_info(self.oblist_info)
@@ -236,16 +231,12 @@ class ControlPanel(PlBase.Plugin):
         except Exception as e:
             self.logger.error("Error storing into scheduler: %s" % (str(e)))
 
-        self.qdb.close()
         self.logger.info("scheduler initialized")
 
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI
         use_db = self.w.use_qdb.get_state()
-        if use_db:
-            self.update_scheduler_from_qdb()
-        else:
-            self.update_scheduler()
+        self.update_scheduler(use_db=use_db)
 
         sdlr = self.model.get_scheduler()
         self.view.nongui_do(sdlr.schedule_all)
