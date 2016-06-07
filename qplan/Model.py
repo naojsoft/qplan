@@ -35,6 +35,7 @@ class QueueModel(Callback.Callbacks):
         self.envcfg_qf_dict = {}
         self.inscfg_qf_dict = {}
         self.telcfg_qf_dict = {}
+        self.completed_keys = None
 
         # For callbacks
         for name in ('schedule-selected',

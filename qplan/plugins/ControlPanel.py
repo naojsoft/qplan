@@ -214,6 +214,12 @@ class ControlPanel(PlBase.Plugin):
                 self.logger.info("%s OBs after removing executed OBs." % (
                     len(ob_keys)))
 
+            elif self.model.completed_keys is not None:
+                do_not_execute = set(self.model.completed_keys)
+                ob_keys -= do_not_execute
+                self.logger.info("%s OBs after removing executed OBs." % (
+                    len(ob_keys)))
+
             # for a deterministic result
             ob_keys = list(ob_keys)
             ob_keys.sort()

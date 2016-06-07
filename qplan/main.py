@@ -82,6 +82,9 @@ class QueuePlanner(object):
         Adds the default reference viewer startup options to an
         OptionParser instance `optprs`.
         """
+        optprs.add_option("-c", "--completed", dest="completed", default=None,
+                          metavar="FILE",
+                          help="Specify FILE of completed OB keys")
         optprs.add_option("--date-start", dest="date_start", default=None,
                           help="Define the start of the schedule ('YYYY-MM-DD HH:MM')")
         optprs.add_option("--date-stop", dest="date_stop", default=None,
@@ -172,6 +175,13 @@ class QueuePlanner(object):
         ##         self.mm.loadModule(name)
 
         model = QueueModel(logger=logger)
+
+        if options.completed is not None:
+            # specify a list of completed OB keys
+            with open(options.completed, 'r') as in_f:
+                buf = in_f.read()
+            import ast
+            model.completed_keys = ast.literal_eval(buf)
 
         # Start up the control/display engine
         qplanner = QueuePlanner(logger, thread_pool, mm, prefs, ev_quit, model)
