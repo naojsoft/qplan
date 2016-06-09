@@ -18,6 +18,7 @@ from ginga.misc import Bunch
 
 moon_states = ('dark', 'gray', 'dark+gray')
 moon_states_upper = [state.upper() for state in moon_states]
+moon_sep_dist_warn = 30.0
 
 class FileNotFoundError(Exception):
     pass
@@ -835,7 +836,7 @@ class EnvCfgFile(QueueFile):
             'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "value > 0.0",    'prefilled': False},
             'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0",   'prefilled': False},
             'moon':         {'iname': 'Moon',         'type': str,   'constraint': self.moon_check,  'prefilled': False},
-            'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': "value >= 30.0",  'prefilled': False},
+            'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': self.moon_sep_check,  'prefilled': False},
             'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "value >= 0.0",   'prefilled': False},
             }
 
@@ -914,6 +915,18 @@ class EnvCfgFile(QueueFile):
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [iname], msg])
             progFile.error_count += 1
+
+    def moon_sep_check(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+        # Produce a warning if the requested moon separation distance
+        # is less than the warning level.
+        if val >= moon_sep_dist_warn:
+            progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, self.name, col_name, val))
+        else:
+            msg = 'Warning while checking line %d, column %s of sheet %s: %s value %s deg is less than minimum moon separation distance %s deg' % (row_num, iname, self.name, iname, val, moon_sep_dist_warn)
+            progFile.logger.warn(msg)
+            progFile.warnings[self.name].append([row_num, [iname], msg])
+            progFile.warn_count += 1
 
 class TgtCfgFile(QueueFile):
     def __init__(self, input_dir, logger, file_ext=None):

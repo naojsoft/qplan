@@ -203,7 +203,7 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
             return False
 
     # override the observer's desired separation if it is a dark night
-    limit_sep = 30.0
+    limit_sep = min(30.0, desired_moon_sep)
     if (desired_moon_sep is not None) and is_dark_night:
         desired_moon_sep = min(desired_moon_sep, limit_sep)
         if desired_moon_sep < ob.envcfg.moon_sep:
