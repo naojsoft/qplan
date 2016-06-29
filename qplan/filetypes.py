@@ -16,8 +16,10 @@ import re
 import entity
 from ginga.misc import Bunch
 
-moon_states = ('dark', 'gray', 'dark+gray')
-moon_states_upper = [state.upper() for state in moon_states]
+import cfg.HSC_cfg as HSC_cfg
+
+moon_states = {'dark': 0, 'gray': 1, 'dark+gray': 2, 'dark/gray': 2}
+moon_states_upper = [state.upper() for state in moon_states.keys()]
 moon_sep_dist_warn = 30.0
 
 class FileNotFoundError(Exception):
@@ -349,7 +351,7 @@ class QueueFile(object):
 
         return progFile.error_count - begin_error_count
 
-    def validate_data(self, progFile):
+    def validate_data(self, progFile, propname=None):
         # Validate the data in the sheet by checking any specified
         # constraints.
 
@@ -465,12 +467,12 @@ class ScheduleFile(QueueFile):
         self.find_filepath()
         if self.file_ext == 'csv':
             self.read_csv_file()
-        elif self.is_excel_file:
+        elif self.is_excel_file():
             with open(self.filepath, 'r') as excel_file:
                 self.file_obj = StringIO.StringIO(excel_file.read())
             self.read_excel_file()
         else:
-            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+            raise UnknownFileFormatError('Schedule file format %s is unknown' % self.file_ext)
         self.process_input()
 
     def parse_input(self):
@@ -538,7 +540,6 @@ class ScheduleFile(QueueFile):
                                data=data)
             self.schedule_info.append(rec2)
 
-
 class ProgramsFile(QueueFile):
     def __init__(self, input_dir, logger, file_ext=None):
         # programs_info is the dictionary of Program objects that will
@@ -561,12 +562,12 @@ class ProgramsFile(QueueFile):
         self.find_filepath()
         if self.file_ext == 'csv':
             self.read_csv_file()
-        elif self.is_excel_file:
+        elif self.is_excel_file():
             with open(self.filepath, 'r') as excel_file:
                 self.file_obj = StringIO.StringIO(excel_file.read())
             self.read_excel_file()
         else:
-            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+            raise UnknownFileFormatError('Programs file format %s is unknown' % self.file_ext)
         self.process_input()
 
     def parse_input(self):
@@ -638,12 +639,12 @@ class WeightsFile(QueueFile):
         self.find_filepath()
         if self.file_ext == 'csv':
             self.read_csv_file()
-        elif self.is_excel_file:
+        elif self.is_excel_file():
             with open(self.filepath, 'r') as excel_file:
                 self.file_obj = StringIO.StringIO(excel_file.read())
             self.read_excel_file()
         else:
-            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+            raise UnknownFileFormatError('Weights file format %s is unknown' % self.file_ext)
         self.process_input()
 
     def parse_input(self):
@@ -890,15 +891,14 @@ class EnvCfgFile(QueueFile):
     def moon_check(self, val, rec, row_num, col_name, progFile):
         ph1MoonConstraint = progFile.cfg['proposal'].proposal_info['ph1_moon']
         iname = self.columnInfo[col_name]['iname']
-        moon_states_upper = [state.upper() for state in moon_states]
 
         # First, make sure the supplied value is one of those in the
         # moon_states list.
         try:
-            val_req_index = moon_states_upper.index(val.upper())
+            val_req_num = moon_states[val.lower()]
             progFile.logger.debug('Line %d, column %s of sheet %s: %s %s found in %s' % (row_num, col_name, self.name, col_name, val, moon_states))
-        except ValueError, e:
-            msg = "Error while checking line %d, column %s of sheet %s: %s value '%s' does not match allowed values in %s" % (row_num, iname, self.name, iname, val, moon_states)
+        except KeyError, e:
+            msg = "Error while checking line %d, column %s of sheet %s: %s value '%s' does not match allowed values in %s" % (row_num, iname, self.name, iname, val, moon_states_upper)
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [iname], msg])
             progFile.error_count += 1
@@ -907,8 +907,8 @@ class EnvCfgFile(QueueFile):
         # Make sure that the requested moon value is the same as or
         # less restrictive than the Phase 1 value from the "proposal"
         # sheet.
-        ph1Const_index = moon_states_upper.index(ph1MoonConstraint.upper())
-        if val_req_index >= ph1Const_index:
+        ph1Const_num = moon_states[ph1MoonConstraint.lower()]
+        if val_req_num >= ph1Const_num:
             progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, self.name, col_name, val))
         else:
             msg = 'Error while checking line %d, column %s of sheet %s: %s value %s is more restrictive than Phase 1 Moon value %s' % (row_num, iname, self.name, iname, val, ph1MoonConstraint)
@@ -1121,7 +1121,7 @@ class InsCfgFile(QueueFile):
                         }),
             }
 
-        self.HSC_filters =   "('g', 'r', 'i', 'z', 'Y', 'NB921', 'NB816', 'NB515', 'NB468', 'NB527', 'NB656')".upper()
+        self.HSC_filters =   "('g', 'r', 'i', 'i2', 'z', 'Y', 'NB387', 'NB468', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'IB945', 'NB973')".upper()
         self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')".upper()
         self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')".upper()
 
@@ -1138,7 +1138,7 @@ class InsCfgFile(QueueFile):
             'code':         {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",                 'prefilled': False},
             'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'HSC'",                 'prefilled': False},
             'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.HSC_modes,   'prefilled': False},
-            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "value in %s" % self.HSC_filters, 'prefilled': False},
+            'filter':       {'iname': 'Filter',     'type': str,   'constraint': self.filterCheck,                 'prefilled': False},
             'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "value > 0.0",                    'prefilled': False},
             'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "value > 0",                      'prefilled': False},
             'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr,               'prefilled': False},
@@ -1194,6 +1194,8 @@ class InsCfgFile(QueueFile):
             'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, str) or isinstance(x, unicode) else int(x),
             'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, str) or isinstance(x, unicode) else int(x)}
 
+        self.semester = None
+
     def parse_input(self):
         """
         Read all instrument configurations from a CSV file.
@@ -1224,6 +1226,13 @@ class InsCfgFile(QueueFile):
                 # reparse row now that we know what kind of items to expect
                 rec = self.parse_row(row, self.columnNames,
                                      col_map)
+                # Special case For S16B: some observers might have
+                # specified i2 filter. Current queue planning software
+                # will be confused if it sees the filter as 'i2'. If
+                # filter is specifed as 'i2', change it to 'i'.
+                if self.semester == 'S16B':
+                    rec.filter = 'i' if rec.filter == 'i2' else rec.filter
+
                 inscfg = klass()
                 code = inscfg.import_record(rec)
 
@@ -1270,10 +1279,12 @@ class InsCfgFile(QueueFile):
         self.readoutOverhead = self.readoutOverheadAllInst[insname]
         return super(InsCfgFile, self).validate_datatypes(progFile)
 
-    def validate_data(self, progFile):
-        insname = self.get_insname()
-        self.column_map = self.configs[insname][1]
-        self.columnInfo = self.columnInfoAllInst[insname]
+    def validate_data(self, progFile, propname):
+        semester, dummy = propname.split('-')
+        self.semester = semester
+        self.insname = self.get_insname()
+        self.column_map = self.configs[self.insname][1]
+        self.columnInfo = self.columnInfoAllInst[self.insname]
         return super(InsCfgFile, self).validate_data(progFile)
 
     def stopCheck(self, val, rec, row_num, col_name, progFile):
@@ -1335,6 +1346,24 @@ class InsCfgFile(QueueFile):
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname'], iname], msg])
             progFile.error_count += 1
+
+    def filterCheck(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+        if self.insname == 'HSC':
+            if val in self.HSC_filters:
+                progFile.logger.debug('line %d, column %s of sheet %s: filter %s is ok' % (row_num, iname, self.name, rec.filter))
+            else:
+                msg = 'Error while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, self.HSC_filters)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [self.columnInfo['filter']['iname'], msg]])
+                progFile.error_count += 1
+            if val in HSC_cfg.filters[self.semester]:
+                progFile.logger.debug('line %d, column %s of sheet %s: filter %s is ok' % (row_num, iname, self.name, rec.filter))
+            else:
+                msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, HSC_cfg.filters[self.semester])
+                progFile.logger.warn(msg)
+                progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname'], msg]])
+                progFile.warn_count += 1
 
 class OBListFile(QueueFile):
     def __init__(self, input_dir, logger, propname, propdict,
@@ -1575,7 +1604,7 @@ class ProgramFile(QueueFile):
                 cfg.read_csv_file()
                 self.stringio[name] = cfg.stringio
         else:
-            raise UnknownFileFormatError('File format %s is unknown' % self.file_ext)
+            raise UnknownFileFormatError('Program file format %s is unknown for program %s' % (self.file_ext, propname))
 
         # Check to see if all required sheets were read in
         error_incr = self.checkForRequiredSheets()
@@ -1627,7 +1656,7 @@ class ProgramFile(QueueFile):
         if error_incr > 0:
             return
         for name in ('targets', 'inscfg', 'envcfg', 'telcfg'):
-            error_incr += self.cfg[name].validate_data(self)
+            error_incr += self.cfg[name].validate_data(self, propname)
         if error_incr > 0:
             return
 

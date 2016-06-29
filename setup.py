@@ -27,7 +27,7 @@ setup(
     url = "http://naojsoft.github.com/qplan",
     packages = ['qplan',
                 # Misc
-                'qplan.plots', 'qplan.plugins', 'qplan.util',
+                'qplan.plots', 'qplan.plugins', 'qplan.util', 'qplan.cfg',
                 # tests
                 'qplan.tests',
                 ],
