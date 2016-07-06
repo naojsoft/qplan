@@ -434,13 +434,18 @@ class Observer(object):
         site.date = ephem.Date(date)
         return site
 
-    def set_date(self, date):
+    def date_to_utc(self, date):
         try:
+            # date is timezone-aware
             date = date.astimezone(self.tz_utc)
         except Exception:
+            # date is a naive date
             date = self.tz_utc.localize(date)
-        self.date = date
-        self.site.date = ephem.Date(date)
+        return date
+
+    def set_date(self, date):
+        self.date = self.date_to_utc(date)
+        self.site.date = ephem.Date(self.date)
 
     def calc(self, body, time_start):
         return body.calc(self, time_start)
@@ -564,57 +569,55 @@ class Observer(object):
         d_az = c1.az_deg - c2.az_deg
         return (d_alt, d_az)
 
+    def _set_site_date(self, date):
+        if not isinstance(date, ephem.Date):
+            if date is None:
+                date = self.date
+            else:
+                date = self.date_to_utc(date)
+
+            date = ephem.Date(date)
+        self.site.date = date
+
     def sunset(self, date=None):
         """Sunset in UTC"""
         self.site.horizon = self.horizon
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         r_date = self.site.next_setting(self.sun)
         return r_date
 
     def sunrise(self, date=None):
         """Sunrise in UTC"""
         self.site.horizon = self.horizon
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         r_date = self.site.next_rising(self.sun)
         return r_date
 
     def evening_twilight_12(self, date=None):
         """Evening 12 degree (nautical) twilight in UTC"""
         self.site.horizon = self.horizon12
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         r_date = self.site.next_setting(self.sun)
         return r_date
 
     def evening_twilight_18(self, date=None):
         """Evening 18 degree (civil) twilight"""
         self.site.horizon = self.horizon18
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         r_date = self.site.next_setting(self.sun)
         return r_date
 
     def morning_twilight_12(self, date=None):
         """Morning 12 degree (nautical) twilight in UTC"""
         self.site.horizon = self.horizon12
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         r_date = self.site.next_rising(self.sun)
         return r_date
 
     def morning_twilight_18(self, date=None):
         """Morning 18 degree (civil) twilight in UTC"""
         self.site.horizon = self.horizon18
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         r_date = self.site.next_rising(self.sun)
         return r_date
 
@@ -639,29 +642,23 @@ class Observer(object):
 
     def moon_rise(self, date=None):
         """Moon rise time in UTC"""
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         moonrise = self.site.next_rising(self.moon)
-        if moonrise < self.sunset():
-            None
+        ## if moonrise < self.sunset():
+        ##     moonrise = None
         return moonrise
 
     def moon_set(self, date=None):
         """Moon set time in UTC"""
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         moonset = self.site.next_setting(self.moon)
-        if moonset > self.sunrise():
-            moonset = None
+        ## if moonset > self.sunrise():
+        ##     moonset = None
         return moonset
 
     def moon_phase(self, date=None):
         """Moon percentage of illumination"""
-        if date is None:
-            date = self.date
-        self.site.date = date
+        self._set_site_date(date)
         self.moon.compute(self.site)
         return self.moon.moon_phase
 
@@ -996,10 +993,10 @@ class CalculationResult(object):
         self.observer = observer
         self.site = observer.site
         self.body = target.body
-        self.date = date
+        self.date = observer.date_to_utc(date)
 
         # Can/should this calculation be postponed?
-        observer.set_date(date)
+        self.site.date = ephem.Date(self.date)
         self.body.compute(self.site)
 
         self.lt = self.date.astimezone(observer.tz_local)
@@ -1135,7 +1132,7 @@ class CalculationResult(object):
     def calc_moon(self, site, body):
         """Compute Moon altitude"""
         moon = ephem.Moon()
-        self.observer.set_date(self.date)
+        site.date = ephem.Date(self.date)
         moon.compute(site)
         moon_alt = math.degrees(float(moon.alt))
         # moon.phase is % of moon that is illuminated
