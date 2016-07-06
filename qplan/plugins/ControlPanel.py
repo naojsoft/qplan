@@ -85,7 +85,11 @@ class ControlPanel(PlBase.Plugin):
 
         b.input_dir.set_length(128)
         b.input_dir.set_text(self.controller.input_dir)
+        b.load_info.set_tooltip("Load data from phase 2 files")
         b.load_info.add_callback('activated', self.initialize_model_cb)
+        b.update_current_conditions.set_tooltip("Update time, current pointing, env conditions and active filter")
+        b.update_database_from_files.set_tooltip("Update Gen2 database from changes to phase 2 files")
+
         if have_gen2:
             b.update_current_conditions.add_callback('activated',
                                                  self.update_current_conditions_cb)
@@ -100,7 +104,12 @@ class ControlPanel(PlBase.Plugin):
         # for now. rkackley@naoj.org 30 June 2016.
         self.logger.info('ControlPanel setting Update Database button to disabled')
         b.update_database_from_files.set_enabled(False)
+        b.build_schedule.set_tooltip("Schedule all periods defined in schedule tab")
         b.build_schedule.add_callback('activated', self.build_schedule_cb)
+
+        b.use_qdb.set_tooltip("Use Gen2 queue database when scheduling")
+        if not have_qdb:
+            b.use_qdb.set_enabled(False)
 
         fr.set_widget(w)
         vbox.add_widget(fr, stretch=0)
