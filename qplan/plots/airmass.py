@@ -211,7 +211,7 @@ class AirMassPlot(plots.Plot):
         moon_data = numpy.array(map(lambda info: info.moon_alt,
                                     tgt_data[0].history))
         illum_time = lt_data[moon_data.argmax()]
-        moon_illum = site.moon_phase(date=illum_time)
+        moon_illum = site.moon_phase(date=illum_time.astimezone(tz))
         moon_color = '#666666'
         moon_name = "Moon (%.2f %%)" % (moon_illum)
         ax1.plot_date(lt_data, moon_data, moon_color, linewidth=2.0,

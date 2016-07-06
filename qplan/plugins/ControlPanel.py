@@ -3,11 +3,26 @@
 #
 # Eric Jeschke (eric@naoj.org)
 #
-import os.path
 
+# stdlib imports
+import os.path
+import datetime
+
+# ginga imports
 from ginga.misc import Bunch
 from ginga.gw import Widgets
 
+# Gen2 imports
+have_gen2 = False
+try:
+    import remoteObjects as ro
+    from SOSS.status.common import STATNONE,STATERROR
+    have_gen2 = True
+
+except ImportError:
+    pass
+
+# local imports
 import PlBase
 import filetypes
 import misc
@@ -16,6 +31,7 @@ have_qdb = False
 try:
     from qplan import q_db, q_query
     from Gen2.db.db_config import qdb_addr
+    import transaction
     have_qdb = True
 
 except ImportError:
@@ -41,8 +57,6 @@ class ControlPanel(PlBase.Plugin):
         self.qdb = None
         self.qa = None
         self.qq = None
-        if have_qdb:
-            self.connect_qdb()
 
     def connect_qdb(self):
         # Set up Queue database access
@@ -63,6 +77,8 @@ class ControlPanel(PlBase.Plugin):
 
         captions = (('Inputs:', 'label', 'Input dir', 'entry'),
                     ('Load Info', 'button'),
+                    ('Update Current Conditions', 'button'),
+                    ('Update Database from Files', 'button'),
                     ('Build Schedule', 'button', 'Use QDB', 'checkbutton'))
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w = b
@@ -70,6 +86,20 @@ class ControlPanel(PlBase.Plugin):
         b.input_dir.set_length(128)
         b.input_dir.set_text(self.controller.input_dir)
         b.load_info.add_callback('activated', self.initialize_model_cb)
+        if have_gen2:
+            b.update_current_conditions.add_callback('activated',
+                                                 self.update_current_conditions_cb)
+            b.update_database_from_files.add_callback('activated',
+                                                      self.update_db_cb)
+        else:
+            b.update_current_conditions.set_enabled(False)
+            b.update_database_from_files.set_enabled(False)
+
+        # Update Database from Files currently has a bug and damages
+        # program and ob tables in the database. Disable the button
+        # for now. rkackley@naoj.org 30 June 2016.
+        self.logger.info('ControlPanel setting Update Database button to disabled')
+        b.update_database_from_files.set_enabled(False)
         b.build_schedule.add_callback('activated', self.build_schedule_cb)
 
         fr.set_widget(w)
@@ -209,6 +239,8 @@ class ControlPanel(PlBase.Plugin):
 
             # TODO: remove keys for OBs that are already executed
             if use_db:
+                self.connect_qdb()
+
                 do_not_execute = set(self.qq.get_do_not_execute_ob_keys())
                 ob_keys -= do_not_execute
                 self.logger.info("%s OBs after removing executed OBs." % (
@@ -239,6 +271,59 @@ class ControlPanel(PlBase.Plugin):
 
         self.logger.info("scheduler initialized")
 
+    def update_current_conditions_cb(self, widget):
+        # Fetch current filter, Az, El from Gen2 status service and
+        # update first row in schedule sheet. Also, update start time.
+        self.logger.debug('update_current_conditions_cb')
+        try:
+            ro.init()
+            stobj = ro.remoteObjectProxy('status')
+            result = stobj.fetch({'FITS.HSC.FILTER': 0, 'TSCS.AZ': 0, 'TSCS.EL': 0})
+        except ro.remoteObjectError as e:
+            self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
+            return
+
+        self.logger.info('From Gen2 current HSC filter %s Az %f El %f' % (result['FITS.HSC.FILTER'], result['TSCS.AZ'], result['TSCS.EL']))
+        if self.schedule_qf is None:
+            self.logger.error('Unexpected error in update_current_conditions_cb: schedule_qf is None')
+            return
+
+        self.logger.debug('Before update, schedule_qf.rows:%s' % self.schedule_qf.rows)
+        rownum = 0 # Update only the first row
+
+        cur_filter = result['FITS.HSC.FILTER']
+        if cur_filter not in (STATNONE, STATERROR, '0'):
+            # Filter name special cases
+            if 'HSC-' in cur_filter:
+                cur_filter = cur_filter.replace('HSC-', '')
+            if cur_filter == 'i2':
+                cur_filter = 'i'
+            if cur_filter == 'Y':
+                cur_filter = 'y'
+            if 'NB0' in cur_filter:
+                cur_filter = cur_filter.replace('NB0', 'NB')
+            # Set all 'NB' flters to lower-case
+            if 'NB' in cur_filter:
+                cur_filter = cur_filter.lower()
+            self.logger.info('Current filter %s' % (cur_filter))
+            self.schedule_qf.update(rownum, 'Cur Filter', cur_filter, False)
+
+        if result['TSCS.AZ'] not in (STATNONE, STATERROR):
+            cur_az = '%8.2f' % result['TSCS.AZ']
+            cur_az = cur_az.strip()
+            self.schedule_qf.update(rownum, 'Cur Az', cur_az, False)
+
+        if result['TSCS.EL'] not in (STATNONE, STATERROR):
+            cur_el = '%8.2f' % result['TSCS.EL']
+            cur_el = cur_el.strip()
+            self.schedule_qf.update(rownum, 'Cur El', cur_el, False)
+
+        now = datetime.datetime.now().strftime('%H:%M:%S')
+        self.schedule_qf.update(rownum, 'start time', now, True)
+
+        self.logger.debug('After update, schedule_qf.rows: %s' % self.schedule_qf.rows)
+        self.model.set_schedule_qf(self.schedule_qf)
+
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI
         use_db = self.w.use_qdb.get_state()
@@ -246,6 +331,26 @@ class ControlPanel(PlBase.Plugin):
 
         sdlr = self.model.get_scheduler()
         self.view.nongui_do(sdlr.schedule_all)
+
+    def update_db_cb(self, widget):
+        use_db = self.w.use_qdb.get_state()
+        self.update_scheduler(use_db=use_db)
+
+        sdlr = self.model.get_scheduler()
+
+        # store programs into db
+        programs = self.qa.get_table('program')
+        for key in sdlr.programs:
+            programs[key] = sdlr.programs[key]
+
+        # store OBs into db
+        ob_db = self.qa.get_table('ob')
+        for ob in sdlr.oblist:
+            key = (ob.program.proposal, ob.name)
+            self.logger.info("adding record for OB '%s'" % (str(key)))
+            ob_db[key] = ob
+
+        transaction.commit()
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))

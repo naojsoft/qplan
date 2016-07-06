@@ -7,7 +7,7 @@ Usage:
     qplan --help
     qplan [options]
 """
-import sys
+import sys, os
 from qplan import main, version
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 #
 
 import itertools
+import datetime as dt
 
 # MODULE FUNCTIONS
 
@@ -68,6 +69,17 @@ class QueueQuery(object):
                               executed_ob_rec.exp_history)
 
 
+    def get_program_by_semester(self, semester):
+        """
+        Get a program in semester.
+            args: semester is list.   e.g. ['S16A', 'S16B']
+        """
+        tbl = self._qa.get_table('program')
+        semester = map(str.upper, semester)
+        def match_semester(rec):
+            return rec.proposal[:4] in semester
+        return itertools.ifilter(match_semester, tbl.values())
+
     def get_program_by_propid(self, propid):
         """
         Look up a program by propid.
@@ -100,6 +112,16 @@ class QueueQuery(object):
             ob = self.get_ob(rec.ob_key)
             return ob.program.proposal == proposal
         return itertools.ifilter(has_proposal, tbl.values())
+
+    def get_exposure_by_date(self, fromdate, todate):
+        """
+        Get exposure by date.
+        """
+        tbl = self._qa.get_table('exposure')
+        def within_range(rec):
+            if isinstance(rec.time_start, dt.datetime):
+                return todate > rec.time_start >= fromdate
+        return itertools.ifilter(within_range, tbl.values())
 
     def get_executed_obs_by_date(self, fromdate, todate):
         """
@@ -148,7 +170,7 @@ class QueueQuery(object):
         # Locate the executed_ob table
         tbl = self._qa.get_table('executed_ob')
         def ob_match(rec):
-            return (rec.fqa == 'good') or (rec.fqa is None and
+            return (rec.fqa == 'good') or (rec.fqa == '' and
                                            rec.iqa in ('good', 'marginal'))
 
         #return self.map_ex_ob_to_ob(itertools.ifilter(ob_match, tbl.values()))

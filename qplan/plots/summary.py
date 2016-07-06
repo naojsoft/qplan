@@ -108,7 +108,8 @@ class NightSumPlot(BaseSumPlot):
 
         # Add a legend to the plot. We put the legend outside the plot
         # area so that we don't obscure any of the bars.
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont, loc='center left', bbox_to_anchor=(1, 0.5), handlelength=1)
+        plt.legend(legend_patches, legend_titles, prop=self.legendFont,
+                   loc='upper right', bbox_to_anchor=(1, 1), handlelength=1)
 
         self.draw()
 
@@ -161,7 +162,7 @@ class ProposalSumPlot(BaseSumPlot):
             legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
             legend_titles.append(grade)
 
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='center left', bbox_to_anchor=(1, 0.5), handlelength=1)
+        plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='upper right', bbox_to_anchor=(1, 1), handlelength=1)
 
         self.draw()
 
@@ -257,6 +258,8 @@ class SemesterSumPlot(BaseSumPlot):
             legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
             legend_titles.append(grade)
 
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='center left', bbox_to_anchor=(1, 0.5), handlelength=1)
+        plt.legend(legend_patches, legend_titles, prop=self.legendFont,
+                   title='Grades', loc='upper right',
+                   bbox_to_anchor=(1, 1), handlelength=1)
 
         self.draw()

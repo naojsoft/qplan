@@ -16,8 +16,18 @@ ope_friendly_chars.extend(list("0123456789_"))
 ope_friendly_chars = set(ope_friendly_chars)
 
 # the mapping of HSC filters
-filternames = dict(G="HSC-G", R="HSC-R", I="HSC-I2", Z="HSC-Z", Y="HSC-Y")
+filternames = dict(G="HSC-g", R="HSC-r", I="HSC-i2", Z="HSC-z", Y="HSC-Y")
 
+# appropriate combinations of (GOODMAG, AG_EXP) by filter are:
+ag_exp_info = {
+    'g': dict(goodmag=13.5, ag_exp=0.2),
+    'i': dict(goodmag=14.0, ag_exp=0.2),
+    'y': dict(goodmag=14.0, ag_exp=0.3),
+    'r': dict(goodmag=14.5, ag_exp=0.2),
+    'z': dict(goodmag=13.0, ag_exp=0.3),
+    'nb515': dict(goodmag=12.5, ag_exp=0.5),
+    'nb921': dict(goodmag=12.5, ag_exp=0.5),
+    }
 
 class Converter(BaseConverter):
 
@@ -52,7 +62,9 @@ class Converter(BaseConverter):
 
         # TODO: build guiding params from table as described below
         if autoguide:
-            d.update(dict(guidestr="GOODMAG=14.5 AG_EXP=0.2 AG_AREA=SINGLE SELECT_MODE=SEMIAUTO"))
+            d1 = self.get_ag_exp(ob.inscfg.filter)
+            guidestr = "GOODMAG=%(goodmag).1f AG_EXP=%(ag_exp).1f AG_AREA=SINGLE SELECT_MODE=SEMIAUTO" % d1
+            d.update(dict(guidestr=guidestr))
 
         # prepare target parameters substring common to all SETUPFIELD
         # and GETOBJECT commands
@@ -116,7 +128,16 @@ Z=7.00
 :command
 
 QUEUE_MODE $DEF_CMNTOOL
-        """
+
+# These are here to copy in case you need to manually do a filterchange
+# or focusing
+#
+#FilterChange1 $DEF_TOOLS FILTER="g"
+#FilterChange2 $DEF_TOOLS FILTER="g" MIRROR=OPEN
+
+#FOCUSOBE $DEF_IMAGE $TARGETNAME INSROT_PA=0.0 DELTA_Z=0.05 DELTA_DEC=5 FILTER="g" EXPTIME=10 Z=3.75
+
+"""
 
         d = dict(curtime=time.strftime("%Y-%m-%d %H:%M:%S",
                                        time.localtime()),
@@ -324,9 +345,21 @@ QUEUE_MODE $DEF_CMNTOOL
         name = name.upper()
         if name in filternames:
             return filternames[name]
-        # narrowband filter
-        return "HSC-%s" % (name)
 
+        # narrowband filter
+        if name.startswith('NB'):
+            num = int(name[2:])
+            name = "NB%04d" % num
+        return "%s" % (name)
+
+    def get_ag_exp(self, filter_name):
+
+        filter_name = filter_name.lower()
+        if filter_name in ag_exp_info:
+            return ag_exp_info[filter_name]
+
+        return ag_exp_info['g']
+    
 '''
 ########################################################################
 # Commands for taking bias and dark.
@@ -435,9 +468,9 @@ GetObject $DEF_IMAGEN $L1551 OFFSET_RA=0 OFFSET_DEC=0 EXPTIME=240 NDITH=3 RDITH=
 # AutoGuiding, only one shot. Guide star is selected interactively
 # by VGW. Appropriate combinations of GOODMAG, and AG_EXP
 # (GOODMAG, AG_EXP) are
-#   (13,   2) FOR HSC-g,  (14.5, 2) FOR HSC-r
-#   (13.5, 2) FOR HSC-i,  (12.5, 3) FOR HSC-z
-#   (13,   3) FOR HSC-Y
+#   (13.5, 0.2) FOR HSC-g,  (14.5, 0.2) FOR HSC-r
+#   (14.0, 0.2) FOR HSC-i,  (13.0, 0.3) FOR HSC-z
+#   (14,   0.3) FOR HSC-Y   ( ) FOR NB, but may vary by wavelength
 # Note that these values are tentative ones, and also these values are
 # changeable due to the weather conditions.
 ########################################################################
