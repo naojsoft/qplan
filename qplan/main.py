@@ -1,7 +1,7 @@
 #
 # main.py -- Queue planner/scheduler main program logic
 #
-# eric@naoj.org
+
 #
 # stdlib imports
 import sys, os
@@ -16,7 +16,9 @@ import ginga.toolkit as ginga_toolkit
 # Local application imports
 from .Control import Controller
 from .Model import QueueModel
+from .Scheduler import Scheduler
 from qplan import version
+from qplan.util import site
 
 moduleHome = os.path.split(sys.modules['qplan.version'].__file__)[0]
 sys.path.insert(0, moduleHome)
@@ -125,6 +127,9 @@ class QueuePlanner(object):
         optprs.add_option("--profile", dest="profile", action="store_true",
                           default=False,
                           help="Run the profiler on main()")
+        optprs.add_option("-s", "--site", dest="sitename", metavar="NAME",
+                          default='subaru',
+                          help="Observing site NAME")
         optprs.add_option("-t", "--toolkit", dest="toolkit", metavar="NAME",
                           default='qt4',
                           help="Prefer GUI toolkit (gtk|qt)")
@@ -174,7 +179,11 @@ class QueuePlanner(object):
         ##         #self.mm.loadModule(name, pfx=pluginconfpfx)
         ##         self.mm.loadModule(name)
 
-        model = QueueModel(logger=logger)
+        observer = site.get_site(options.sitename)
+
+        scheduler = Scheduler(logger, observer)
+
+        model = QueueModel(logger, scheduler)
 
         if options.completed is not None:
             # specify a list of completed OB keys

@@ -39,21 +39,6 @@ def make_slots(start_time, night_length_mn, min_slot_length_sc):
 
     return night_slots
 
-def alt2airmass(alt_deg):
-    xp = 1.0 / math.sin(math.radians(alt_deg + 244.0/(165.0 + 47*alt_deg**1.1)))
-    return xp
-
-am_inv = []
-for alt in range(0, 91):
-    alt_deg = float(alt)
-    am = alt2airmass(alt_deg)
-    am_inv.append((am, alt_deg))
-
-def airmass2alt(am):
-    for (x, alt_deg) in am_inv:
-        if x <= am:
-            return alt_deg
-    return 90.0
 
 def calc_slew_time(d_az, d_el, rate_az=0.5, rate_el=0.5):
     """Calculate slew time given a delta in azimuth aand elevation.

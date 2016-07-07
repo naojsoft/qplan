@@ -1,35 +1,28 @@
 import pytz
-import entity
-import ephem
+from datetime import timedelta, tzinfo
 
-# Subaru Telescope
-subaru = entity.Observer('subaru',
-                         longitude='-155:28:48.900',
-                         latitude='+19:49:42.600',
-                         elevation=4163,
-                         pressure=615,
-                         temperature=0,
-                         timezone=pytz.timezone('US/Hawaii'))
+import entity
+from qplan.util import calcpos
+
 
 # The common solar system bodies
 moon = entity.StaticTarget(name="Moon")
-moon.body = ephem.Moon()
+moon.body = calcpos.Moon
 sun = entity.StaticTarget(name="Sun")
-sun.body = ephem.Sun()
+sun.body = calcpos.Sun
 mercury = entity.StaticTarget(name="Mercury")
-mercury.body = ephem.Mercury()
+mercury.body = calcpos.Mercury
 venus = entity.StaticTarget(name="Venus")
-venus.body = ephem.Venus()
+venus.body = calcpos.Venus
 mars = entity.StaticTarget(name="Mars")
-mars.body = ephem.Mars()
+mars.body = calcpos.Mars
 jupiter = entity.StaticTarget(name="Jupiter")
-jupiter.body = ephem.Jupiter()
+jupiter.body = calcpos.Jupiter
 saturn = entity.StaticTarget(name="Saturn")
-saturn.body = ephem.Saturn()
+saturn.body = calcpos.Saturn
 uranus = entity.StaticTarget(name="Uranus")
-uranus.body = ephem.Uranus()
+uranus.body = calcpos.Uranus
 neptune = entity.StaticTarget(name="Neptune")
-neptune.body = ephem.Neptune()
+neptune.body = calcpos.Neptune
 pluto = entity.StaticTarget(name="Pluto")
-pluto.body = ephem.Pluto()
-        
+pluto.body = calcpos.Pluto

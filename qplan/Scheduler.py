@@ -29,16 +29,16 @@ slew_breakout_limit = 30.0
 
 class Scheduler(Callback.Callbacks):
 
-    def __init__(self, logger):
+    def __init__(self, logger, observer):
         Callback.Callbacks.__init__(self)
 
         self.logger = logger
 
-        self.site = common.subaru
+        self.site = observer
         # TODO: encapsulate this
-        HST = entity.HST()
         #self.timezone = pytz.timezone('US/Hawaii')
-        self.timezone = HST
+        #self.timezone = HST()
+        self.timezone = observer.tz_local
 
         # these are the main data structures used to schedule
         self.oblist = []
@@ -500,5 +500,6 @@ class Scheduler(Callback.Callbacks):
     def select_schedule(self, schedule):
         self.selected_schedule = schedule
         self.make_callback('schedule-selected', schedule)
+
 
 # END

@@ -299,7 +299,8 @@ class AirMassPlot(plots.Plot):
 
 if __name__ == '__main__':
     import sys
-    import entity, common
+    from qplan import entity, common
+    from qplan.util.site import get_site
 
     from ginga import toolkit
     toolkit.use('qt')
@@ -322,8 +323,8 @@ if __name__ == '__main__':
         plotw = Plot.PlotWidget(plot)
 
     plot.setup()
-    tz = pytz.timezone('US/Hawaii')
-    site = common.subaru
+    site = get_site('subaru')
+    tz = site.tz_local
 
     start_time = datetime.strptime("2015-03-30 18:30:00",
                                    "%Y-%m-%d %H:%M:%S")
@@ -370,6 +371,6 @@ if __name__ == '__main__':
     else:
         plot.fig.savefig(outfile)
 
-    app.start()
+    app.mainloop()
 
 #END

@@ -133,7 +133,8 @@ class AZELPlot(plots.Plot):
         self.redraw()
 
 if __name__ == '__main__':
-    import entity, common
+    from qplan import entity, common
+    from qplan.util.site import get_site
     import pytz
 
     from ginga import toolkit
@@ -154,8 +155,8 @@ if __name__ == '__main__':
     plot.plot_azel([(-210.0, 60.43, "telescope"),])
     tgt3 = entity.StaticTarget(name="Bootes", ra="14:31:45.40",
                                dec="+32:28:38.50")
-    tz = pytz.timezone('US/Hawaii')
-    site = common.subaru
+    site = get_site('subaru')
+    tz = site.tz_local
 
     start_time = datetime.strptime("2015-03-27 20:05:00",
                                    "%Y-%m-%d %H:%M:%S")
@@ -163,6 +164,6 @@ if __name__ == '__main__':
     plot.plot_targets(site, [common.moon, common.sun, tgt3],
                       start_time, ['white', 'yellow', 'green'])
 
-    app.start()
+    app.mainloop()
 
 #END

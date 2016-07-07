@@ -15,17 +15,15 @@ import StringIO
 from ginga.misc import Callback, Bunch
 
 # local imports
-import Scheduler
 import filetypes
 
 class QueueModel(Callback.Callbacks):
 
-    def __init__(self, logger):
+    def __init__(self, logger, scheduler):
         Callback.Callbacks.__init__(self)
 
         self.logger = logger
-
-        self.sdlr = Scheduler.Scheduler(logger)
+        self.sdlr = scheduler
 
         self.weights_qf = None
         self.programs_qf = None
