@@ -24,7 +24,7 @@ except ImportError:
 
 # local imports
 import PlBase
-import filetypes
+from qplan import filetypes
 import misc
 
 have_qdb = False
@@ -99,11 +99,6 @@ class ControlPanel(PlBase.Plugin):
             b.update_current_conditions.set_enabled(False)
             b.update_database_from_files.set_enabled(False)
 
-        # Update Database from Files currently has a bug and damages
-        # program and ob tables in the database. Disable the button
-        # for now. rkackley@naoj.org 30 June 2016.
-        self.logger.info('ControlPanel setting Update Database button to disabled')
-        b.update_database_from_files.set_enabled(False)
         b.build_schedule.set_tooltip("Schedule all periods defined in schedule tab")
         b.build_schedule.add_callback('activated', self.build_schedule_cb)
 
@@ -219,21 +214,28 @@ class ControlPanel(PlBase.Plugin):
             self.logger.error("Error initializing: %s" % (str(e)))
 
 
-    def update_scheduler(self, use_db=False):
+    def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):
         sdlr = self.model.get_scheduler()
         try:
             sdlr.set_weights(self.weights_qf.weights)
             sdlr.set_schedule_info(self.schedule_qf.schedule_info)
             pgms = self.programs_qf.programs_info
-            sdlr.set_programs_info(pgms)
+            sdlr.set_programs_info(pgms, ignore_pgm_skip_flag)
+            self.logger.info('list of programs to be scheduled %s' % sdlr.programs.keys())
 
             # TODO: this maybe should be done in the Model
             ob_keys = set([])
             propnames = list(self.programs_qf.programs_info.keys())
             okprops = []
             ob_dict = {}
+            # Note: if the ignore_pgm_skip_flag is set to True, then
+            # we don't pay attention to the "skip" flag in the
+            # Programs sheet and thus consider all OB's in all
+            # Programs. Otherwise, we do pay attention to the "skip"
+            # flag and ignore all OB's in "skipped" programs.
             for propname in propnames:
-                if pgms[propname].skip:
+                if not ignore_pgm_skip_flag and pgms[propname].skip:
+                    self.logger.info('skip flag for program %s is set - skipping all OB in this program' % propname)
                     continue
                 okprops.append(propname)
 
@@ -342,24 +344,31 @@ class ControlPanel(PlBase.Plugin):
         self.view.nongui_do(sdlr.schedule_all)
 
     def update_db_cb(self, widget):
-        use_db = self.w.use_qdb.get_state()
-        self.update_scheduler(use_db=use_db)
+
+        self.update_scheduler(use_db=True, ignore_pgm_skip_flag=True)
 
         sdlr = self.model.get_scheduler()
 
         # store programs into db
-        programs = self.qa.get_table('program')
-        for key in sdlr.programs:
-            programs[key] = sdlr.programs[key]
+        try:
+            programs = self.qa.get_table('program')
+            for key in sdlr.programs:
+                self.logger.info("adding record for program '%s'" % (str(key)))
+                programs[key] = sdlr.programs[key]
+            transaction.commit()
+        except Exception as e:
+            self.logger.error('Unexpected error while updating program table in database: %s' % str(e))
 
         # store OBs into db
-        ob_db = self.qa.get_table('ob')
-        for ob in sdlr.oblist:
-            key = (ob.program.proposal, ob.name)
-            self.logger.info("adding record for OB '%s'" % (str(key)))
-            ob_db[key] = ob
-
-        transaction.commit()
+        try:
+            ob_db = self.qa.get_table('ob')
+            for ob in sdlr.oblist:
+                key = (ob.program.proposal, ob.name)
+                self.logger.info("adding record for OB '%s'" % (str(key)))
+                ob_db[key] = ob
+            transaction.commit()
+        except Exception as e:
+            self.logger.error('Unexpected error while updating ob table in database: %s' % str(e))
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))

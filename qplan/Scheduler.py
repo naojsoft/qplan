@@ -64,10 +64,15 @@ class Scheduler(Callback.Callbacks):
     def set_weights(self, weights):
         self.weights = weights
 
-    def set_programs_info(self, info):
+    def set_programs_info(self, info, ignore_pgm_skip_flag=False):
         self.programs = {}
+        # Note: if the ignore_pgm_skip_flag is set to True, then we
+        # don't pay attention to the "skip" flag in the Programs sheet
+        # and thus include all programs that are in the Programs
+        # sheet. Otherwise, we do pay attention to the "skip" flag and
+        # ignore all Programs that have the "skip" flag set.
         for key, rec in info.items():
-            if not rec.skip:
+            if ignore_pgm_skip_flag or not rec.skip:
                 self.programs[key] = rec
 
     def set_oblist_info(self, info):

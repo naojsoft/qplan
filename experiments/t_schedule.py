@@ -9,6 +9,7 @@ from ginga.misc.Bunch import Bunch
 import transaction
 
 from qplan import filetypes, Model, Scheduler, q_db
+from qplan.util import site
 
 class StandAlone_Scheduler(object):
 
@@ -18,7 +19,9 @@ class StandAlone_Scheduler(object):
         self.input_fmt = 'xls'
         self.schedules = []
 
-        self.model = Model.QueueModel(self.logger)
+        observer = site.get_site('subaru')
+        scheduler = Scheduler.Scheduler(logger, observer)
+        self.model = Model.QueueModel(self.logger, scheduler)
         self.sdlr = self.model.get_scheduler()
         self.sdlr.add_callback('schedule-completed', self.sdl_completed_cb)
 
@@ -97,7 +100,7 @@ class StandAlone_Scheduler(object):
         try:
             sdlr.set_weights(self.weights_qf.weights)
             sdlr.set_schedule_info(self.schedule_qf.schedule_info)
-            sdlr.set_programs_info(self.programs_qf.programs_info)
+            sdlr.set_programs_info(self.programs_qf.programs_info, ignore_pgm_skip_flag=True)
 
             # TODO: this maybe should be done in the Model
             self.oblist_info = []
@@ -136,6 +139,7 @@ class StandAlone_Scheduler(object):
         # store programs into db
         programs = qa.get_table('program')
         for key in sdlr.programs:
+            self.logger.info("adding record for program '%s'" % (str(key)))
             programs[key] = sdlr.programs[key]
 
         # store OBs into db
