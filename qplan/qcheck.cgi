@@ -337,7 +337,7 @@ print """\
 Use the following entry field and button to list the names of the files that have been uploaded for a Proposal ID (username/password not required).
 <p>
 <label for="name">Proposal ID</label>
-<input type="text" name="propid" id="propid" value="%s"> (e.g., S16A-QN001)
+<input type="text" name="propid" id="propid" value="%s"> (e.g., S16B-QN001)
 <br>
 <input type="submit" name="list_files" value="List files">
 </form>
@@ -370,7 +370,7 @@ if list_files_val:
         if filetypes.ProposalFile.propID_re.match(propid):
             list_files(propid)
         else:
-            print 'Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S16A-001.' % propid
+            print 'Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S16B-QN001.' % propid
     else:
         print 'Please enter a Proposal ID.'
     sys.exit(1)
