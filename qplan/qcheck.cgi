@@ -13,11 +13,10 @@ import hashlib
 import pickle
 import re
 
-sys.path.append('/gen2/share/Git/queuesim')
 site.addsitedir('/gen2/share/arch/64/lib/python')
 site.addsitedir('/gen2/share/arch/64/lib/python2.7/site-packages')
 
-import filetypes, entity
+from qplan import filetypes, entity
 from ginga.misc import log
 
 STARS_LDAP_SERVER = 'squery.subaru.nao.ac.jp'

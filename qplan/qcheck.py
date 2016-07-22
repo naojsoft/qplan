@@ -14,8 +14,8 @@ import sys, os
 import logging
 from ginga.misc import log
 
-import filetypes
-import entity
+from qplan import filetypes
+from qplan import entity
 
 def main(options, args):
     # Create top level logger.

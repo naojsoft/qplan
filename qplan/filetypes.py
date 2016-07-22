@@ -1355,14 +1355,14 @@ class InsCfgFile(QueueFile):
             else:
                 msg = 'Error while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, self.HSC_filters)
                 progFile.logger.error(msg)
-                progFile.errors[self.name].append([row_num, [self.columnInfo['filter']['iname'], msg]])
+                progFile.errors[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
                 progFile.error_count += 1
             if val in HSC_cfg.filters[self.semester]:
                 progFile.logger.debug('line %d, column %s of sheet %s: filter %s is ok' % (row_num, iname, self.name, rec.filter))
             else:
                 msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, HSC_cfg.filters[self.semester])
                 progFile.logger.warn(msg)
-                progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname'], msg]])
+                progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
                 progFile.warn_count += 1
 
 class OBListFile(QueueFile):
