@@ -16,7 +16,7 @@ import re
 site.addsitedir('/gen2/share/arch/64/lib/python')
 site.addsitedir('/gen2/share/arch/64/lib/python2.7/site-packages')
 
-from qplan import filetypes, entity
+from qplan import filetypes, entity, promsdb
 from ginga.misc import log
 
 STARS_LDAP_SERVER = 'squery.subaru.nao.ac.jp'
@@ -51,8 +51,8 @@ def html_header(l, formatters=None):
     s += '\n</tr></thead></table>'
     return s
 
-def upload_file(progFile, sessionValid, ldap_result, ldap_success, filename, file_buff):
-    if progFile.error_count == 0 and (sessionValid or ldap_success):
+def upload_file(progFile, sessionValid, user_auth_result, user_auth_success, filename, file_buff):
+    if progFile.error_count == 0 and (sessionValid or user_auth_success):
         input_filename = os.path.basename(filename)
         propname, ext = input_filename.split('.')
 
@@ -81,10 +81,10 @@ def upload_file(progFile, sessionValid, ldap_result, ldap_success, filename, fil
             <h3><span class="%s">Error:</span> Unable to upload file because error count is greater than 0</h3>
             """ % ('error')
         elif not sessionValid:
-            if ldap_success is not None and not ldap_success:
+            if user_auth_success is not None and not user_auth_success:
                 print """\
                 <h3><span class="%s">Error:</span> Unable to upload file because %s</h3>
-                """ % ('error', ldap_result)
+                """ % ('error', user_auth_result)
             else:
                 print """\
                 <h3><span class="%s">Error:</span> Unable to upload file because session has expired</h3>
@@ -125,6 +125,27 @@ def stars_ldap_connect(username, password):
     else:
         result="STARS Login succeeded"
         success = True
+
+    return result, success
+
+def proms_auth(id, passwd):
+    s = promsdb.ProMSdb(logger, True)
+    res = s.user_auth_in_proms(username, password)
+    sres = str(res)
+    # Hide the password, if any, in the log output
+    pw_match = re.search("passwd='(\w{8})'", sres)
+    if pw_match:
+        pw = pw_match.group(1)
+        res4log = sres.replace(pw, 'X'*len(pw))
+    else:
+        res4log = sres
+    logger.info('res from ProMSdb %s' % res4log)
+    if res:
+        result="ProMS login succeeded"
+        success = True
+    else:
+        result="Proms ID/Password Login Failed"
+        success = False
 
     return result, success
 
@@ -238,27 +259,40 @@ except KeyError:
     upload = None
 
 # If upload was clicked and we weren't able to validate the session,
-# see if we can validate the username/password in STARS LDAP.
-ldap_success = None
-ldap_result = None
+# see if we can validate the username/password in STARS LDAP or, if
+# that fails, to ProMS MySQL database.
+user_auth_success = None
+user_auth_result = None
 if upload and not sessionValid:
     try:
         username = form['username'].value
         password = form['password'].value
     except KeyError:
-        ldap_result = 'Username/password not supplied'
+        user_auth_result = 'Username/password not supplied'
     else:
         logger.info('STARS LDAP authentication for username %s' % username)
-        ldap_result, ldap_success = stars_ldap_connect(username, password)
-        logger.info('ldap_result %s' % ldap_result)
+        user_auth_result, user_auth_success = stars_ldap_connect(username, password)
+        stars_ldap_result = user_auth_result
+        logger.info('stars_ldap_result %s' % stars_ldap_result)
 
-    if ldap_success:
-        logger.info('creating server cookie')
+    if user_auth_success:
+        logger.info('creating server cookie based on STARS LDAP user authentication')
         sc = createServerCookie()
         saveCookie(sc)
         sessionValid = True
     else:
-        sc = None
+        # STARS LDAP authentication failed, try ProMS authentication
+        user_auth_result, user_auth_success = proms_auth(username, password)
+        promsdb_result = user_auth_result
+        logger.info('promsdb_result %s' % promsdb_result)
+        if user_auth_success:
+            logger.info('creating server cookie based on ProMS DB user authentication')
+            sc = createServerCookie()
+            saveCookie(sc)
+            sessionValid = True
+        else:
+            sc = None
+
 
 # Check to see if the user clicked on the "List files" button
 try:
@@ -317,14 +351,19 @@ else:
     <p>
     For file upload, select the file using the Browse/Choose File button above,
     <br>
-    enter your STARS username and password, and then press the Upload button.
-    <p>
-    <label for="name">STARS Userame</label>
-    <input type="text" name="username" id="username" value="">
+    enter your STARS username and password or Subaru ProMS ID and password,
     <br>
-    <label for="password">STARS Password</label>
-    <input type="password" name="password" id="password" value="">
-    <br>
+    and then press the Upload button.
+    <table>
+    <tr>
+    <td><label for="name">Userame or ID</label></td>
+    <td><input type="text" name="username" id="username" value=""></td>
+    </tr>
+    <tr>
+    <td><label for="password">Password</label></td>
+    <td><input type="password" name="password" id="password" value=""></td>
+    </tr>
+    </table>
     """
 print """\
 <p>
@@ -358,11 +397,11 @@ try:
 except TypeError:
     fileList = [fileitem]
 
-if upload and ldap_success is not None:
-    if ldap_success:
-        print 'STARS LDAP result: %s' % ldap_result
+if upload and user_auth_success is not None:
+    if user_auth_success:
+        print 'STARS LDAP or ProMS DB result: %s' % user_auth_result
     else:
-        print '<h3>STARS LDAP result: %s</h3>' % ldap_result
+        print '<h3>STARS LDAP or ProMS DB result: %s, %s</h3>' % (stars_ldap_result, promsdb_result)
 
 if list_files_val:
     if propid:
@@ -436,7 +475,7 @@ if len(fileList[0].filename) > 0:
             <h3>File Check Results From File %s:</h3>
             """ % (item.filename)
             if upload:
-                upload_file(progFile, sessionValid, ldap_result, ldap_success, item.filename, file_buff)
+                upload_file(progFile, sessionValid, user_auth_result, user_auth_success, item.filename, file_buff)
             if progFile.warn_count == 0 and progFile.error_count == 0:
                 print """\
                 <p><span class="ok">Error</span> count is %d</p>
