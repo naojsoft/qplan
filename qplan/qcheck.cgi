@@ -114,13 +114,21 @@ def report_msgs(d, severity):
                     """ % (msg, progFile.df[name][row_num-1:row_num].to_html(index=False, na_rep='', formatters=fmt, escape=False))
 
 def stars_ldap_connect(username, password):
+    logger.info('STARS_LDAP_SERVER %s' % STARS_LDAP_SERVER)
     l=ldap.open(STARS_LDAP_SERVER, STARS_LDAP_PORT)
     loginline="uid="+username+",ou=People,dc=stars,dc=nao,dc=ac,dc=jp"
     try:
         l.simple_bind_s(loginline, password)
-    except:
+    except ldap.SERVER_DOWN as e:
+        # ldap server or daemon not responding
+        result = 'STARS LDAP server down or not responding: %s' % e[0]['desc']
+        success = False
+    except ldap.INVALID_CREDENTIALS as e:
         # ldap bind fail
-        result="STARS Login/Password Failed or Account is Locked"
+        result = 'STARS Login/Password Failed or Account is Locked: %s' % e[0]['desc']
+        success = False
+    except Exception as e:
+        result = 'Unexpected error while connecing/authenticating to STARS LDAP: %s' % str(e)
         success = False
     else:
         result="STARS Login succeeded"
@@ -129,7 +137,15 @@ def stars_ldap_connect(username, password):
     return result, success
 
 def proms_auth(id, passwd):
-    s = promsdb.ProMSdb(logger, True)
+    # Connect to the ProMS database. Return immediately if there is a
+    # problem.
+    try:
+        s = promsdb.ProMSdb(logger, True)
+    except promsdb.ProMSdbError as e:
+        result = str(e)
+        success = False
+        return result, success
+
     res = s.user_auth_in_proms(username, password)
     sres = str(res)
     # Hide the password, if any, in the log output
@@ -144,7 +160,7 @@ def proms_auth(id, passwd):
         result="ProMS login succeeded"
         success = True
     else:
-        result="Proms ID/Password Login Failed"
+        result="ProMS ID/Password Login Failed"
         success = False
 
     return result, success
@@ -401,7 +417,7 @@ if upload and user_auth_success is not None:
     if user_auth_success:
         print 'STARS LDAP or ProMS DB result: %s' % user_auth_result
     else:
-        print '<h3>STARS LDAP or ProMS DB result: %s, %s</h3>' % (stars_ldap_result, promsdb_result)
+        print '<h3>STARS LDAP or ProMS DB result:<br> %s <br> %s</h3>' % (stars_ldap_result, promsdb_result)
 
 if list_files_val:
     if propid:

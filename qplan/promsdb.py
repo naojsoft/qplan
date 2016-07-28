@@ -41,7 +41,12 @@ class ProMSdb(object):
 
         engine = sqlalchemy.create_engine('mysql://', creator=self.getconn_mysqldb)
         self.db = SqlSoup(engine)
-        self.auth = self.db.auth # "auth" table
+        try:
+            self.auth = self.db.auth # "auth" table
+        except MySQLdb.OperationalError as e:
+            msg = 'Unexpected error while connecting to PROMS_DB_SERVER: %s' % e[1]
+            self.logger.error(msg)
+            raise ProMSdbError(msg)
 
     def getconn_mysqldb(self):
         c = MySQLdb.connect(self.server, self.user, self.passwd, self.dbname)
@@ -52,24 +57,25 @@ class ProMSdb(object):
             # auth is table name
             res = self.auth.filter_by(email='%s' % id).first()
         except Exception as e:
-            self.logger.error('error: %s %s' %(id, e))
+            self.logger.error('Unexpected error while getting user information: %s %s' % (id, e))
             res = None
 
         return res
 
     def user_auth_in_proms(self, id, passwd):
+        # Unless we are debugging this code, turn off "info" logging
+        # for the query to avoid having the password being written to
+        # the log file.
+        savedLevel = logging.getLogger('sqlalchemy.engine').level
+        if not self.debug:
+            logging.getLogger('sqlalchemy.engine').setLevel(logging.WARN)
         try:
-            # Unless we are debugging this code, turn off "info"
-            # logging for the query to avoid having the password being
-            # written to the log file.
-            savedLevel = logging.getLogger('sqlalchemy.engine').level
-            if not self.debug:
-                logging.getLogger('sqlalchemy.engine').setLevel(logging.WARN)
             # auth is table name
             res = self.auth.filter_by(email='%s' % id, passwd='%s' % passwd).first()
             logging.getLogger('sqlalchemy.engine').setLevel(savedLevel)
         except Exception as e:
-            self.logger.error('error: %s %s' %(id, e))
+            logging.getLogger('sqlalchemy.engine').setLevel(savedLevel)
+            self.logger.error('Unexpected error while authenticating user: %s %s' % (id, e))
             res = None
 
         return res
@@ -79,7 +85,13 @@ def main(options, args):
     logname = 'promsdb'
     logger = log.get_logger(logname, options=options)
 
-    s = ProMSdb(logger, options.dblog)
+    try:
+        s = ProMSdb(logger, options.dblog)
+    except ProMSdbError as e:
+        result = str(e)
+        success = False
+        logger.info('result %s success %s' % (result, success))
+        exit(1)
 
     if options.id:
         res = s.user_in_proms(options.id)
