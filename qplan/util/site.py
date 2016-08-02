@@ -12,7 +12,7 @@ site_subaru = Observer('subaru',
                        elevation=4163,
                        pressure=615,
                        temperature=0,
-                       timezone=pytz.timezone('US/Hawaii'))
+                       timezone=pytz.timezone('HST'))
 
 # ---------------------------------
 # Add your site above here...

@@ -82,14 +82,22 @@ class AirMassChart(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
         t = start_time.astimezone(sdlr.timezone)
         # if schedule starts after midnight, change start date to the
-        # day before, this is due to the way the Observer module charts
-        # airmass
+        # day before, this is due to the way the altitude plot charts
+        # (showing rise/fall graph over the night)
         if 0 <= t.hour < 12:
             t -= timedelta(0, 3600*12)
-        ndate = t.strftime("%Y/%m/%d")
+
+        # calc noon on the day of observation in sdlr time zone
+        ndate = t.strftime("%Y-%m-%d") + " 12:00:00"
+        site = sdlr.site
+        noon_time = site.get_date(ndate, timezone=sdlr.timezone)
+
+        # plot period 15 minutes before sunset to 15 minutes after sunrise
+        delta = 60*15
+        start_time = site.sunset(noon_time) - timedelta(0, delta)
+        stop_time = site.sunrise(start_time) + timedelta(0, delta)
 
         targets = []
-        site = sdlr.site
         site.set_date(start_time)
 
         for slot in schedule.slots:
@@ -105,6 +113,8 @@ class AirMassChart(PlBase.Plugin):
         lengths = []
         if num_tgts > 0:
             for tgt in targets:
+                ## info_list = site.get_target_info(tgt,
+                ##                                  start_time=start_time)
                 info_list = site.get_target_info(tgt)
                 target_data.append(Bunch.Bunch(history=info_list, target=tgt))
                 lengths.append(len(info_list))

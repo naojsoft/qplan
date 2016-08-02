@@ -211,7 +211,7 @@ class AirMassPlot(plots.Plot):
         moon_data = numpy.array(map(lambda info: info.moon_alt,
                                     tgt_data[0].history))
         illum_time = lt_data[moon_data.argmax()]
-        moon_illum = site.moon_phase(date=illum_time.astimezone(tz))
+        moon_illum = site.moon_phase(date=illum_time)
         moon_color = '#666666'
         moon_name = "Moon (%.2f %%)" % (moon_illum)
         ax1.plot_date(lt_data, moon_data, moon_color, linewidth=2.0,
@@ -262,10 +262,10 @@ class AirMassPlot(plots.Plot):
 
     def _plot_twilight(self, ax, site, tz):
         # plot sunset
-        t = site.tz_utc.localize(site.sunset().datetime()).astimezone(tz)
+        t = site.sunset().astimezone(tz)
 
         # plot evening twilight
-        t2 = site.tz_utc.localize(site.evening_twilight_18(t).datetime()).astimezone(tz)
+        t2 = site.evening_twilight_18(t).astimezone(tz)
 
         #n, n2 = list(map(mpl_dt.date2num, [t, t2]))
         ymin, ymax = ax.get_ylim()
@@ -276,10 +276,10 @@ class AirMassPlot(plots.Plot):
                    linestyles=['dashed'], label='Evening twilight')
 
         # plot morning twilight
-        t = site.tz_utc.localize(site.morning_twilight_18(t2).datetime()).astimezone(tz)
+        t = site.morning_twilight_18(t2).astimezone(tz)
 
         # plot sunrise
-        t2 = site.tz_utc.localize(site.sunrise(t).datetime()).astimezone(tz)
+        t2 = site.sunrise(t).astimezone(tz)
 
         ax.axvspan(t, t2, facecolor='#947DC0', alpha=0.20)
         ax.vlines(t, ymin, ymax, colors=['orange'],
