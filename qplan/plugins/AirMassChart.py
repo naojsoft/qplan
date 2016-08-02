@@ -80,15 +80,9 @@ class AirMassChart(PlBase.Plugin):
 
         start_time = schedule.start_time
         sdlr = self.model.get_scheduler()
-        t = start_time.astimezone(sdlr.timezone)
-        # if schedule starts after midnight, change start date to the
-        # day before, this is due to the way the altitude plot charts
-        # (showing rise/fall graph over the night)
-        if 0 <= t.hour < 12:
-            t -= timedelta(0, 3600*12)
 
         # calc noon on the day of observation in sdlr time zone
-        ndate = t.strftime("%Y-%m-%d") + " 12:00:00"
+        ndate = start_time.strftime("%Y-%m-%d") + " 12:00:00"
         site = sdlr.site
         noon_time = site.get_date(ndate, timezone=sdlr.timezone)
 

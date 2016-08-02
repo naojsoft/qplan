@@ -213,7 +213,7 @@ class AirMassPlot(plots.Plot):
         illum_time = lt_data[moon_data.argmax()]
         moon_illum = site.moon_phase(date=illum_time)
         moon_color = '#666666'
-        moon_name = "Moon (%.2f %%)" % (moon_illum)
+        moon_name = "Moon (%.2f %%)" % (moon_illum*100)
         ax1.plot_date(lt_data, moon_data, moon_color, linewidth=2.0,
                       alpha=0.5, aa=True, tz=tz)
         ax1.text(mpl_dt.date2num(illum_time),
