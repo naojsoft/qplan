@@ -17,8 +17,8 @@ import ginga.toolkit as ginga_toolkit
 from .Control import Controller
 from .Model import QueueModel
 from .Scheduler import Scheduler
-from qplan import version
-from qplan.util import site
+from . import version
+from .util import site
 
 moduleHome = os.path.split(sys.modules['qplan.version'].__file__)[0]
 sys.path.insert(0, moduleHome)
@@ -140,6 +140,8 @@ class QueuePlanner(object):
         # Create top level logger.
         svcname = 'qplan'
         logger = log.get_logger(name=svcname, options=options)
+
+        logger.info("starting qplan %s" % (version.version))
 
         ev_quit = threading.Event()
 

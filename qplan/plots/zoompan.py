@@ -9,7 +9,7 @@ class ZoomPan(object):
         self.y1 = None
         self.xpress = None
         self.ypress = None
-   
+
     def zoom_factory(self, ax, base_scale = 2.):
         def zoom(event):
             cur_xlim = ax.get_xlim()
@@ -82,4 +82,3 @@ class ZoomPan(object):
 
         #return the function
         return onMotion
-

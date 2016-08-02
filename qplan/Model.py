@@ -9,13 +9,12 @@ import time
 from datetime import timedelta
 import pytz
 import numpy
-import StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
 
 # local imports
-import filetypes
+from . import filetypes
 
 class QueueModel(Callback.Callbacks):
 

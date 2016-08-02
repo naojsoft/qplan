@@ -11,9 +11,9 @@ import time
 from ginga.misc import Bunch
 
 # local imports
-import misc
+from . import misc
 #import constraints
-import entity
+from . import entity
 
 
 # maximum rank for a program

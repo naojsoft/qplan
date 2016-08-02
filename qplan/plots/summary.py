@@ -10,7 +10,7 @@ import matplotlib.patches as mpatches
 
 from ginga.util import plots
 
-import qsim
+from .. import qsim
 
 class BaseSumPlot(plots.Plot):
     def __init__(self, width, height, logger=None):

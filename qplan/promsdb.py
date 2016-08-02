@@ -8,10 +8,11 @@ import MySQLdb
 import sqlalchemy
 import logging
 from sqlsoup import SQLSoup as SqlSoup
+
 from ginga.misc import log
 
 class ProMSdbError(Exception):
-    pass 
+    pass
 
 class ProMSdb(object):
     def __init__(self,  logger=None, dblogger=False):
@@ -81,7 +82,7 @@ class ProMSdb(object):
         return res
 
 def main(options, args):
- 
+
     logname = 'promsdb'
     logger = log.get_logger(logname, options=options)
 
@@ -109,7 +110,7 @@ if __name__ == "__main__":
     optprs.add_option("--debug", dest="debug", default=False,
                       action="store_true",
                       help="Enter the pdb debugger on main()")
- 
+
     optprs.add_option("-i", "--id", dest="id",
                       default=False,
                       help="User ID (e-mail)")
@@ -144,4 +145,3 @@ if __name__ == "__main__":
 
     else:
         main(options, args)
-

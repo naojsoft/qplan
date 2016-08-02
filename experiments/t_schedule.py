@@ -1,7 +1,6 @@
 from __future__ import print_function
 import os, sys
 import logging
-import StringIO
 
 from ginga.misc import log
 from ginga.misc.Bunch import Bunch

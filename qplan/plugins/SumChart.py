@@ -6,7 +6,8 @@
 from PyQt4 import QtGui, QtCore
 import PlBase
 from ginga.gw import Plot
-import plots.summary as ps
+
+from qplan.plots import summary as ps
 
 class BaseSumChart(PlBase.Plugin):
 

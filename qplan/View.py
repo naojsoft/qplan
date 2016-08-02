@@ -11,7 +11,7 @@ icon_path = os.path.abspath(os.path.join(moduleHome, '..', 'icons'))
 rc_file = os.path.join(moduleHome, "qt_rc")
 
 # Local application imports
-import qsim
+from . import qsim
 
 
 class ViewError(Exception):

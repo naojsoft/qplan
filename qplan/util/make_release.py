@@ -1,9 +1,10 @@
 from __future__ import print_function
 import os
 import time
+from io import BytesIO
 
 major = 0
-minor = 2
+minor = 3
 
 rlfile = 'version.py'
 backup = 'version.py.bak'
@@ -18,14 +19,20 @@ def make_release():
     if os.path.exists(rlfile):
         os.rename(rlfile, backup)
 
+    buf = BytesIO()
+
+    buf.write("# this file was automatically generated\n")
+    buf.write("major = %d\n" % major)
+    buf.write("minor = %d\n" % minor)
+    buf.write("release = %d\n" % release)
+    buf.write("\n")
+    buf.write("version = '%d.%d.%d' % (major, minor, release)\n")
+    buf.write("\n")
+
     with open(rlfile, 'w') as out_f:
-        out_f.write("# this file was automatically generated\n")
-        out_f.write("major = %d\n" % major)
-        out_f.write("minor = %d\n" % minor)
-        out_f.write("release = %d\n" % release)
-        out_f.write("\n")
-        out_f.write("version = '%d.%d.%d' % (major, minor, release)\n")
-        out_f.write("\n")
+        out_f.write(buf.getvalue())
+
+    return '%d.%d.%d' % (major, minor, release)
 
 if __name__ == "__main__":
     print(make_release())

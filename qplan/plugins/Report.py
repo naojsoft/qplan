@@ -6,17 +6,14 @@
 import time
 import os
 import re
-import StringIO
+from io import BytesIO
 from datetime import timedelta
 
 from ginga.gw import Widgets
-import PlBase
-
 from ginga.misc import Bunch
 
-import qsim
-
-import HSC
+from qplan import qsim
+from qplan.plugins import PlBase, HSC
 
 
 class Report(PlBase.Plugin):
@@ -119,7 +116,7 @@ class Report(PlBase.Plugin):
             converter = HSC.Converter(self.logger)
 
             # buffer for OPE output
-            out_f = StringIO.StringIO()
+            out_f = BytesIO()
 
             # write preamble
             converter.write_ope_header(out_f, targets)
@@ -180,7 +177,7 @@ class Report(PlBase.Plugin):
         ndate = t.strftime("%Y-%m-%d")
         filters = ', '.join(schedule.data.filters)
 
-        out_f = StringIO.StringIO()
+        out_f = BytesIO()
         out_f.write("--- NIGHT OF %s --- filters: %s\n" % (
             ndate, filters))
         out_f.write("Queue prepared at: %s\n" % (
@@ -230,7 +227,8 @@ class Report(PlBase.Plugin):
     def clear_schedule_cb(self, sdlr):
         self.cur_schedule = None
         if self.gui_up:
-            self.view.gui_do(self.tw.set_text, '')
+            # NOTE: this needs to be a gui_call!
+            self.view.gui_call(self.tw.set_text, '')
         return True
 
     def get_ob(self, obkey):

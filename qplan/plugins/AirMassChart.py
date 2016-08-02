@@ -10,8 +10,8 @@ from datetime import timedelta
 from ginga.gw import Widgets, Plot
 from ginga.misc import Bunch
 
-import PlBase
-from plots.airmass import AirMassPlot
+from qplan.plugins import PlBase
+from qplan.plots.airmass import AirMassPlot
 
 
 class AirMassChart(PlBase.Plugin):
@@ -133,8 +133,9 @@ class AirMassChart(PlBase.Plugin):
         self.add_schedule(schedule)
 
     def clear_schedule_cb(self, qscheduler):
-        #self.view.gui_do(self.plot.clear)
-        self.logger.info("cleared plot")
+        #self.view.gui_call(self.plot.clear)
+        #self.logger.info("cleared plot")
+        return True
 
 
 #END

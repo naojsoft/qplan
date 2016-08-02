@@ -9,16 +9,16 @@ import time
 from datetime import timedelta
 import pytz
 import numpy
-import StringIO
+from io import BytesIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
 
 # local imports
-import misc
-import entity
-import common
-import qsim
+from . import misc
+from . import entity
+from . import common
+from . import qsim
 
 # maximum rank for a program
 max_rank = 10.0
@@ -445,7 +445,7 @@ class Scheduler(Callback.Callbacks):
         self.logger.info("%.2f sec to schedule all" % (t_elapsed))
 
         # print a summary
-        out_f = StringIO.StringIO()
+        out_f = BytesIO()
         num_obs = len(oblist)
         pct = 0.0
         if num_obs > 0:

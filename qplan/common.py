@@ -1,8 +1,8 @@
 import pytz
 from datetime import timedelta, tzinfo
 
-import entity
-from qplan.util import calcpos
+from . import entity
+from .util import calcpos
 
 
 # The common solar system bodies

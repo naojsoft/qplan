@@ -23,9 +23,8 @@ except ImportError:
     pass
 
 # local imports
-import PlBase
-from qplan import filetypes
-import misc
+from qplan.plugins import PlBase
+from qplan import filetypes, misc
 
 have_qdb = False
 try:

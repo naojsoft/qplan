@@ -6,7 +6,9 @@
 
 from ginga.gw import Widgets
 from PyQt4 import QtGui, QtCore
-import PlBase
+
+from qplan.plugins import PlBase
+
 
 class Schedule(PlBase.Plugin):
 
@@ -80,7 +82,8 @@ class Schedule(PlBase.Plugin):
         return True
 
     def clear_schedule_cb(self, sdlr):
-        self.view.gui_do(self.clear_table)
+        # NOTE: this needs to be a gui_call!
+        self.view.gui_call(self.clear_table)
         return True
 
     def select_row_cb(self, midx_to, midx_from):

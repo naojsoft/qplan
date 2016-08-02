@@ -8,9 +8,9 @@ from datetime import datetime
 from ginga.misc import Bunch
 from ginga.gw import Widgets, Plot
 
-import PlBase
-from plots.polarsky import AZELPlot
-import common
+from qplan.plugins import PlBase
+from qplan.plots.polarsky import AZELPlot
+from qplan import common
 
 
 class SlewChart(PlBase.Plugin):
@@ -104,7 +104,7 @@ class SlewChart(PlBase.Plugin):
         return True
 
     def clear_schedule_cb(self, sdlr):
-        #self.view.gui_do(self.plot.clear)
+        #self.view.gui_call(self.plot.clear)
         return True
 
 

@@ -9,14 +9,18 @@ import pandas as pd
 import numpy as np
 import csv
 import string
-import StringIO
+from io import BytesIO
 import datetime
 import re
 
-import entity
+import six
+from six.moves import map
+from six.moves import zip
+
 from ginga.misc import Bunch
 
-import cfg.HSC_cfg as HSC_cfg
+from . import entity
+from .cfg import HSC_cfg
 
 moon_states = {'dark': 0, 'gray': 1, 'dark+gray': 2, 'dark/gray': 2}
 moon_states_upper = [state.upper() for state in moon_states.keys()]
@@ -79,7 +83,7 @@ class QueueFile(object):
         if self.filepath:
             self.logger.info('Reading file %s' % self.filepath)
             with open(self.filepath, 'rb') as f:
-                self.stringio[self.file_prefix] = StringIO.StringIO(f.read())
+                self.stringio[self.file_prefix] = BytesIO(f.read())
         else:
             raise IOError('File path not defined for file prefix %s' % self.file_prefix)
 
@@ -101,7 +105,7 @@ class QueueFile(object):
                     except (KeyError, AttributeError):
                         excel_converters = None
                     self.df[name] = datasrc.parse(name, converters=excel_converters)
-                    self.stringio[name] = StringIO.StringIO()
+                    self.stringio[name] = BytesIO()
                     self.df[name].to_csv(self.stringio[name], index=False)
                     self.stringio[name].seek(0)
         else:
@@ -131,7 +135,7 @@ class QueueFile(object):
             self.rows.append(row)
 
         self.parse_input()
-        # We are done with the StringIO object, so close it.
+        # We are done with the BytesIO object, so close it.
         self.queue_file.close()
 
     def write_output(self, new_filepath=None):
@@ -159,35 +163,35 @@ class QueueFile(object):
 
     def update(self, row, colHeader, value, parse_flag):
         # User has changed a value in the table, so update our "rows"
-        # attribute, recreate the StringIO object, and parse the input
+        # attribute, recreate the BytesIO object, and parse the input
         # again.
         self.logger.debug('QueueFile.update row %d colHeader %s value %s' % (row, colHeader, value))
         self.rows[row][colHeader] = value
 
         # Use the CSV "writer" classes to create a new version of the
-        # StringIO object from our "rows" attribute.
+        # BytesIO object from our "rows" attribute.
         if parse_flag:
             self.parse()
 
     def parse(self):
-        # Create a StringIO.StringIO object and write our columnNames
+        # Create a BytesIO object and write our columnNames
         # and rows attributes into that object. This gives us an
         # object that looks like a disk file so we can parse the data.
-        self.queue_file = StringIO.StringIO()
+        self.queue_file = BytesIO()
         writer = csv.writer(self.queue_file, **self.fmtparams)
         writer.writerow(self.columnNames)
         writer = csv.DictWriter(self.queue_file, self.columnNames, **self.fmtparams)
         for row in self.rows:
             writer.writerow(row)
 
-        # Parse the input data from the StringIO.StringIO object
+        # Parse the input data from the BytesIO object
         try:
             self.parse_input()
 
         except Exception as e:
             self.logger.error("Error reparsing input: %s" % (str(e)))
 
-        # We are done with the StringIO object, so close it.
+        # We are done with the BytesIO object, so close it.
         self.queue_file.close()
 
     def parse_row(self, row, column_names, column_map):
@@ -227,7 +231,7 @@ class QueueFile(object):
 
         # Iterate through the list of required columns to make sure
         # they are all there.
-        for col_name, info in self.columnInfo.iteritems():
+        for col_name, info in six.iteritems(self.columnInfo):
             if info['iname'] in column_names:
                 self.logger.debug('Column name %s found in sheet %s' % (info['iname'], self.name))
             else:
@@ -326,18 +330,18 @@ class QueueFile(object):
 
             else:
                 # Iterate through all the columns and check dataypes
-                for col_name, info in self.columnInfo.iteritems():
+                for col_name, info in six.iteritems(self.columnInfo):
                     rec_name = self.column_map[col_name]
                     try:
                         str_val = rec[rec_name]
-                    except KeyError, e:
+                    except KeyError as e:
                         continue
 
                     # See if we can coerce the string value into the
                     # desired datatype.
                     try:
                         val = info['type'](str_val)
-                    except ValueError, e:
+                    except ValueError as e:
                         msg = 'Error evaluating line %d, column %s of sheet %s: '% (row_num, info['iname'], self.name)
                         if len(str_val) > 0:
                             msg += "Non-numeric value, '%s', " % str_val
@@ -374,11 +378,11 @@ class QueueFile(object):
             else:
                 # Iterate through all the columns and check
                 # constraints, if any.
-                for col_name, info in self.columnInfo.iteritems():
+                for col_name, info in six.iteritems(self.columnInfo):
                     rec_name = self.column_map[col_name]
                     try:
                         str_val = rec[rec_name]
-                    except KeyError, e:
+                    except KeyError as e:
                         continue
 
                     # We have already checked the datatypes in
@@ -398,7 +402,7 @@ class QueueFile(object):
                             pass
 
                         if isinstance(info['constraint'], str):
-                            l = lambda(value): eval(info['constraint'])
+                            l = lambda value: eval(info['constraint'])
                             if l(val):
                                 self.logger.debug('Line %d, column %s of sheet %s: %s meets the constraint of %s' % (row_num, info['iname'], self.name, val, info['constraint']))
                             else:
@@ -469,7 +473,7 @@ class ScheduleFile(QueueFile):
             self.read_csv_file()
         elif self.is_excel_file():
             with open(self.filepath, 'r') as excel_file:
-                self.file_obj = StringIO.StringIO(excel_file.read())
+                self.file_obj = BytesIO(excel_file.read())
             self.read_excel_file()
         else:
             raise UnknownFileFormatError('Schedule file format %s is unknown' % self.file_ext)
@@ -519,7 +523,7 @@ class ScheduleFile(QueueFile):
             cur_el = rec.get('cur_el', None)
             if cur_el is not None:
                 cur_el = float(cur_el)
-            
+
             # TEMP: skip non-OPEN categories
             if not 'open' in categories:
                 continue
@@ -564,7 +568,7 @@ class ProgramsFile(QueueFile):
             self.read_csv_file()
         elif self.is_excel_file():
             with open(self.filepath, 'r') as excel_file:
-                self.file_obj = StringIO.StringIO(excel_file.read())
+                self.file_obj = BytesIO(excel_file.read())
             self.read_excel_file()
         else:
             raise UnknownFileFormatError('Programs file format %s is unknown' % self.file_ext)
@@ -641,7 +645,7 @@ class WeightsFile(QueueFile):
             self.read_csv_file()
         elif self.is_excel_file():
             with open(self.filepath, 'r') as excel_file:
-                self.file_obj = StringIO.StringIO(excel_file.read())
+                self.file_obj = BytesIO(excel_file.read())
             self.read_excel_file()
         else:
             raise UnknownFileFormatError('Weights file format %s is unknown' % self.file_ext)
@@ -897,7 +901,7 @@ class EnvCfgFile(QueueFile):
         try:
             val_req_num = moon_states[val.lower()]
             progFile.logger.debug('Line %d, column %s of sheet %s: %s %s found in %s' % (row_num, col_name, self.name, col_name, val, moon_states))
-        except KeyError, e:
+        except KeyError as e:
             msg = "Error while checking line %d, column %s of sheet %s: %s value '%s' does not match allowed values in %s" % (row_num, iname, self.name, iname, val, moon_states_upper)
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [iname], msg])
@@ -1573,7 +1577,7 @@ class ProgramFile(QueueFile):
             # etc. to locate the input file/directory.
             try:
                 self.find_filepath()
-            except FileNotFoundError, e:
+            except FileNotFoundError as e:
                 if self.file_ext == None or self.file_ext == 'csv':
                     pass
                 else:
@@ -1589,17 +1593,17 @@ class ProgramFile(QueueFile):
                 self.file_obj = file_obj
             else:
                 # If we didn't get a file object, read from the
-                # filepath and create a StringIO object from the file.
+                # filepath and create a BytesIO object from the file.
                 with open(self.filepath, 'r') as excel_file:
-                    self.file_obj = StringIO.StringIO(excel_file.read())
+                    self.file_obj = BytesIO(excel_file.read())
 
-            for name, cfg in self.cfg.iteritems():
+            for name, cfg in six.iteritems(self.cfg):
                 cfg.filepath = self.filepath
 
             self.read_excel_file()
 
         elif os.path.isdir(dir_path) or file_ext == 'csv':
-            for name, cfg in self.cfg.iteritems():
+            for name, cfg in six.iteritems(self.cfg):
                 cfg.find_filepath()
                 cfg.read_csv_file()
                 self.stringio[name] = cfg.stringio
@@ -1612,13 +1616,13 @@ class ProgramFile(QueueFile):
             return
 
         # All sheets were read in. Set the configuration objects to
-        # have the StringIO version of the input data
-        for name, cfg in self.cfg.iteritems():
+        # have the BytesIO version of the input data
+        for name, cfg in six.iteritems(self.cfg):
             cfg.stringio[name] = self.stringio[name]
 
         # Check to make sure all sheets have the required columns
         error_incr = 0
-        for name, cfg in self.cfg.iteritems():
+        for name, cfg in six.iteritems(self.cfg):
             error_incr += cfg.validate_column_names(self)
         if error_incr > 0:
             return
@@ -1626,7 +1630,7 @@ class ProgramFile(QueueFile):
         # Check to see if there are any duplicate Code values in any
         # of the sheets
         error_incr = 0
-        for name, cfg in self.cfg.iteritems():
+        for name, cfg in six.iteritems(self.cfg):
             error_incr += cfg.checkCodesUnique(self)
         if error_incr > 0:
             return
@@ -1662,7 +1666,7 @@ class ProgramFile(QueueFile):
 
         # We have checked the targets, envcfg, inscfg, and telcfg
         # sheets, so process their input now.
-        for name, cfg in self.cfg.iteritems():
+        for name, cfg in six.iteritems(self.cfg):
             if name != 'proposal':
                 cfg.process_input()
 

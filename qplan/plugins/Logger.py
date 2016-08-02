@@ -6,7 +6,8 @@
 import logging
 
 from ginga.gw import Widgets
-import PlBase
+
+from qplan.plugins import PlBase
 
 class Logger(PlBase.Plugin):
 

@@ -11,15 +11,14 @@ Usage:
 from __future__ import print_function
 # stdlib imports
 import sys, os
-import StringIO
+from io import BytesIO
 
 # 3rd party imports
 from ginga.misc import log
 
 # Local imports
-import entity
-from Model import QueueModel
-#import SPCAM
+from . import entity
+from .Model import QueueModel
 
 version = '20150105.0'
 
@@ -130,7 +129,7 @@ def main(options, args):
     loader.update_model()
 
     # buffer for OPE output
-    out_f = StringIO.StringIO()
+    out_f = BytesIO()
 
     # write preamble
     converter.write_ope_header(out_f)

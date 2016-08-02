@@ -5,7 +5,7 @@
 #
 import time
 
-from q2ope import BaseConverter
+from ..q2ope import BaseConverter
 
 # the set of OPE friendly characters--for mangling target names
 ope_friendly_chars = []
@@ -333,7 +333,7 @@ QUEUE_MODE $DEF_CMNTOOL
 
         cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
         out(cmd_str)
-        
+
 
     def mangle_name(self, name):
         for char in str(name):
@@ -359,7 +359,7 @@ QUEUE_MODE $DEF_CMNTOOL
             return ag_exp_info[filter_name]
 
         return ag_exp_info['g']
-    
+
 '''
 ########################################################################
 # Commands for taking bias and dark.
