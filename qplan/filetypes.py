@@ -21,6 +21,7 @@ from ginga.misc import Bunch
 
 from . import entity
 from .cfg import HSC_cfg
+from qplan.util.site import site_subaru
 
 moon_states = {'dark': 0, 'gray': 1, 'dark+gray': 2, 'dark/gray': 2}
 moon_states_upper = [state.upper() for state in moon_states.keys()]
@@ -507,6 +508,11 @@ class ScheduleFile(QueueFile):
             except Exception as e:
                 raise ValueError("Error reading line %d of schedule: %s" % (
                     lineNum, str(e)))
+
+            # "date" column might be in "YYYY-MM-DD" or in "YYYY-MM-DD
+            # HH:MM:SS" format. Parse input value and convert to
+            # "YYYY-MM-DD" string.
+            rec.date = site_subaru.get_date(rec.date).strftime('%Y-%m-%d')
 
             filters = list(map(string.strip, rec.filters.lower().split(',')))
             instruments = list(map(string.strip,
