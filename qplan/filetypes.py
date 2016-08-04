@@ -523,6 +523,8 @@ class ScheduleFile(QueueFile):
             dome = rec.dome.lower()
 
             cur_filter = rec.get('cur_filter', None)
+            if cur_filter is not None:
+                cur_filter = cur_filter.lower()
             cur_az = rec.get('cur_az', None)
             if cur_az is not None:
                 cur_az = float(cur_az)
