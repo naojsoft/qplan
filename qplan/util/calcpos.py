@@ -489,9 +489,10 @@ class CalculationResult(object):
         self.site = observer.site
         self.body = body
         self.date = observer.date_to_local(date)
+        self.date_utc = observer.date_to_utc(self.date)
 
         # Can/should this calculation be postponed?
-        self.site.date = ephem.Date(observer.date_to_utc(self.date))
+        self.site.date = ephem.Date(self.date_utc)
         self.body.compute(self.site)
 
         self.lt = self.date
@@ -631,9 +632,9 @@ class CalculationResult(object):
 
     def calc_moon(self, site, body):
         """Compute Moon altitude"""
-        moon = ephem.Moon()
-        site.date = ephem.Date(self.date)
-        moon.compute(site)
+        site.date = ephem.Date(self.date_utc)
+        moon = ephem.Moon(site)
+        #moon.compute(site)
         moon_alt = math.degrees(float(moon.alt))
         # moon.phase is % of moon that is illuminated
         moon_pct = moon.moon_phase
