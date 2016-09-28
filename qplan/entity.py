@@ -283,7 +283,7 @@ class OB(PersistentEntity):
                  priority=1.0, name=None, derived=None, comment=''):
         super(OB, self).__init__()
         if id is None:
-            id = "ob%04d" % (OB.count)
+            id = "ob%d" % (OB.count)
             OB.count += 1
         self.id = id
 

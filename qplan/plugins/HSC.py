@@ -16,7 +16,7 @@ ope_friendly_chars.extend(list("0123456789_"))
 ope_friendly_chars = set(ope_friendly_chars)
 
 # the mapping of HSC filters
-filternames = dict(G="HSC-g", R="HSC-r", I="HSC-i2", Z="HSC-z", Y="HSC-Y")
+filternames = dict(G="HSC-g", R="HSC-r2", I="HSC-i2", Z="HSC-z", Y="HSC-Y")
 
 # appropriate combinations of (GOODMAG, AG_EXP) by filter are:
 ag_exp_info = {
@@ -132,10 +132,10 @@ QUEUE_MODE $DEF_CMNTOOL
 # These are here to copy in case you need to manually do a filterchange
 # or focusing
 #
-#FilterChange1 $DEF_TOOLS FILTER="g"
-#FilterChange2 $DEF_TOOLS FILTER="g" MIRROR=OPEN
+#FilterChange1 $DEF_TOOLS FILTER="HSC-g"
+#FilterChange2 $DEF_TOOLS FILTER="HSC-g" MIRROR=OPEN
 
-#FOCUSOBE $DEF_IMAGE $TARGETNAME INSROT_PA=0.0 DELTA_Z=0.05 DELTA_DEC=5 FILTER="g" EXPTIME=10 Z=3.75
+#FOCUSOBE $DEF_IMAGE $TARGETNAME INSROT_PA=0.0 DELTA_Z=0.05 DELTA_DEC=5 FILTER="HSC-g" EXPTIME=10 Z=3.75
 
 """
 

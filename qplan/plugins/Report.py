@@ -182,7 +182,7 @@ class Report(PlBase.Plugin):
             ndate, filters))
         out_f.write("Queue prepared at: %s\n" % (
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-        out_f.write("%-16.16s  %-6.6s  %-10.10s %12.12s  %5.5s %7.7s %-10.10s %-6.6s  %3.3s  %s\n" % (
+        out_f.write("%-16.16s  %-8.8s  %-10.10s %12.12s  %5.5s %7.7s %-10.10s %-6.6s  %3.3s  %s\n" % (
             'Date', 'ObsBlk', 'Code', 'Program', 'Rank', 'Time',
             'Target', 'Filter', 'AM', 'Comment'))
 
@@ -200,13 +200,13 @@ class Report(PlBase.Plugin):
                     key = (ob.target.ra, ob.target.dec)
                     targets[key] = ob.target
 
-                out_f.write("%-16.16s  %-6.6s  %-10.10s %12.12s  %5.2f %7.2f %-10.10s %-6.6s  %3.1f  %s\n" % (
+                out_f.write("%-16.16s  %-8.8s  %-10.10s %12.12s  %5.2f %7.2f %-10.10s %-6.6s  %3.1f  %s\n" % (
                     date, str(ob), ob.name, ob.program, ob.program.rank,
                     ob.total_time / 60, ob.target.name,
                     ob.inscfg.filter, ob.envcfg.airmass,
                     comment))
             else:
-                out_f.write("%-16.16s  %-6.6s\n" % (date, str(ob)))
+                out_f.write("%-16.16s  %-8.8s\n" % (date, str(ob)))
 
         out_f.write("\n")
         time_avail = (schedule.stop_time - schedule.start_time).total_seconds() / 60.0
