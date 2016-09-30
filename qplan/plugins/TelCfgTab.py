@@ -9,36 +9,12 @@ import PlBase
 import entity
 import QueueFileTab
 
-class TelCfgTab(QueueFileTab.QueueFileTab):
-
-    def __init__(self, model, view, controller, logger):
-        super(TelCfgTab, self).__init__(model, view, controller, logger)
-        # Register a callback function for when we want to show the
-        # TelCfgTab
-        self.model.add_callback('show-telcfg', self.populate_cb)
-        # Register a callback function for when the user updates the
-        # TelCfg. The callback will enable the "Save" item so that
-        # the user can save the TelCfg to the output file.
-        self.model.add_callback('telcfg-updated', self.enable_save_item)
+class TelCfgTab(QueueFileTab.QueueCfgFileTab):
 
     def build_table(self):
         super(TelCfgTab, self).build_table('TelCfgTab', 'TableModel')
         self.table_model.proposal = self.proposal
-
-    def setProposal(self, proposal):
-        self.proposal = proposal
-
-    def populate_cb(self, qmodel, proposal, inputData):
-        self.logger.debug('proposal %s inputData %s self.proposal %s' % (proposal, inputData, self.proposal))
-        if proposal == self.proposal:
-            super(TelCfgTab, self).populate_cb(qmodel, inputData)
-
-    def enable_save_item(self, qmodel, proposal):
-        # This method will be called when the user changes something
-        # in the table. Enable the "Save" item so that the user can
-        # save the updated data to the output file.
-        if proposal == self.proposal:
-            self.file_save_item.setEnabled(True)
+        self.table_model.telCfgTab = self
 
 class TableModel(QueueFileTab.TableModel):
 
@@ -66,6 +42,9 @@ class TableModel(QueueFileTab.TableModel):
             # Update the programs data structure in the QueueModel.
             self.qmodel.update_telcfg(self.proposal, row, colHeader, value,
                                       self.parse_flag)
+            # telcfg data has changed, so enable the File->Save menu
+            # item
+            self.telCfgTab.enable_save_item()
 
             # Emit the dataChanged signal, as required by PyQt4 for
             # implementations of the setData method.

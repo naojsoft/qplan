@@ -20,11 +20,17 @@ class ProposalTab(PlBase.Plugin):
         # the ProposalTab
         self.model.add_callback('show-proposal', self.build_gui)
         self.tabs = ['OB', 'Targets', 'Environment', 'Instrument', 'Telescope']
-        self.tabInfo = {'OB':          {'mod': 'OBListTab', 'obj': None},
-                        'Targets':     {'mod': 'TgtCfgTab', 'obj': None},
-                        'Environment': {'mod': 'EnvCfgTab', 'obj': None},
-                        'Instrument':  {'mod': 'InsCfgTab', 'obj': None},
-                        'Telescope':   {'mod': 'TelCfgTab', 'obj': None}}
+        self.tabInfo = {'OB':          {'mod': 'OBListTab', 'obj': None, 'inputDataDict': self.model.ob_qf_dict},
+                        'Targets':     {'mod': 'TgtCfgTab', 'obj': None, 'inputDataDict': self.model.tgtcfg_qf_dict},
+                        'Environment': {'mod': 'EnvCfgTab', 'obj': None, 'inputDataDict': self.model.envcfg_qf_dict},
+                        'Instrument':  {'mod': 'InsCfgTab', 'obj': None, 'inputDataDict': self.model.inscfg_qf_dict},
+                        'Telescope':   {'mod': 'TelCfgTab', 'obj': None, 'inputDataDict': self.model.telcfg_qf_dict}}
+
+        # From the QueueModel object, get the proposal number that we
+        # need to display. That value was set by the
+        # ProgramsTab.doubleClicked method when the user selected the
+        # proposal they wanted to display.
+        self.proposal = self.model.proposalForPropTab
 
     def build_gui(self, container):
 
@@ -42,11 +48,22 @@ class ProposalTab(PlBase.Plugin):
 
             widget = Widgets.VBox()
             self.tabInfo[name]['obj'].build_gui(widget)
+            self.tabInfo[name]['obj'].setProposal(self.proposal)
             self.tabWidget.add_widget(widget, title=name)
+            self.tabInfo[name]['obj'].populate_cb(self.model, self.tabInfo[name]['inputDataDict'][self.proposal])
 
         container.add_widget(self.tabWidget)
 
-    def setProposal(self, proposal):
-        self.proposal = proposal
-        for name, d in self.tabInfo.iteritems():
-            d['obj'].setProposal(proposal)
+        # Create a "Close" button so the user can easily close the
+        # ProposalTab
+        hbox = Widgets.HBox()
+        closeTabButton = Widgets.Button('Close %s' % self.proposal)
+        closeTabButton.add_callback('activated', self.close_tab_cb)
+        closeTabButton.set_tooltip("Close proposal %s tab" % self.proposal)
+        hbox.add_widget(closeTabButton, stretch=1)
+
+        container.add_widget(hbox)
+
+    def close_tab_cb(self, widget):
+        self.logger.info('Closing tab for proposal %s' % self.proposal)
+        self.view.close_plugin(self.proposal)

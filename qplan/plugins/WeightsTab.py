@@ -20,7 +20,7 @@ class WeightsTab(QueueFileTab.QueueFileTab):
         # Register a callback function for when the user updates the
         # weights. The callback will enable the "Save" item so that
         # the user can save the weights to the output file.
-        self.model.add_callback('weights-updated', self.enable_save_item)
+        self.model.add_callback('weights-updated', self.enable_save_item_cb)
 
     def build_table(self):
         super(WeightsTab, self).build_table('WeightsTab', 'TableModel')

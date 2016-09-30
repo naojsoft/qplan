@@ -18,7 +18,7 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         # Register a callback function for when the user updates the
         # Programs. The callback will enable the "Save" item so that
         # the user can save the programs to the output file.
-        self.model.add_callback('programs-updated', self.enable_save_item)
+        self.model.add_callback('programs-updated', self.enable_save_item_cb)
 
     def build_gui(self, container):
         super(ProgramsTab, self).build_gui(container)
@@ -36,14 +36,27 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         if self.columnNames[col].lower() == 'proposal':
             proposal = self.dataForTableModel[row][col]
             if proposal in self.model.ob_qf_dict:
-                if proposal not in self.view.plugins:
-                    self.view.load_plugin(proposal, 'ProposalTab', 'ProposalTab', 'report', proposal)
-
-                obListTab = self.view.plugins[proposal].obj
-                obListTab.setProposal(proposal)
-                self.model.show_proposal(proposal, obListTab)
+                # Set the QueueModel.proposalForPropTab attribute so
+                # that the ProposalTab object can get that value and
+                # know which proposal it should display.
+                self.model.setProposalForPropTab(proposal)
+                self.view.gui_do(self.createTab)
             else:
              self.logger.info('No info loaded for proposal %s' % proposal)               
+
+    def createTab(self):
+        # If we have already created (and possibly closed) this
+        # proposal tab before, just reload it. Otherwise, we have to
+        # create it from scratch.
+        proposal = self.model.proposalForPropTab
+        self.logger.info('Creating tab for proposal %s' % proposal)
+        if proposal in self.view.plugins:
+            self.view.reload_plugin(proposal)
+        else:
+            self.view.load_plugin(proposal, 'ProposalTab', 'ProposalTab', 'report', proposal)
+
+        # Raise the tab we just created
+        self.view.ds.raise_tab(proposal)
 
 class TableModel(QueueFileTab.TableModel):
 

@@ -19,7 +19,7 @@ class ScheduleTab(QueueFileTab.QueueFileTab):
         # Register a callback function for when the user updates the
         # Schedule. The callback will enable the "Save" item so that
         # the user can save the schedule to the output file.
-        self.model.add_callback('schedule-updated', self.enable_save_item)
+        self.model.add_callback('schedule-updated', self.enable_save_item_cb)
 
     def build_table(self):
         super(ScheduleTab, self).build_table('ScheduleTab', 'TableModel')

@@ -37,12 +37,8 @@ class QueueModel(Callback.Callbacks):
         # For callbacks
         for name in ('schedule-selected',
                      'programs-file-loaded', 'schedule-file-loaded',
-                     'weights-file-loaded',
-                     'show-oblist', 'show-tgtcfg', 'show-envcfg', 'show-inscfg',
-                     'show-telcfg', 'programs-updated',
-                     'schedule-updated', 'oblist-updated',
-                     'tgtcfg-updated', 'envcfg-updated', 'inscfg-updated',
-                     'telcfg-updated', 'weights-updated', 'show-proposal'):
+                     'weights-file-loaded', 'programs-updated',
+                     'schedule-updated', 'weights-updated', 'show-proposal'):
             self.enable_callback(name)
 
     def get_scheduler(self):
@@ -82,49 +78,28 @@ class QueueModel(Callback.Callbacks):
     def set_ob_qf_dict(self, obdict):
         self.ob_qf_dict = obdict
 
-    def update_ob_qf_dict(self, proposal):
-        filepath = self.ob_qf_dict[proposal].filepath
-        self.ob_qf_dict[proposal] = filetypes.OBListFile(filepath,
-                                                         self.logger,
-                                                         proposal,
-                                                         self.programs_qf.programs_info,
-                                                         self.telcfg_qf_dict[proposal].tel_cfgs,
-                                                         self.tgtcfg_qf_dict[proposal].tgt_cfgs,
-                                                         self.inscfg_qf_dict[proposal].ins_cfgs,
-                                                         self.envcfg_qf_dict[proposal].env_cfgs)
-
     def update_oblist(self, proposal, row, colHeader, value, parse_flag):
         self.ob_qf_dict[proposal].update(row, colHeader, value, parse_flag)
-        self.make_callback('oblist-updated', proposal)
 
     def update_tgtcfg(self, proposal, row, colHeader, value, parse_flag):
         self.tgtcfg_qf_dict[proposal].update(row, colHeader, value, parse_flag)
-        self.update_ob_qf_dict(proposal)
-        self.make_callback('tgtcfg-updated', proposal)
 
     def update_envcfg(self, proposal, row, colHeader, value, parse_flag):
         self.envcfg_qf_dict[proposal].update(row, colHeader, value, parse_flag)
-        self.update_ob_qf_dict(proposal)
-        self.make_callback('envcfg-updated', proposal)
 
     def update_inscfg(self, proposal, row, colHeader, value, parse_flag):
         self.inscfg_qf_dict[proposal].update(row, colHeader, value, parse_flag)
-        filepath = self.ob_qf_dict[proposal].filepath
-        self.update_ob_qf_dict(proposal)
-        self.make_callback('inscfg-updated', proposal)
 
     def update_telcfg(self, proposal, row, colHeader, value, parse_flag):
         self.telcfg_qf_dict[proposal].update(row, colHeader, value, parse_flag)
-        self.update_ob_qf_dict(proposal)
-        self.make_callback('telcfg-updated', proposal)
 
-    def show_proposal(self, req_proposal, obListTab):
-        self.logger.debug('req_proposal %s OBListFile %s ' % (req_proposal, self.ob_qf_dict[req_proposal]))
-        self.make_callback('show-oblist', req_proposal, self.ob_qf_dict[req_proposal])
-        self.make_callback('show-tgtcfg', req_proposal, self.tgtcfg_qf_dict[req_proposal])
-        self.make_callback('show-envcfg', req_proposal, self.envcfg_qf_dict[req_proposal])
-        self.make_callback('show-inscfg', req_proposal, self.inscfg_qf_dict[req_proposal])
-        self.make_callback('show-telcfg', req_proposal, self.telcfg_qf_dict[req_proposal])
+    def setProposalForPropTab(self, proposal):
+        # This method is called by the ProgramsTab.doubleClicked
+        # method. That method loads a ProposalTab widget for the
+        # proposal on which the user double-clicked. This method sets
+        # the proposalForTab attribute so that the PropsalTab can
+        # figure out which proposal it is suposed to display.
+        self.proposalForPropTab = proposal
 
     def set_schedule_qf(self, schedule_qf):
         # This method gets called when a Schedule is loaded from an

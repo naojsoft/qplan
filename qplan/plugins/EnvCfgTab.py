@@ -9,36 +9,12 @@ import PlBase
 import entity
 import QueueFileTab
 
-class EnvCfgTab(QueueFileTab.QueueFileTab):
-
-    def __init__(self, model, view, controller, logger):
-        super(EnvCfgTab, self).__init__(model, view, controller, logger)
-        # Register a callback function for when we want to show the
-        # EnvCfgTab
-        self.model.add_callback('show-envcfg', self.populate_cb)
-        # Register a callback function for when the user updates the
-        # EnvCfg. The callback will enable the "Save" item so that
-        # the user can save the EnvCfg to the output file.
-        self.model.add_callback('envcfg-updated', self.enable_save_item)
+class EnvCfgTab(QueueFileTab.QueueCfgFileTab):
 
     def build_table(self):
         super(EnvCfgTab, self).build_table('EnvCfgTab', 'TableModel')
         self.table_model.proposal = self.proposal
-
-    def setProposal(self, proposal):
-        self.proposal = proposal
-
-    def populate_cb(self, qmodel, proposal, inputData):
-        self.logger.debug('proposal %s inputData %s self.proposal %s' % (proposal, inputData, self.proposal))
-        if proposal == self.proposal:
-            super(EnvCfgTab, self).populate_cb(qmodel, inputData)
-
-    def enable_save_item(self, qmodel, proposal):
-        # This method will be called when the user changes something
-        # in the table. Enable the "Save" item so that the user can
-        # save the updated data to the output file.
-        if proposal == self.proposal:
-            self.file_save_item.setEnabled(True)
+        self.table_model.envCfgTab = self
 
 class TableModel(QueueFileTab.TableModel):
 
@@ -63,9 +39,12 @@ class TableModel(QueueFileTab.TableModel):
                 row, col, value))
             self.model_data[row][col] = value
 
-            # Update the programs data structure in the QueueModel.
+            # Update the envcfg data structure in the QueueModel.
             self.qmodel.update_envcfg(self.proposal, row, colHeader, value,
                                       self.parse_flag)
+            # envcfg data has changed, so enable the File->Save menu
+            # item
+            self.envCfgTab.enable_save_item()
 
             # Emit the dataChanged signal, as required by PyQt4 for
             # implementations of the setData method.

@@ -1685,7 +1685,7 @@ class ProgramFile(QueueFile):
                                     self.cfg['targets'].tgt_cfgs,
                                     self.cfg['inscfg'].ins_cfgs,
                                     self.cfg['envcfg'].env_cfgs,
-                                    file_ext=file_ext)
+                                    file_ext=self.file_ext)
 
         # Now, either get the "ob" sheet data or read in the ob file.
         if self.is_excel_file():
