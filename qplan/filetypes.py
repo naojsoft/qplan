@@ -1137,7 +1137,7 @@ class InsCfgFile(QueueFile):
         self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')".upper()
         self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')".upper()
 
-        self.HSC_modes = "('imaging',)".upper()
+        self.HSC_modes = "('imaging', 'dark')".upper()
         self.FOCAS_modes = "('imaging', 'spectroscopy')".upper()
         self.SPCAM_modes = "('imaging',)".upper()
 
