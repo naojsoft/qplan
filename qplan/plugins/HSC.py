@@ -22,11 +22,14 @@ filternames = dict(G="HSC-g", R="HSC-r2", I="HSC-i2", Z="HSC-z", Y="HSC-Y")
 ag_exp_info = {
     'g': dict(goodmag=13.5, ag_exp=0.2),
     'i': dict(goodmag=14.0, ag_exp=0.2),
+    'i2': dict(goodmag=14.0, ag_exp=0.2),
     'y': dict(goodmag=14.0, ag_exp=0.3),
     'r': dict(goodmag=14.5, ag_exp=0.2),
+    'r2': dict(goodmag=14.5, ag_exp=0.2),
     'z': dict(goodmag=13.0, ag_exp=0.3),
     'nb515': dict(goodmag=12.5, ag_exp=0.5),
     'nb921': dict(goodmag=12.5, ag_exp=0.5),
+    'nb387': dict(goodmag=11.0, ag_exp=10.0),
     }
 
 class Converter(BaseConverter):
@@ -127,7 +130,9 @@ Z=7.00
 
 :command
 
-QUEUE_MODE $DEF_CMNTOOL
+# *** PLEASE USE DOUBLE QUOTES("") FOR THE OBSERVER PARAMETER ***
+#
+QUEUE_MODE $DEF_CMNTOOL OBSERVER=
 
 # These are here to copy in case you need to manually do a filterchange
 # or focusing
@@ -285,6 +290,10 @@ QUEUE_MODE $DEF_CMNTOOL
 
         d = {}
         self._setup_target(d, ob)
+
+        cmd_str = '''#FOCUSOBE $DEF_IMAGE %(tgtstr)s INSROT_PA=%(pa).2f DELTA_Z=0.05 DELTA_DEC=5 FILTER="%(filter)s" EXPTIME=10 Z=3.75''' % d
+        out(cmd_str)
+        out("\n")
 
         if ob.inscfg.dither == '1':
             if ob.inscfg.guiding:
