@@ -2,10 +2,11 @@
 # ProgramsTab.py -- Plugin to display/edit the programs in a table GUI
 #
 
-from PyQt4 import QtGui, QtCore
-import PlBase
+from qtpy import QtCore
+from qtpy import QtWidgets as QtGui
 
-import QueueFileTab
+from qplan.plugins import PlBase
+from qplan.plugins import QueueFileTab
 
 class ProgramsTab(QueueFileTab.QueueFileTab):
 
@@ -42,7 +43,7 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
                 self.model.setProposalForPropTab(proposal)
                 self.view.gui_do(self.createTab)
             else:
-             self.logger.info('No info loaded for proposal %s' % proposal)               
+             self.logger.info('No info loaded for proposal %s' % proposal)
 
     def createTab(self):
         # If we have already created (and possibly closed) this

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import math
 from datetime import datetime
 
@@ -5,6 +6,8 @@ import matplotlib as mpl
 from matplotlib import rc
 
 from ginga.util import plots
+from six.moves import map
+from six.moves import zip
 
 class AZELPlot(plots.Plot):
 
@@ -59,11 +62,11 @@ class AZELPlot(plots.Plot):
 
         # Redefine yticks and labels
         #alts = [0, 15, 60, 70, 90]
-        alts = range(0, 90, self.alt_inc_deg)
+        alts = list(range(0, 90, self.alt_inc_deg))
         ax.set_yticks(alts)
         #alts_r = list(alts)
         #alts_r.reverse()
-        alts_r = range(90, 0, -self.alt_inc_deg)
+        alts_r = list(range(90, 0, -self.alt_inc_deg))
         ax.set_yticklabels(map(str, alts_r))
         # maximum altitude of 90.0
         ax.set_rmax(90.0)
@@ -114,7 +117,7 @@ class AZELPlot(plots.Plot):
         try:
             info = target.calc(observer, time_start)
         except Exception as e:
-            print str(e)
+            print(str(e))
         #print(info)
         az, alt = self.map_azalt(info.az_deg, info.alt_deg)
         self.ax.plot([az], [alt], 'o', color=color)

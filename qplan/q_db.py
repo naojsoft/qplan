@@ -37,13 +37,13 @@ class QueueDatabase(object):
         for name in ['program', 'ob', 'executed_ob', 'exposure',
                      'saved_state']:
             key = '%s_db' % name
-            if not self.dbroot.has_key(key):
+            if key not in self.dbroot:
                 tbl = OOBTree()
                 self.dbroot[key] = tbl
 
                 transaction.commit()
 
-        if not self.dbroot.has_key('queue_mgmt'):
+        if 'queue_mgmt' not in self.dbroot:
             self.dbroot['queue_mgmt'] = QueueMgmtRec()
             transaction.commit()
 

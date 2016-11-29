@@ -5,7 +5,8 @@
 #
 
 from ginga.gw import Widgets
-from PyQt4 import QtGui, QtCore
+from qtpy import QtCore
+from qtpy import QtWidgets as QtGui
 
 from qplan.plugins import PlBase
 
@@ -56,7 +57,7 @@ class Schedule(PlBase.Plugin):
         table = self.table
         model = ScheduleTableModel(columns, schedules)
         table.setModel(model)
-        selectionModel = QtGui.QItemSelectionModel(model, table)
+        selectionModel = QtCore.QItemSelectionModel(model, table)
         table.setSelectionModel(selectionModel)
         selectionModel.currentRowChanged.connect(self.select_row_cb)
         #model.layoutChanged.connect(self.sort_cb)

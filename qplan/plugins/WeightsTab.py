@@ -3,11 +3,11 @@
 #
 
 import datetime
-from PyQt4 import QtGui, QtCore
 
-import PlBase
-
-import QueueFileTab
+from qtpy import QtCore
+from qtpy import QtWidgets as QtGui
+from qplan.plugins import PlBase
+from qplan.plugins import QueueFileTab
 
 class WeightsTab(QueueFileTab.QueueFileTab):
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import unittest
 from datetime import timedelta
 import math
@@ -168,5 +169,5 @@ class TestEntity01(unittest.TestCase):
 
 if __name__ == "__main__":
 
-    print '\n>>>>> Starting test_misc <<<<<\n'
+    print('\n>>>>> Starting test_misc <<<<<\n')
     unittest.main()

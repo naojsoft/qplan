@@ -151,23 +151,29 @@ class ControlPanel(PlBase.Plugin):
 
         try:
             # read weights
-            self.weights_qf = filetypes.WeightsFile(self.input_dir, self.logger, file_ext=self.input_fmt)
+            self.weights_qf = filetypes.WeightsFile(self.input_dir, self.logger,
+                                                    file_ext=self.input_fmt)
             # Load "Weights" Tab
             if 'weightstab' not in self.view.plugins:
-                self.view.load_plugin('weightstab', 'WeightsTab', 'WeightsTab', 'report', 'Weights')
+                self.view.load_plugin('weightstab', 'WeightsTab', 'WeightsTab',
+                                      'report', 'Weights')
             self.model.set_weights_qf(self.weights_qf)
 
             # read schedule
-            self.schedule_qf = filetypes.ScheduleFile(self.input_dir, self.logger, file_ext=self.input_fmt)
+            self.schedule_qf = filetypes.ScheduleFile(self.input_dir, self.logger,
+                                                      file_ext=self.input_fmt)
             # Load "Schedule" Tab
             if 'scheduletab' not in self.view.plugins:
-                self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab', 'report', 'Schedule')
+                self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab',
+                                      'report', 'Schedule')
             self.model.set_schedule_qf(self.schedule_qf)
 
             # read proposals
-            self.programs_qf = filetypes.ProgramsFile(self.input_dir, self.logger, file_ext=self.input_fmt)
+            self.programs_qf = filetypes.ProgramsFile(self.input_dir, self.logger,
+                                                      file_ext=self.input_fmt)
             if 'programstab' not in self.view.plugins:
-                self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab', 'report', 'Programs')
+                self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab',
+                                      'report', 'Programs')
             self.model.set_programs_qf(self.programs_qf)
 
             # read observing blocks
@@ -182,7 +188,9 @@ class ControlPanel(PlBase.Plugin):
             propnames.sort()
 
             for propname in propnames:
-                pf = filetypes.ProgramFile(self.input_dir, self.logger, propname, self.programs_qf.programs_info, file_ext=self.input_fmt)
+                pf = filetypes.ProgramFile(self.input_dir, self.logger, propname,
+                                           self.programs_qf.programs_info,
+                                           file_ext=self.input_fmt)
 
                 # Set telcfg
                 telcfg_qf = pf.cfg['telcfg']

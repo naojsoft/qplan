@@ -9,7 +9,8 @@ import time
 from datetime import timedelta
 import pytz
 import numpy
-from io import BytesIO
+import functools
+from io import StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
@@ -19,6 +20,9 @@ from . import misc
 from . import entity
 from . import common
 from . import qsim
+from six.moves import filter
+from six.moves import map
+from six.moves import zip
 
 # maximum rank for a program
 max_rank = 10.0
@@ -56,6 +60,8 @@ class Scheduler(Callback.Callbacks):
         self.weights = Bunch.Bunch(w_rank=0.3, w_delay=0.2,
                                    w_slew=0.2, w_priority=0.1,
                                    w_filterchange = 0.3)
+
+        self._sort_key = functools.cmp_to_key(self.cmp_res)
 
         # For callbacks
         for name in ('schedule-cleared', 'schedule-added', 'schedule-completed',):
@@ -130,14 +136,14 @@ class Scheduler(Callback.Callbacks):
 
         # evaluate each OB against this slot
         results = map(lambda ob: qsim.check_slot(site, prev_slot, slot, ob),
-                      oblist)
+                           oblist)
 
         # filter out unobservable OBs
-        good = filter(lambda res: res.obs_ok, results)
-        bad = filter(lambda res: not res.obs_ok, results)
+        good = list(filter(lambda res: res.obs_ok, results))
+        bad = list(filter(lambda res: not res.obs_ok, results))
 
         # sort according to desired criteria
-        good.sort(cmp=self.cmp_res)
+        good.sort(key=self._sort_key)
 
         return good, bad
 
@@ -412,8 +418,9 @@ class Scheduler(Callback.Callbacks):
             ## this_nights_obs = unscheduled_obs
             # sort to force deterministic scheduling if the same
             # files are reloaded
-            this_nights_obs = sorted(unscheduled_obs,
-                                     cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2)))
+            this_nights_obs = sorted(unscheduled_obs, key=str
+                                     #cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2))
+                                     )
 
             # optomize and rank schedules
             self.fill_night_schedule(schedule, site, this_nights_obs, props)
@@ -445,7 +452,7 @@ class Scheduler(Callback.Callbacks):
         self.logger.info("%.2f sec to schedule all" % (t_elapsed))
 
         # print a summary
-        out_f = BytesIO()
+        out_f = StringIO()
         num_obs = len(oblist)
         pct = 0.0
         if num_obs > 0:

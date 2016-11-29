@@ -17,6 +17,8 @@ from matplotlib.ticker import FormatStrFormatter
 
 from ginga.misc import Bunch
 from ginga.util import plots
+from six.moves import map
+from six.moves import zip
 
 class AirMassPlot(plots.Plot):
 
@@ -61,15 +63,15 @@ class AirMassPlot(plots.Plot):
         majorTick = mpl_dt.HourLocator(tz=tz)
         majorFmt = mpl_dt.DateFormatter('%Hh')
         # set minor ticks to 15 min intervals
-        minorTick = mpl_dt.MinuteLocator(range(0,59,15), tz=tz)
+        minorTick = mpl_dt.MinuteLocator(list(range(0,59,15)), tz=tz)
 
         figure.clf()
         ax1 = figure.add_subplot(111)
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = map(lambda info: info.ut.astimezone(tz),
-                      tgt_data[0].history)
+        lt_data = list(map(lambda info: info.ut.astimezone(tz),
+                      tgt_data[0].history))
         # sanity check on dates in preferred timezone
         ## for dt in lt_data[:10]:
         ##     print(dt.strftime("%Y-%m-%d %H:%M:%S"))
@@ -160,15 +162,15 @@ class AirMassPlot(plots.Plot):
         majorTick = mpl_dt.HourLocator(tz=tz)
         majorFmt = mpl_dt.DateFormatter('%Hh')
         # set minor ticks to 15 min intervals
-        minorTick = mpl_dt.MinuteLocator(range(0,59,15), tz=tz)
+        minorTick = mpl_dt.MinuteLocator(list(range(0,59,15)), tz=tz)
 
         figure.clf()
         ax1 = figure.add_subplot(111)
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = map(lambda info: info.ut.astimezone(tz),
-                      tgt_data[0].history)
+        lt_data = list(map(lambda info: info.ut.astimezone(tz),
+                      tgt_data[0].history))
         # sanity check on dates in preferred timezone
         ## for dt in lt_data[:10]:
         ##     print(dt.strftime("%Y-%m-%d %H:%M:%S"))

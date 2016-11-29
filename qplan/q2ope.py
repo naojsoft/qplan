@@ -11,7 +11,7 @@ Usage:
 from __future__ import print_function
 # stdlib imports
 import sys, os
-from io import BytesIO
+from io import StringIO
 
 # 3rd party imports
 from ginga.misc import log
@@ -129,7 +129,7 @@ def main(options, args):
     loader.update_model()
 
     # buffer for OPE output
-    out_f = BytesIO()
+    out_f = StringIO()
 
     # write preamble
     converter.write_ope_header(out_f)

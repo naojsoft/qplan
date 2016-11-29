@@ -4,11 +4,12 @@
 #  Eric Jeschke (eric@naoj.org)
 #
 from datetime import timedelta, datetime
-import string
 import math
 
 # 3rd party imports
 import numpy as np
+from six.moves import map
+from six.moves import zip
 
 # ZOPE imports
 try:
@@ -56,7 +57,7 @@ class Program(PersistentEntity):
         self.grade = grade
         self.partner = partner
         self.category = category.lower()
-        self.instruments = map(string.upper, instruments)
+        self.instruments = list(map(str.upper, instruments))
         self.total_time = hours * 3600.0
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
@@ -192,7 +193,7 @@ class Schedule(object):
 
         # TODO: in the typical insertion case, would the search
         # be faster from the rear?
-        for i in xrange(len(self.slots)):
+        for i in range(len(self.slots)):
             slot_i = self.slots[i]
             if slot_i.start_time > slot.start_time:
                 if i == 0:
@@ -206,7 +207,7 @@ class Schedule(object):
         return slot_i
 
     def _next(self, slot):
-        for i in xrange(len(self.slots)):
+        for i in range(len(self.slots)):
             slot_i = self.slots[i]
             if slot_i.start_time > slot.start_time:
                 return i, slot_i

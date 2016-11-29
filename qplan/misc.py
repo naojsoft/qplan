@@ -10,7 +10,7 @@ import math
 #from astro import radec
 
 # local imports
-import entity
+from . import entity
 
 # def get_body_SOSS(name, ra_funky, dec_funky, equinox=2000):
 #     ra_deg = radec.funkyHMStoDeg(ra_funky)

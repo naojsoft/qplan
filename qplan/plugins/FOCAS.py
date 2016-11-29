@@ -7,6 +7,8 @@ import time
 
 from ginga import trcalc
 from q2ope import BaseConverter
+from six.moves import map
+from six.moves import zip
 
 
 class Converter(BaseConverter):
@@ -113,7 +115,7 @@ OBSERVATION_FILE_TYPE=OPE
             d = {}
             self._setup_target(d, ob)
             cmd_str = 'GetDomeflat $DEF_IMAG $DEF_DOMEFLAT $MASK_NONE $FILTER_%(filter)s $CCD_%(binning)s ExpTime=7 VOLT=20' % d
-            for i in xrange(ob.inscfg.num_exp):
+            for i in range(ob.inscfg.num_exp):
                 out(cmd_str)
             return
 
@@ -122,7 +124,7 @@ OBSERVATION_FILE_TYPE=OPE
             d = {}
             self._setup_target(d, ob)
             cmd_str = 'GetBias $DEF_IMAG $CCD_%(binning)s OBJECT=BIAS' % d
-            for i in xrange(ob.inscfg.num_exp):
+            for i in range(ob.inscfg.num_exp):
                 out(cmd_str)
             return
 
@@ -163,7 +165,7 @@ OBSERVATION_FILE_TYPE=OPE
             cmd_str = 'GetObject $DEF_IMAG $MASK_%(mask)s %(tgtstr)s $CCD_%(binning)s EXPTIME=%(exptime)d' % d
             out(cmd_str)
         else:
-            for i in xrange(5):
+            for i in range(5):
                 out("# Dither point %d" % (i+1))
                 cmd_str = 'GetObject $DEF_IMAG $MASK_%(mask)s %(tgtstr)s $CCD_%(binning)s EXPTIME=%(exptime)d' % d
                 out(cmd_str)

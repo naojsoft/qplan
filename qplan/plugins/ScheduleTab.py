@@ -3,10 +3,11 @@
 #
 
 import datetime
-from PyQt4 import QtGui, QtCore
-import PlBase
+from qtpy import QtCore
+from qtpy import QtWidgets as QtGui
 
-import QueueFileTab
+from qplan.plugins import PlBase
+from qplan.plugins import QueueFileTab
 
 class ScheduleTab(QueueFileTab.QueueFileTab):
 

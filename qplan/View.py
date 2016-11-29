@@ -5,6 +5,8 @@ import traceback
 
 from ginga.gw import GwHelp, GwMain, Widgets, Desktop
 from ginga.misc import Bunch
+from six.moves import map
+from six.moves import zip
 
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
 icon_path = os.path.abspath(os.path.join(moduleHome, '..', 'icons'))
@@ -127,12 +129,12 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
         if dim != None:
             # user specified dimensions
-            dim = map(int, dim.split('x'))
+            dim = list(map(int, dim.split('x')))
             self.set_size(*dim)
 
         if len(coords) > 0:
             # user specified position
-            coords = map(int, coords)
+            coords = list(map(int, coords))
             self.set_pos(*coords)
 
     def load_plugin(self, pluginName, moduleName, className, wsName, tabName):
@@ -173,7 +175,7 @@ class Viewer(GwMain.GwMain, Widgets.Application):
             # Start the plugin
             pluginObj.start()
 
-        except Exception, e:
+        except Exception as e:
             errstr = "Plugin '%s' failed to initialize: %s" % (
                 className, str(e))
             self.logger.error(errstr)
@@ -182,7 +184,7 @@ class Viewer(GwMain.GwMain, Widgets.Application):
                 tb_str = "\n".join(traceback.format_tb(tb))
                 self.logger.error("Traceback:\n%s" % (tb_str))
 
-            except Exception, e:
+            except Exception as e:
                 tb_str = "Traceback information unavailable."
                 self.logger.error(tb_str)
 

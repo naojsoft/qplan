@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # calcpos.py -- module for wrapping astronomical ephemeris calculations
 #
@@ -227,8 +228,8 @@ class Observer(object):
             diff = time_rise - time_start_utc
             ## raise AssertionError("time rise (%s) < time start (%s)" % (
             ##         time_rise, time_start))
-            print ("WARNING: time rise (%s) < time start (%s)" % (
-                    time_rise, time_start))
+            print(("WARNING: time rise (%s) < time start (%s)" % (
+                    time_rise, time_start)))
             time_rise = time_start_utc
 
         # last observable time is setting or end of period,

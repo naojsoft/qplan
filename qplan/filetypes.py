@@ -8,8 +8,7 @@ import os
 import pandas as pd
 import numpy as np
 import csv
-import string
-from io import BytesIO
+from io import BytesIO, StringIO
 import datetime
 import re
 
@@ -106,7 +105,7 @@ class QueueFile(object):
                     except (KeyError, AttributeError):
                         excel_converters = None
                     self.df[name] = datasrc.parse(name, converters=excel_converters)
-                    self.stringio[name] = BytesIO()
+                    self.stringio[name] = StringIO()
                     self.df[name].to_csv(self.stringio[name], index=False)
                     self.stringio[name].seek(0)
         else:
@@ -473,7 +472,7 @@ class ScheduleFile(QueueFile):
         if self.file_ext == 'csv':
             self.read_csv_file()
         elif self.is_excel_file():
-            with open(self.filepath, 'r') as excel_file:
+            with open(self.filepath, 'rb') as excel_file:
                 self.file_obj = BytesIO(excel_file.read())
             self.read_excel_file()
         else:
@@ -514,8 +513,8 @@ class ScheduleFile(QueueFile):
             # "YYYY-MM-DD" string.
             rec.date = site_subaru.get_date(rec.date).strftime('%Y-%m-%d')
 
-            filters = list(map(string.strip, rec.filters.lower().split(',')))
-            instruments = list(map(string.strip,
+            filters = list(map(lambda s: s.strip(), rec.filters.lower().split(',')))
+            instruments = list(map(lambda s: s.strip(),
                                    rec.instruments.upper().split(',')))
             seeing = float(rec.seeing)
             categories = rec.categories.replace(' ', '').lower().split(',')
@@ -575,7 +574,7 @@ class ProgramsFile(QueueFile):
         if self.file_ext == 'csv':
             self.read_csv_file()
         elif self.is_excel_file():
-            with open(self.filepath, 'r') as excel_file:
+            with open(self.filepath, 'rb') as excel_file:
                 self.file_obj = BytesIO(excel_file.read())
             self.read_excel_file()
         else:
@@ -652,7 +651,7 @@ class WeightsFile(QueueFile):
         if self.file_ext == 'csv':
             self.read_csv_file()
         elif self.is_excel_file():
-            with open(self.filepath, 'r') as excel_file:
+            with open(self.filepath, 'rb') as excel_file:
                 self.file_obj = BytesIO(excel_file.read())
             self.read_excel_file()
         else:
@@ -1201,10 +1200,10 @@ class InsCfgFile(QueueFile):
         self.max_onsource_time_hrs = 2.0 # hours
         super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
         self.excel_converters = {
-            'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, str) or isinstance(x, unicode) else int(x),
+            'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, six.text_type) else int(x),
             'Dither':     lambda x: '' if pd.isnull(x) else str(x),
-            'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, str) or isinstance(x, unicode) else int(x),
-            'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, str) or isinstance(x, unicode) else int(x)}
+            'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, six.text_type) else int(x),
+            'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, six.text_type) else int(x)}
 
         self.semester = None
 
@@ -1602,7 +1601,7 @@ class ProgramFile(QueueFile):
             else:
                 # If we didn't get a file object, read from the
                 # filepath and create a BytesIO object from the file.
-                with open(self.filepath, 'r') as excel_file:
+                with open(self.filepath, 'rb') as excel_file:
                     self.file_obj = BytesIO(excel_file.read())
 
             for name, cfg in six.iteritems(self.cfg):

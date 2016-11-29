@@ -3,7 +3,7 @@
 #                   configuration files related to a proposal
 #
 
-import PlBase
+from . import PlBase
 
 import entity
 from ginga.misc import ModuleManager

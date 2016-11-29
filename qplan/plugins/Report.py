@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Report.py -- Report plugin
 #
@@ -6,7 +7,7 @@
 import time
 import os
 import re
-from io import BytesIO
+from io import StringIO
 from datetime import timedelta
 
 from ginga.gw import Widgets
@@ -116,7 +117,7 @@ class Report(PlBase.Plugin):
             converter = HSC.Converter(self.logger)
 
             # buffer for OPE output
-            out_f = BytesIO()
+            out_f = StringIO()
 
             # write preamble
             converter.write_ope_header(out_f, targets)
@@ -177,7 +178,7 @@ class Report(PlBase.Plugin):
         ndate = t.strftime("%Y-%m-%d")
         filters = ', '.join(schedule.data.filters)
 
-        out_f = BytesIO()
+        out_f = StringIO()
         out_f.write("--- NIGHT OF %s --- filters: %s\n" % (
             ndate, filters))
         out_f.write("Queue prepared at: %s\n" % (
@@ -236,7 +237,7 @@ class Report(PlBase.Plugin):
             ob = slot.ob
             if (ob is not None) and (ob.id == obkey):
                 return ob
-        print("%s not found!" % obkey)
+        print(("%s not found!" % obkey))
         raise KeyError(obkey)
 
     def _get_selected_obs(self):

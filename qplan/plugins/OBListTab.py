@@ -3,11 +3,12 @@
 #
 
 import datetime
-from PyQt4 import QtGui, QtCore
-import PlBase
+from qtpy import QtCore
+from qtpy import QtWidgets as QtGui
+from . import PlBase
 
 import entity
-import QueueFileTab
+from . import QueueFileTab
 
 class OBListTab(QueueFileTab.QueueCfgFileTab):
 

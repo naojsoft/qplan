@@ -11,7 +11,7 @@ from ginga.qtw import QtHelp
 # Gen2
 #import remoteObjects as ro
 
-import Report
+from . import Report
 
 
 class Execute(Report.Report):

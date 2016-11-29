@@ -3,11 +3,13 @@
 # Schedule, Program, and Observation Block files.
 #
 
-from PyQt4 import QtGui, QtCore
-from ginga.gw import Widgets
-import PlBase
+from qtpy import QtCore
+from qtpy import QtWidgets as QtGui
 
-from Schedule import GenericTableModel
+from ginga.gw import Widgets
+from . import PlBase
+
+from qplan.plugins.Schedule import GenericTableModel
 
 class QueueFileTab(PlBase.Plugin):
 
