@@ -1244,12 +1244,12 @@ class InsCfgFile(QueueFile):
                 # reparse row now that we know what kind of items to expect
                 rec = self.parse_row(row, self.columnNames,
                                      col_map)
-                # Special case For S16B: some observers might have
-                # specified i2 filter. Current queue planning software
-                # will be confused if it sees the filter as 'i2'. If
-                # filter is specifed as 'i2', change it to 'i'.
-                if self.semester == 'S16B':
-                    rec.filter = 'i' if rec.filter == 'i2' else rec.filter
+                # Special case For Y2016: some observers might have
+                # specified earlier versions of i or r filters. Silently
+                # upgrade these to ver 2
+                if self.semester.startswith('S16'):
+                    rec.filter = 'i2' if rec.filter == 'i' else rec.filter
+                    rec.filter = 'r2' if rec.filter == 'r' else rec.filter
 
                 inscfg = klass()
                 code = inscfg.import_record(rec)

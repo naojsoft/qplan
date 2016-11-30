@@ -314,8 +314,6 @@ class ControlPanel(PlBase.Plugin):
             # Filter name special cases
             if 'HSC-' in cur_filter:
                 cur_filter = cur_filter.replace('HSC-', '')
-            if cur_filter == 'i2':
-                cur_filter = 'i'
             if cur_filter == 'Y':
                 cur_filter = 'y'
             if 'NB0' in cur_filter:

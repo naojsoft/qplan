@@ -156,16 +156,14 @@ class GenericTableModel(QtCore.QAbstractTableModel):
     def sort(self, Ncol, order):
         """Sort table by given column number.
         """
-        #if QtHelp.have_pyqt4:
-        self.emit(QtCore.SIGNAL("layoutAboutToBeChanged()"))
+        self.layoutAboutToBeChanged.emit()
 
         self.model_data = sorted(self.model_data, key=self.mksort(Ncol))
 
         if order == QtCore.Qt.DescendingOrder:
             self.model_data.reverse()
 
-        #if QtHelp.have_pyqt4:
-        self.emit(QtCore.SIGNAL("layoutChanged()"))
+        self.layoutChanged.emit()
 
     def clear(self, index=QtCore.QModelIndex()):
         n_rows = len(self.model_data)

@@ -11,7 +11,7 @@ Usage:
 from __future__ import print_function
 # stdlib imports
 import sys, os
-from io import StringIO
+from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import log
@@ -19,6 +19,8 @@ from ginga.misc import log
 # Local imports
 from . import entity
 from .Model import QueueModel
+
+import six
 
 version = '20150105.0'
 
@@ -129,7 +131,10 @@ def main(options, args):
     loader.update_model()
 
     # buffer for OPE output
-    out_f = StringIO()
+    if six.PY2:
+        out_f = BytesIO()
+    else:
+        out_f = StringIO()
 
     # write preamble
     converter.write_ope_header(out_f)

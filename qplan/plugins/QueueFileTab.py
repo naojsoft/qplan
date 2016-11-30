@@ -16,6 +16,7 @@ class QueueFileTab(PlBase.Plugin):
 
     def __init__(self, model, view, controller, logger):
         super(QueueFileTab, self).__init__(model, view, controller, logger)
+
         self.inputData = None
         self.dataForTableModel = None
         self.columnNames = None
@@ -236,6 +237,7 @@ class TableModel(GenericTableModel):
 
     def __init__(self, inputData, columns, data, qmodel, logger):
         super(TableModel, self).__init__(columns, data)
+
         self.inputData = inputData
         self.qmodel = qmodel
         self.logger = logger

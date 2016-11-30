@@ -90,7 +90,7 @@ class TableModel(QueueFileTab.TableModel):
 
             # Emit the dataChanged signal, as required by PyQt4 for
             # implementations of the setData method.
-            self.emit(QtCore.SIGNAL('dataChanged()'))
+            self.dataChanged.emit(index, index)
             return True
         else:
             return False

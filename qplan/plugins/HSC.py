@@ -16,7 +16,9 @@ ope_friendly_chars.extend(list("0123456789_"))
 ope_friendly_chars = set(ope_friendly_chars)
 
 # the mapping of HSC filters
-filternames = dict(G="HSC-g", R="HSC-r2", I="HSC-i2", Z="HSC-z", Y="HSC-Y")
+filternames = dict(G="HSC-g", R="HSC-r2", R2="HSC-r2",
+                   I="HSC-i2", I2="HSC-i2",
+                   Z="HSC-z", Y="HSC-Y")
 
 # appropriate combinations of (GOODMAG, AG_EXP) by filter are:
 ag_exp_info = {
