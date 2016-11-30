@@ -10,7 +10,7 @@ from datetime import timedelta
 import pytz
 import numpy
 import functools
-from io import StringIO
+from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
@@ -20,6 +20,7 @@ from . import misc
 from . import entity
 from . import common
 from . import qsim
+import six
 from six.moves import filter
 from six.moves import map
 from six.moves import zip
@@ -452,7 +453,10 @@ class Scheduler(Callback.Callbacks):
         self.logger.info("%.2f sec to schedule all" % (t_elapsed))
 
         # print a summary
-        out_f = StringIO()
+        if six.PY2:
+            out_f = BytesIO()
+        else:
+            out_f = StringIO()
         num_obs = len(oblist)
         pct = 0.0
         if num_obs > 0:

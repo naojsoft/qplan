@@ -7,7 +7,7 @@ from __future__ import print_function
 import time
 import os
 import re
-from io import StringIO
+from io import BytesIO, StringIO
 from datetime import timedelta
 
 from ginga.gw import Widgets
@@ -15,7 +15,7 @@ from ginga.misc import Bunch
 
 from qplan import qsim
 from qplan.plugins import PlBase, HSC
-
+import six
 
 class Report(PlBase.Plugin):
 
@@ -117,7 +117,10 @@ class Report(PlBase.Plugin):
             converter = HSC.Converter(self.logger)
 
             # buffer for OPE output
-            out_f = StringIO()
+            if six.PY2:
+                out_f = BytesIO()
+            else:
+                out_f = StringIO()
 
             # write preamble
             converter.write_ope_header(out_f, targets)
@@ -178,7 +181,10 @@ class Report(PlBase.Plugin):
         ndate = t.strftime("%Y-%m-%d")
         filters = ', '.join(schedule.data.filters)
 
-        out_f = StringIO()
+        if six.PY2:
+            out_f = BytesIO()
+        else:
+            out_f = StringIO()
         out_f.write("--- NIGHT OF %s --- filters: %s\n" % (
             ndate, filters))
         out_f.write("Queue prepared at: %s\n" % (

@@ -105,7 +105,11 @@ class QueueFile(object):
                     except (KeyError, AttributeError):
                         excel_converters = None
                     self.df[name] = datasrc.parse(name, converters=excel_converters)
-                    self.stringio[name] = StringIO()
+                    if six.PY2:
+                        buf = BytesIO()
+                    else:
+                        buf = StringIO()
+                    self.stringio[name] = buf
                     self.df[name].to_csv(self.stringio[name], index=False)
                     self.stringio[name].seek(0)
         else:
@@ -177,7 +181,10 @@ class QueueFile(object):
         # Create a buffer object and write our columnNames
         # and rows attributes into that object. This gives us an
         # object that looks like a disk file so we can parse the data.
-        self.queue_file = StringIO()
+        if six.PY2:
+            self.queue_file = BytesIO()
+        else:
+            self.queue_file = StringIO()
         writer = csv.writer(self.queue_file, **self.fmtparams)
         writer.writerow(self.columnNames)
         writer = csv.DictWriter(self.queue_file, self.columnNames, **self.fmtparams)
