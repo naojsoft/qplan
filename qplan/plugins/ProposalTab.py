@@ -2,12 +2,11 @@
 # ProposalTab.py -- Plugin to create a widget to display the
 #                   configuration files related to a proposal
 #
-
-from . import PlBase
-
-import entity
 from ginga.misc import ModuleManager
 from ginga.gw import Widgets
+
+from qplan import entity
+from qplan.plugins import PlBase
 
 class ProposalTab(PlBase.Plugin):
 

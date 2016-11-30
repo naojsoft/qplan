@@ -174,24 +174,24 @@ class QueueFile(object):
             self.parse()
 
     def parse(self):
-        # Create a BytesIO object and write our columnNames
+        # Create a buffer object and write our columnNames
         # and rows attributes into that object. This gives us an
         # object that looks like a disk file so we can parse the data.
-        self.queue_file = BytesIO()
+        self.queue_file = StringIO()
         writer = csv.writer(self.queue_file, **self.fmtparams)
         writer.writerow(self.columnNames)
         writer = csv.DictWriter(self.queue_file, self.columnNames, **self.fmtparams)
         for row in self.rows:
             writer.writerow(row)
 
-        # Parse the input data from the BytesIO object
+        # Parse the input data from the buffer
         try:
             self.parse_input()
 
         except Exception as e:
             self.logger.error("Error reparsing input: %s" % (str(e)))
 
-        # We are done with the BytesIO object, so close it.
+        # We are done with the buffer, so close it.
         self.queue_file.close()
 
     def parse_row(self, row, column_names, column_map):

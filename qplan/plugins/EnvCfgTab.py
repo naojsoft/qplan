@@ -5,10 +5,9 @@
 import datetime
 from qtpy import QtCore
 from qtpy import QtWidgets as QtGui
-from . import PlBase
 
-import entity
-from . import QueueFileTab
+from qplan import entity
+from qplan.plugins import QueueFileTab
 
 class EnvCfgTab(QueueFileTab.QueueCfgFileTab):
 

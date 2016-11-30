@@ -152,7 +152,7 @@ class QueuePlanner(object):
 
         from qplan.View import Viewer
         # must import AFTER Viewer
-        from ginga.Control import GuiLogHandler
+        from ginga.rv.Control import GuiLogHandler
 
         class QueuePlanner(Controller, Viewer):
 

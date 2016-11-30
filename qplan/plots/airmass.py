@@ -78,7 +78,7 @@ class AirMassPlot(plots.Plot):
 
         # plot targets airmass vs. time
         for i, info in enumerate(tgt_data):
-            am_data = numpy.array(map(lambda info: info.airmass, info.history))
+            am_data = numpy.array(list(map(lambda info: info.airmass, info.history)))
             am_min = numpy.argmin(am_data)
             am_data_dots = am_data
             color = self.colors[i % len(self.colors)]
@@ -120,8 +120,8 @@ class AirMassPlot(plots.Plot):
 
         # Plot moon altitude and degree scale
         ax2 = ax1.twinx()
-        moon_data = numpy.array(map(lambda info: info.moon_alt,
-                                    tgt_data[0].history))
+        moon_data = numpy.array(list(map(lambda info: info.moon_alt,
+                                    tgt_data[0].history)))
         #moon_illum = site.moon_phase()
         ax2.plot_date(lt_data, moon_data, '#666666', linewidth=2.0,
                       alpha=0.5, aa=True, tz=tz)
@@ -177,7 +177,7 @@ class AirMassPlot(plots.Plot):
 
         # plot targets elevation vs. time
         for i, info in enumerate(tgt_data):
-            alt_data = numpy.array(map(lambda info: info.alt_deg, info.history))
+            alt_data = numpy.array(list(map(lambda info: info.alt_deg, info.history)))
             alt_min = numpy.argmin(alt_data)
             alt_data_dots = alt_data
             color = self.colors[i % len(self.colors)]
@@ -210,8 +210,8 @@ class AirMassPlot(plots.Plot):
         ax1.set_ylabel('Altitude')
 
         # Plot moon trajectory and illumination
-        moon_data = numpy.array(map(lambda info: info.moon_alt,
-                                    tgt_data[0].history))
+        moon_data = numpy.array(list(map(lambda info: info.moon_alt,
+                                    tgt_data[0].history)))
         illum_time = lt_data[moon_data.argmax()]
         moon_illum = site.moon_phase(date=illum_time)
         moon_color = '#666666'
