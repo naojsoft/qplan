@@ -4,7 +4,7 @@ import time
 from io import BytesIO
 
 major = 0
-minor = 3
+minor = 4
 
 rlfile = 'version.py'
 backup = 'version.py.bak'
