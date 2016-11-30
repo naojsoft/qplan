@@ -5,6 +5,7 @@
 
 from qtpy import QtCore
 from qtpy import QtWidgets as QtGui
+from qtpy import PYQT4, PYQT5, PYSIDE
 
 from ginga.gw import Widgets
 from . import PlBase
@@ -61,7 +62,12 @@ class QueueFileTab(PlBase.Plugin):
 
         # Set up the vertical header
         vh = tableview.verticalHeader()
-        vh.setResizeMode(QtGui.QHeaderView.ResizeToContents)
+        # QHeaderView setResizeMode method was changed to
+        # setSectionResizeMode in PyQt5.
+        if PYQT4:
+            vh.setResizeMode(QtGui.QHeaderView.ResizeToContents)
+        else:
+            vh.setSectionResizeMode(QtGui.QHeaderView.ResizeToContents)
 
         # Add the table view to the top_layout
         w = Widgets.wrap(tableview)
