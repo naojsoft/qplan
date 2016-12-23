@@ -42,7 +42,7 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         self.w.tooltips = None
 
         self.ds = Desktop.Desktop(self)
-        self.ds.make_desktop(layout, widgetDict=self.w)
+        self.ds.make_desktop(layout, widget_dict=self.w)
 
         for win in self.ds.toplevels:
             # add delete/destroy callbacks
