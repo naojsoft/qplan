@@ -62,7 +62,7 @@ class QueueFileTab(PlBase.Plugin):
 
         # Set up the vertical header
         vh = tableview.verticalHeader()
-        vh.setSectionResizeMode(QtGui.QHeaderView.ResizeToContents)
+        ## vh.setSectionResizeMode(QtGui.QHeaderView.ResizeToContents)
 
         # Add the table view to the top_layout
         w = Widgets.wrap(tableview)
