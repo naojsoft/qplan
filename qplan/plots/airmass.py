@@ -289,7 +289,7 @@ class AirMassPlot(plots.Plot):
         ax.vlines(t, ymin, ymax, colors=['orange'],
                    linestyles=['dashed'], label='Sunrise')
 
-    def _plot_time(self, ax, lo, hi):
+    def _plot_current_time(self, ax, lo, hi):
         ax.axvspan(lo, hi, facecolor='#7FFFD4', alpha=0.25)
 
     def _plot_limits(self, ax, lo_lim, hi_lim):

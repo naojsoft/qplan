@@ -67,7 +67,7 @@ class AZELPlot(plots.Plot):
         #alts_r = list(alts)
         #alts_r.reverse()
         alts_r = list(range(90, 0, -self.alt_inc_deg))
-        ax.set_yticklabels(map(str, alts_r))
+        ax.set_yticklabels(list(map(str, alts_r)))
         # maximum altitude of 90.0
         ax.set_rmax(90.0)
         ax.grid(True)
