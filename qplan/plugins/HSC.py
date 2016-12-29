@@ -333,7 +333,7 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 cmd_str = '''GetObject $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
             else:
-                cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
                 cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
