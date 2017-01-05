@@ -131,8 +131,8 @@ class QueuePlanner(object):
                           default='subaru',
                           help="Observing site NAME")
         optprs.add_option("-t", "--toolkit", dest="toolkit", metavar="NAME",
-                          default='qt4',
-                          help="Prefer GUI toolkit (gtk|qt)")
+                          default=None,
+                          help="Prefer GUI toolkit (default: choose one)")
         log.addlogopts(optprs)
 
 
@@ -148,7 +148,14 @@ class QueuePlanner(object):
         thread_pool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
                                      numthreads=options.numthreads)
 
-        ginga_toolkit.use(options.toolkit)
+        if options.toolkit is not None:
+            ginga_toolkit.use(options.toolkit)
+        else:
+            ginga_toolkit.choose()
+
+        tkname = ginga_toolkit.get_family()
+        logger.info("Chosen toolkit (%s) family is '%s'" % (
+            ginga_toolkit.toolkit, tkname))
 
         from qplan.View import Viewer
         # must import AFTER Viewer
