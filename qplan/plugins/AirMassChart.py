@@ -36,12 +36,11 @@ class AirMassChart(PlBase.Plugin):
 
         self.plot = AirMassPlot(700, 500, logger=self.logger)
 
-        self.canvas = Plot.PlotWidget(self.plot, width=700, height=500)
+        plot_w = Plot.PlotWidget(self.plot, width=700, height=500)
 
         container.set_margins(2, 2, 2, 2)
         container.set_spacing(4)
-
-        container.add_widget(self.canvas, stretch=1)
+        container.add_widget(plot_w, stretch=1)
 
     def show_schedule_cb(self, qmodel, schedule):
         try:
@@ -53,10 +52,10 @@ class AirMassChart(PlBase.Plugin):
 
             if info.num_tgts == 0:
                 self.logger.debug("no targets for plotting airmass")
-                self.view.gui_do(self.plot.clear)
+                self.view.gui_call(self.plot.clear)
             else:
                 self.logger.debug("plotting airmass")
-                self.view.gui_do(self.plot.clear)
+                self.view.gui_call(self.plot.clear)
                 site = info.site
                 target_data = info.target_data
 
@@ -65,9 +64,9 @@ class AirMassChart(PlBase.Plugin):
                 num_tgts = self.controller.num_tgt_plots
                 target_data = target_data[idx:idx+num_tgts]
 
-                self.view.gui_do(self.plot.plot_altitude, site, target_data,
-                                 self.tz)
-            self.view.gui_do(self.plot.draw)
+                self.view.error_wrap(self.plot.plot_altitude, site, target_data,
+                                     self.tz)
+            self.view.error_wrap(self.plot.draw)
         ## except KeyError:
         ##     pass
         except Exception as e:

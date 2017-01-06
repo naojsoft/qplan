@@ -60,13 +60,13 @@ class SlewChart(PlBase.Plugin):
 
         # make slew plot
         self.logger.debug("plotting slew map")
-        self.view.gui_do(self.plot.clear)
+        self.view.gui_call(self.plot.clear)
 
         # plot a subset of the targets
         idx = int((self.controller.idx_tgt_plots / 100.0) * len(info.targets))
         num_tgts = self.controller.num_tgt_plots
         targets = info.targets[idx:idx+num_tgts]
-        self.view.gui_do(self.plot.plot_coords, targets)
+        self.view.gui_call(self.plot.plot_coords, targets)
 
         # plot the current location of solar system objects
         sdlr = model.get_scheduler()

@@ -7,7 +7,7 @@ class ControlError(Exception):
     pass
 
 class Controller(Callback.Callbacks):
-     
+
     def __init__(self, logger, threadPool, module_manager, preferences,
                  ev_quit, model):
         Callback.Callbacks.__init__(self)
@@ -34,7 +34,8 @@ class Controller(Callback.Callbacks):
 
     def set_input_dir(self, path):
         self.input_dir = path
-        
+
     def set_input_fmt(self, fmt):
         self.input_fmt = fmt
+
 #END

@@ -37,7 +37,7 @@ class NightSumChart(BaseSumChart):
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
-        self.view.gui_do(self.plot.clear)
+        self.view.gui_call(self.plot.clear)
         self.view.gui_do(self.plot.plot, schedules)
 
 class ProposalSumChart(BaseSumChart):
@@ -55,8 +55,8 @@ class ProposalSumChart(BaseSumChart):
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
-        self.view.gui_do(self.plot.clear)
-        self.view.gui_do(self.plot.plot, completed, uncompleted)
+        self.view.gui_call(self.plot.clear)
+        self.view.error_wrap(self.plot.plot, completed, uncompleted)
 
 class SchedSumChart(BaseSumChart):
     # Schedule summary chart showing number of minutes scheduled and
@@ -73,8 +73,8 @@ class SchedSumChart(BaseSumChart):
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
-        self.view.gui_do(self.plot.clear)
-        self.view.gui_do(self.plot.plot, schedules)
+        self.view.gui_call(self.plot.clear)
+        self.view.error_wrap(self.plot.plot, schedules)
 
 class SemesterSumChart(BaseSumChart):
     # Semester summary chart showing percentage of time allocated to
@@ -91,5 +91,5 @@ class SemesterSumChart(BaseSumChart):
 
     def schedule_completed_cb(self, model, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
-        self.view.gui_do(self.plot.clear)
-        self.view.gui_do(self.plot.plot, schedules)
+        self.view.gui_call(self.plot.clear)
+        self.view.error_wrap(self.plot.plot, schedules)

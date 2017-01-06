@@ -231,10 +231,31 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
     def logit(self, text):
         try:
-            pInfo = self.plugins['logger']
+            pInfo = self.get_plugin('logger')
             self.gui_do(pInfo.obj.log, text)
         except:
             pass
+
+    def show_error(self, errmsg, raisetab=True):
+        pInfo = self.get_plugin('Errors')
+        pInfo.obj.add_error(errmsg)
+        if raisetab:
+            self.ds.raise_tab('Errors')
+
+    def error_wrap(self, method, *args, **kwargs):
+        try:
+            return method(*args, **kwargs)
+
+        except Exception as e:
+            errmsg = "\n".join([e.__class__.__name__, str(e)])
+            try:
+                (type, value, tb) = sys.exc_info()
+                tb_str = "\n".join(traceback.format_tb(tb))
+            except Exception as e:
+                tb_str = "Traceback information unavailable."
+            errmsg += tb_str
+            self.logger.error(errmsg)
+            self.gui_do(self.show_error, errmsg, raisetab=True)
 
 
 #END

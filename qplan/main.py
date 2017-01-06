@@ -64,6 +64,7 @@ plugins = [
     ('night_sched', 'SumChart', 'SchedSumChart', 'sub1', 'Schedules Chart'),
     ('proposals', 'SumChart', 'ProposalSumChart', 'sub1', 'Proposals Chart'),
     ('semester', 'SumChart', 'SemesterSumChart', 'sub1', 'Semester Chart'),
+    ('errors', 'Errors', 'Errors', 'right', 'Errors'),
     ]
 
 
