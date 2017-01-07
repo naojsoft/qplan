@@ -1,3 +1,7 @@
+#
+# This is open-source software licensed under a BSD license.
+# Please see the file LICENSE.txt for details.
+#
 # stdlib imports
 import sys, os
 import platform
@@ -82,7 +86,7 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         self.w.status = Widgets.StatusBar()
         holder.add_widget(self.w.status, stretch=1)
 
-    def windowClose(self, *args):
+    def window_close(self, *args):
         """Quit the application.
         """
         self.quit()

@@ -9,7 +9,8 @@ import threading
 import logging
 
 # Subaru python stdlib imports
-from ginga.misc import ModuleManager, Settings, Task, Bunch
+from ginga.misc import ModuleManager, Settings, Task
+from ginga.misc.Bunch import Bunch
 from ginga.misc import log
 import ginga.toolkit as ginga_toolkit
 
@@ -53,18 +54,28 @@ default_layout = ['seq', {},
 
 
 plugins = [
-    # pluginName, moduleName, className, workspaceName, tabName
-    ('slewchart', 'SlewChart', 'SlewChart', 'sub2', 'Slew Chart'),
-    ('airmasschart', 'AirMassChart', 'AirMassChart', 'sub1', 'AirMass Chart'),
-    ('schedule', 'Schedule', 'Schedule', 'left', 'Schedule'),
-    ('report', 'Report', 'Report', 'report', 'Report'),
-    ('logger', 'Logger', 'Logger', 'report', 'Log'),
-    ('cp', 'ControlPanel', 'ControlPanel', 'right', 'Control Panel'),
-    ('night_activity', 'SumChart', 'NightSumChart', 'sub1', 'Night Activity Chart'),
-    ('night_sched', 'SumChart', 'SchedSumChart', 'sub1', 'Schedules Chart'),
-    ('proposals', 'SumChart', 'ProposalSumChart', 'sub1', 'Proposals Chart'),
-    ('semester', 'SumChart', 'SemesterSumChart', 'sub1', 'Semester Chart'),
-    ('errors', 'Errors', 'Errors', 'right', 'Errors'),
+    Bunch(name='slewchart', module='SlewChart', classname='SlewChart',
+          tab='Slew Chart', ws='sub2', start=True),
+    Bunch(name='airmasschart', module='AirMassChart', classname='AirMassChart',
+          tab='Airmass Chart', ws='sub1', start=True),
+    Bunch(name='schedule', module='Schedule', classname='Schedule',
+          tab='Schedule', ws='left', start=True),
+    Bunch(name='report', module='Report', classname='Report',
+          tab='Report', ws='report', start=True),
+    Bunch(name='logger', module='Logger', classname='Logger',
+          tab='Log', ws='report', start=True),
+    Bunch(name='cp', module='ControlPanel', classname='ControlPanel',
+          tab='Control Panel', ws='right', start=True),
+    Bunch(name='night_activity', module='SumChart', classname='NightSumChart',
+          tab='Night Activity Chart', ws='sub1', start=True),
+    Bunch(name='night_sched', module='SumChart', classname='SchedSumChart',
+          tab='Schedules Chart', ws='sub1', start=True),
+    Bunch(name='proposals', module='SumChart', classname='ProposalSumChart',
+          tab='Proposals Chart', ws='sub1', start=True),
+    Bunch(name='semester', module='SumChart', classname='SemesterSumChart',
+          tab='Semester Chart', ws='sub1', start=True),
+    Bunch(name='errors', module='Errors', classname='Errors',
+          tab='Errors', ws='right', start=True),
     ]
 
 
@@ -107,24 +118,12 @@ class QueuePlanner(object):
                           help="Specify input file format (csv, xls, or xlsx)")
         ## optprs.add_option("--modules", dest="modules", metavar="NAMES",
         ##                   help="Specify additional modules to load")
-        ## optprs.add_option("--monitor", dest="monitor", metavar="NAME",
-        ##                   default='monitor',
-        ##                   help="Synchronize from monitor named NAME")
-        ## optprs.add_option("--monchannels", dest="monchannels",
-        ##                   default='status', metavar="NAMES",
-        ##                   help="Specify monitor channels to subscribe to")
-        ## optprs.add_option("--monport", dest="monport", type="int",
-        ##                   help="Register monitor using PORT", metavar="PORT")
         optprs.add_option("--numthreads", dest="numthreads", type="int",
                           default=30,
                           help="Start NUM threads in thread pool", metavar="NUM")
         optprs.add_option("-o", "--output", dest="output_dir", default="output",
                           metavar="DIRECTORY",
                           help="Write output files to DIRECTORY")
-        ## optprs.add_option("--plugins", dest="plugins", metavar="NAMES",
-        ##                   help="Specify additional plugins to load")
-        ## optprs.add_option("--port", dest="port", type="int", default=None,
-        ##                   help="Register using PORT", metavar="PORT")
         optprs.add_option("--profile", dest="profile", action="store_true",
                           default=False,
                           help="Run the profiler on main()")
@@ -203,7 +202,8 @@ class QueuePlanner(object):
             model.completed_keys = ast.literal_eval(buf)
 
         # Start up the control/display engine
-        qplanner = QueuePlanner(logger, thread_pool, mm, prefs, ev_quit, model)
+        qplanner = QueuePlanner(logger, thread_pool, mm,
+                                prefs, ev_quit, model)
         qplanner.set_input_dir(options.input_dir)
         qplanner.set_input_fmt(options.input_fmt)
 
@@ -213,9 +213,10 @@ class QueuePlanner(object):
             w.show()
 
         # load plugins
-        for pluginName, moduleName, className, wsName, tabName in self.plugins:
-            qplanner.load_plugin(pluginName, moduleName, className,
-                                 wsName, tabName)
+        for bnch in plugins:
+                start = bnch.get('start', True)
+                qplanner.load_plugin(bnch.name, bnch.module, bnch.classname,
+                                     bnch.ws, bnch.tab)
 
         guiHdlr = GuiLogHandler(qplanner)
         #guiHdlr.setLevel(options.loglevel)

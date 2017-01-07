@@ -1,3 +1,7 @@
+#
+# This is open-source software licensed under a BSD license.
+# Please see the file LICENSE.txt for details.
+#
 import sys, os
 import threading
 
@@ -38,4 +42,4 @@ class Controller(Callback.Callbacks):
     def set_input_fmt(self, fmt):
         self.input_fmt = fmt
 
-#END
+# END
