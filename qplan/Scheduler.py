@@ -68,6 +68,10 @@ class Scheduler(Callback.Callbacks):
         for name in ('schedule-cleared', 'schedule-added', 'schedule-completed',):
             self.enable_callback(name)
 
+        # if set to false, will not remove OBs scheduled for a night
+        # and they may be rescheduled
+        self.remove_scheduled_obs = True
+
     def set_weights(self, weights):
         self.weights = weights
 
@@ -441,7 +445,8 @@ class Scheduler(Callback.Callbacks):
                         # not an OB generated to serve another OB
                         key = (ob.target.ra, ob.target.dec)
                         targets[key] = ob.target
-                        unscheduled_obs.remove(ob)
+                        if self.remove_scheduled_obs:
+                            unscheduled_obs.remove(ob)
                         props[str(ob.program)].obs.remove(ob)
 
             waste = res.time_waste_sec / 60.0

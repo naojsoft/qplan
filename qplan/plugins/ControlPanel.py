@@ -78,7 +78,7 @@ class ControlPanel(PlBase.Plugin):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
         vbox.set_spacing(2)
-        vbox.cfg_expand(8, 8)
+        #vbox.cfg_expand(8, 8)
 
         sw = Widgets.ScrollArea()
         sw.set_widget(vbox)
@@ -89,16 +89,23 @@ class ControlPanel(PlBase.Plugin):
                     ('Load Info', 'button'),
                     ('Update Current Conditions', 'button'),
                     ('Update Database from Files', 'button'),
-                    ('Build Schedule', 'button', 'Use QDB', 'checkbutton'))
+                    ('Build Schedule', 'button', 'Use QDB', 'checkbutton'),
+                    ("Remove scheduled OBs", 'checkbutton'))
         w, b = Widgets.build_info(captions, orientation='vertical')
         self.w = b
 
+        sdlr = self.model.get_scheduler()
         b.input_dir.set_length(128)
         b.input_dir.set_text(self.controller.input_dir)
         b.load_info.set_tooltip("Load data from phase 2 files")
         b.load_info.add_callback('activated', self.initialize_model_cb)
         b.update_current_conditions.set_tooltip("Update time, current pointing, env conditions and active filter")
         b.update_database_from_files.set_tooltip("Update Gen2 database from changes to phase 2 files")
+        b.remove_scheduled_obs.set_state(sdlr.remove_scheduled_obs)
+        def toggle_sdled_obs(w, tf):
+            print(('setting sdled obs', tf))
+            sdlr.remove_scheduled_obs = tf
+        b.remove_scheduled_obs.add_callback('activated', toggle_sdled_obs)
 
         if have_gen2:
             b.update_current_conditions.add_callback('activated',
@@ -124,7 +131,7 @@ class ControlPanel(PlBase.Plugin):
 
         hbox = Widgets.HBox()
 
-        adj = Widgets.Slider(orientation='horizontal', track=True)
+        adj = Widgets.Slider(orientation='horizontal', track=False)
         adj.set_limits(0, 100, incr_value=1)
         idx = self.controller.idx_tgt_plots
         adj.set_value(idx)
@@ -134,12 +141,11 @@ class ControlPanel(PlBase.Plugin):
         adj.add_callback('value-changed', self.set_plot_pct_cb)
         hbox.add_widget(adj, stretch=1)
 
-        sb = Widgets.SpinBox()
-        sb.set_limits(1, 100)
+        sb = Widgets.TextEntrySet()
         num = self.controller.num_tgt_plots
-        sb.set_value(num)
+        sb.set_text(str(num))
         sb.set_tooltip("Adjust size of subset of targets plotted")
-        sb.add_callback('value-changed', self.set_plot_limit_cb)
+        sb.add_callback('activated', self.set_plot_limit_cb)
         hbox.add_widget(sb, stretch=0)
 
         vbox.add_widget(hbox, stretch=0)
@@ -389,8 +395,9 @@ class ControlPanel(PlBase.Plugin):
         self.model.select_schedule(self.model.selected_schedule)
         return True
 
-    def set_plot_limit_cb(self, w, val):
+    def set_plot_limit_cb(self, w):
         #print(('limit', val))
+        val = int(w.get_text())
         self.controller.num_tgt_plots = val
         self.model.select_schedule(self.model.selected_schedule)
         return True
