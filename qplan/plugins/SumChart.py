@@ -12,8 +12,8 @@ from qplan.plugins import PlBase
 
 class BaseSumChart(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(BaseSumChart, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(BaseSumChart, self).__init__(controller)
 
         self.initialized = False
 

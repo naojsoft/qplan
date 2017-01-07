@@ -54,27 +54,27 @@ default_layout = ['seq', {},
 
 
 plugins = [
-    Bunch(name='slewchart', module='SlewChart', classname='SlewChart',
+    Bunch(name='slewchart', module='SlewChart', klass='SlewChart',
           tab='Slew Chart', ws='sub2', start=True),
-    Bunch(name='airmasschart', module='AirMassChart', classname='AirMassChart',
+    Bunch(name='airmasschart', module='AirMassChart', klass='AirMassChart',
           tab='Airmass Chart', ws='sub1', start=True),
-    Bunch(name='schedule', module='Schedule', classname='Schedule',
+    Bunch(name='schedule', module='Schedule', klass='Schedule',
           tab='Schedule', ws='left', start=True),
-    Bunch(name='report', module='Report', classname='Report',
+    Bunch(name='report', module='Report', klass='Report',
           tab='Report', ws='report', start=True),
-    Bunch(name='logger', module='Logger', classname='Logger',
+    Bunch(name='logger', module='Logger', klass='Logger',
           tab='Log', ws='report', start=True),
-    Bunch(name='cp', module='ControlPanel', classname='ControlPanel',
+    Bunch(name='cp', module='ControlPanel', klass='ControlPanel',
           tab='Control Panel', ws='right', start=True),
-    Bunch(name='night_activity', module='SumChart', classname='NightSumChart',
+    Bunch(name='night_activity', module='SumChart', klass='NightSumChart',
           tab='Night Activity Chart', ws='sub1', start=True),
-    Bunch(name='night_sched', module='SumChart', classname='SchedSumChart',
+    Bunch(name='night_sched', module='SumChart', klass='SchedSumChart',
           tab='Schedules Chart', ws='sub1', start=True),
-    Bunch(name='proposals', module='SumChart', classname='ProposalSumChart',
+    Bunch(name='proposals', module='SumChart', klass='ProposalSumChart',
           tab='Proposals Chart', ws='sub1', start=True),
-    Bunch(name='semester', module='SumChart', classname='SemesterSumChart',
+    Bunch(name='semester', module='SumChart', klass='SemesterSumChart',
           tab='Semester Chart', ws='sub1', start=True),
-    Bunch(name='errors', module='Errors', classname='Errors',
+    Bunch(name='errors', module='Errors', klass='Errors',
           tab='Errors', ws='right', start=True),
     ]
 
@@ -214,9 +214,9 @@ class QueuePlanner(object):
 
         # load plugins
         for bnch in plugins:
-                start = bnch.get('start', True)
-                qplanner.load_plugin(bnch.name, bnch.module, bnch.classname,
-                                     bnch.ws, bnch.tab)
+            qplanner.load_plugin(bnch.name, bnch)
+
+        qplanner.ds.raise_tab('Control Panel')
 
         guiHdlr = GuiLogHandler(qplanner)
         #guiHdlr.setLevel(options.loglevel)

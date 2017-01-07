@@ -16,8 +16,8 @@ from qplan.plots.airmass import AirMassPlot
 
 class AirMassChart(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(AirMassChart, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(AirMassChart, self).__init__(controller)
 
         self.schedules = {}
         self.initialized = False
@@ -25,12 +25,12 @@ class AirMassChart(PlBase.Plugin):
         # Set preferred timezone for plot
         #self.tz = pytz.utc
 
-        sdlr = model.get_scheduler()
+        sdlr = self.model.get_scheduler()
         self.tz = sdlr.timezone
         sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
         sdlr.add_callback('schedule-added', self.new_schedule_cb)
 
-        model.add_callback('schedule-selected', self.show_schedule_cb)
+        self.model.add_callback('schedule-selected', self.show_schedule_cb)
 
     def build_gui(self, container):
 

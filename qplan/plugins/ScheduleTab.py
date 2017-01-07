@@ -11,8 +11,8 @@ from qplan.plugins import QueueFileTab
 
 class ScheduleTab(QueueFileTab.QueueFileTab):
 
-    def __init__(self, model, view, controller, logger):
-        super(ScheduleTab, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(ScheduleTab, self).__init__(controller)
 
         # Register a callback function for when the QueueModel loads
         # the schedule file

@@ -10,10 +10,11 @@ from qplan.plugins import PlBase
 
 class ProposalTab(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(ProposalTab, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(ProposalTab, self).__init__(controller)
 
-        self.mm = ModuleManager.ModuleManager(logger)
+        # Hmm.. Should this share MM of view?
+        self.mm = ModuleManager.ModuleManager(self.logger)
 
         # Register a callback function for when the we want to show
         # the ProposalTab
@@ -40,10 +41,10 @@ class ProposalTab(PlBase.Plugin):
 
         for name in self.tabs:
             modName = self.tabInfo[name]['mod']
-            self.mm.loadModule(modName)
-            module = self.mm.getModule(modName)
+            self.mm.load_module(modName)
+            module = self.mm.get_module(modName)
             klass = getattr(module, modName)
-            self.tabInfo[name]['obj'] = klass(self.model, self.view, self.controller, self.logger)
+            self.tabInfo[name]['obj'] = klass(self.controller)
 
             widget = Widgets.VBox()
             self.tabInfo[name]['obj'].build_gui(widget)
@@ -59,7 +60,8 @@ class ProposalTab(PlBase.Plugin):
         closeTabButton = Widgets.Button('Close %s' % self.proposal)
         closeTabButton.add_callback('activated', self.close_tab_cb)
         closeTabButton.set_tooltip("Close proposal %s tab" % self.proposal)
-        hbox.add_widget(closeTabButton, stretch=1)
+        hbox.add_widget(closeTabButton)
+        hbox.add_widget(Widgets.Label(''), stretch=1)
 
         container.add_widget(hbox)
 

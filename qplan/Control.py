@@ -42,4 +42,10 @@ class Controller(Callback.Callbacks):
     def set_input_fmt(self, fmt):
         self.input_fmt = fmt
 
+    def get_logger(self):
+        return self.logger
+
+    def get_model(self):
+        return self.model
+
 # END

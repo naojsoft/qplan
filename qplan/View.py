@@ -8,6 +8,7 @@ import platform
 import traceback
 
 from ginga.gw import GwHelp, GwMain, Widgets, Desktop
+from ginga.gw.PluginManager import PluginManager
 from ginga.misc import Bunch
 from six.moves import map
 from six.moves import zip
@@ -47,6 +48,8 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
         self.ds = Desktop.Desktop(self)
         self.ds.make_desktop(layout, widget_dict=self.w)
+
+        self.gpmon = PluginManager(self.logger, self, self.ds, self.mm)
 
         for win in self.ds.toplevels:
             # add delete/destroy callbacks
@@ -141,108 +144,50 @@ class Viewer(GwMain.GwMain, Widgets.Application):
             coords = list(map(int, coords))
             self.set_pos(*coords)
 
-    def load_plugin(self, pluginName, moduleName, className, wsName, tabName):
+    def load_plugin(self, name, spec):
 
-        widget = Widgets.VBox()
+        self.mm.load_module(spec.module, pfx=None)
 
-        # Record plugin info
-        canonicalName = pluginName.lower()
-        bnch = Bunch.Bunch(caseless=True,
-                           name=canonicalName, officialname=pluginName,
-                           modulename=moduleName, classname=className,
-                           wsname=wsName, tabname=tabName, widget=widget)
+        self.gpmon.load_plugin(name, spec)
 
-        self.plugins[pluginName] = bnch
+        start = spec.get('start', True)
+        if start:
+            self.start_plugin(name, raise_tab=False)
 
-        try:
-            module = self.mm.loadModule(moduleName)
+    def start_plugin(self, plugin_name, raise_tab=False):
+        self.gpmon.start_plugin_future(None, plugin_name, None)
+        if raise_tab:
+            p_info = self.gpmon.get_plugin_info(plugin_name)
+            self.ds.raise_tab(p_info.tabname)
 
-            # Look up the module and class
-            module = self.mm.getModule(moduleName)
-            klass = getattr(module, className)
-
-            # instantiate the class
-            pluginObj = klass(self.model, self, self.controller,
-                              self.logger)
-            # Save a reference to the plugin object so we can use it
-            # later
-            self.plugins[pluginName].setvals(obj=pluginObj)
-
-            # Build the plugin GUI
-            pluginObj.build_gui(widget)
-
-            # Add the widget to a workspace and save the tab name in
-            # case we need to delete the widget later on.
-            dsTabInfo = self.ds.add_tab(wsName, widget, 2, tabName)
-            self.plugins[pluginName].setvals(wsTabName=dsTabInfo.tabname)
-
-            # Start the plugin
-            pluginObj.start()
-
-        except Exception as e:
-            errstr = "Plugin '%s' failed to initialize: %s" % (
-                className, str(e))
-            self.logger.error(errstr)
-            try:
-                (type, value, tb) = sys.exc_info()
-                tb_str = "\n".join(traceback.format_tb(tb))
-                self.logger.error("Traceback:\n%s" % (tb_str))
-
-            except Exception as e:
-                tb_str = "Traceback information unavailable."
-                self.logger.error(tb_str)
-
-            widget.set_margins(4, 4, 4, 4)
-            widget.set_spacing(0)
-
-            textw = Widgets.TextArea(editable=False)
-            textw.append_text(str(e) + '\n')
-            textw.append_text(tb_str)
-            widget.add_widget(textw, stretch=1)
-
-            self.ds.add_tab(wsName, widget, 2, tabName)
-
-    def close_plugin(self, pluginName):
-        bnch = self.plugins[pluginName]
-        self.logger.info('calling stop() for plugin %s' % (pluginName))
-        bnch.obj.stop()
-        self.logger.info('calling remove_tab() for plugin %s' % (pluginName))
-        self.ds.remove_tab(bnch.wsTabName)
+    def close_plugin(self, plugin_name):
+        self.logger.info('deactivating plugin %s' % (plugin_name))
+        self.gpmon.deactivate(plugin_name)
         return True
 
     def close_all_plugins(self):
-        for pluginName in self.plugins:
-            try:
-                self.close_plugin(pluginName)
-            except Exception as e:
-                self.logger.error('Exception while calling stop for plugin %s: %s' % (pluginName, e))
+        self.gpmon.stop_all_plugins()
         return True
 
-    def reload_plugin(self, pluginName):
-        pInfo = self.plugins[pluginName]
-        try:
-            self.close_plugin(pluginName)
-        except:
-            pass
+    def reload_plugin(self, plugin_name):
+        self.gpmon.reload_plugin(plugin_name)
 
-        return self.load_plugin(pInfo.officialname, pInfo.modulename,
-                                pInfo.classname, pInfo.wsname,
-                                pInfo.tabname)
+    def get_plugin_info(self, plugin_name):
+        return self.gpmon.get_plugin_info(plugin_name)
 
-    def get_plugin(self, pluginName):
-        pInfo = self.plugins[pluginName]
-        return pInfo
+    def get_plugin(self, plugin_name):
+        return self.gpmon.get_plugin(plugin_name)
 
     def logit(self, text):
         try:
-            pInfo = self.get_plugin('logger')
-            self.gui_do(pInfo.obj.log, text)
+            obj = self.get_plugin('logger')
+            self.gui_do(obj.log, text)
         except:
             pass
 
     def show_error(self, errmsg, raisetab=True):
-        pInfo = self.get_plugin('Errors')
-        pInfo.obj.add_error(errmsg)
+        obj = self.get_plugin('Errors')
+        obj.add_error(errmsg)
         if raisetab:
             self.ds.raise_tab('Errors')
 

@@ -13,8 +13,8 @@ from qplan.plugins import PlBase
 
 class Schedule(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(Schedule, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(Schedule, self).__init__(controller)
 
         self.schedules = []
 

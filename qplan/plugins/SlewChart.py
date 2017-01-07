@@ -15,8 +15,8 @@ from qplan import common
 
 class SlewChart(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(SlewChart, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(SlewChart, self).__init__(controller)
 
         self.schedules = {}
         self.initialized = False
@@ -24,7 +24,7 @@ class SlewChart(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
         sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
         sdlr.add_callback('schedule-added', self.new_schedule_cb)
-        model.add_callback('schedule-selected', self.show_schedule_cb)
+        self.model.add_callback('schedule-selected', self.show_schedule_cb)
 
         # the solar system objects
         self.ss = [ common.moon, common.sun,

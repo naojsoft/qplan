@@ -13,8 +13,8 @@ from qplan.plugins.Schedule import GenericTableModel
 
 class QueueFileTab(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(QueueFileTab, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(QueueFileTab, self).__init__(controller)
 
         self.inputData = None
         self.dataForTableModel = None

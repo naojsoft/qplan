@@ -19,8 +19,8 @@ import six
 
 class Report(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(Report, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(Report, self).__init__(controller)
 
         self.schedules = {}
         self.cur_schedule = None
@@ -29,7 +29,7 @@ class Report(PlBase.Plugin):
         sdlr.add_callback('schedule-added', self.new_schedule_cb)
         sdlr.add_callback('schedule-cleared', self.clear_schedule_cb)
 
-        model.add_callback('schedule-selected', self.show_schedule_cb)
+        self.model.add_callback('schedule-selected', self.show_schedule_cb)
 
         self.captions = (('Make OPE', 'button'),
                     )
@@ -51,12 +51,14 @@ class Report(PlBase.Plugin):
 
         container.add_widget(vbox, stretch=1)
 
-        w, b = Widgets.build_info(self.captions, orientation='vertical')
-        self.w = b
+        hbox = Widgets.HBox()
+        btn = Widgets.Button('Make OPE')
+        hbox.add_widget(btn)
+        hbox.add_widget(Widgets.Label(''), stretch=1)
 
-        b.make_ope.add_callback('activated', self.make_ope_cb)
+        btn.add_callback('activated', self.make_ope_cb)
 
-        self.vbox.add_widget(w, stretch=0)
+        self.vbox.add_widget(hbox, stretch=0)
 
         self.gui_up = True
 

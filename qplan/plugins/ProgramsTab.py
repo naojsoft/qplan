@@ -2,6 +2,8 @@
 # ProgramsTab.py -- Plugin to display/edit the programs in a table GUI
 #
 
+from ginga.misc.Bunch import Bunch
+
 from qtpy import QtCore
 from qtpy import QtWidgets as QtGui
 
@@ -10,8 +12,8 @@ from qplan.plugins import QueueFileTab
 
 class ProgramsTab(QueueFileTab.QueueFileTab):
 
-    def __init__(self, model, view, controller, logger):
-        super(ProgramsTab, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(ProgramsTab, self).__init__(controller)
 
         # Register a callback function for when the QueueModel loads
         # the programs file
@@ -51,10 +53,15 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         # create it from scratch.
         proposal = self.model.proposalForPropTab
         self.logger.info('Creating tab for proposal %s' % proposal)
-        if proposal in self.view.plugins:
+        if self.view.gpmon.has_plugin(proposal):
             self.view.reload_plugin(proposal)
         else:
-            self.view.load_plugin(proposal, 'ProposalTab', 'ProposalTab', 'report', proposal)
+            spec = Bunch(module='ProposalTab', klass='ProposalTab',
+                         ws='report', tab=proposal, name=proposal,
+                         start=False)
+            self.view.load_plugin(proposal, spec)
+
+        self.view.start_plugin(proposal)
 
         # Raise the tab we just created
         self.view.ds.raise_tab(proposal)

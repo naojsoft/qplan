@@ -11,8 +11,8 @@ from qplan.plugins import QueueFileTab
 
 class WeightsTab(QueueFileTab.QueueFileTab):
 
-    def __init__(self, model, view, controller, logger):
-        super(WeightsTab, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(WeightsTab, self).__init__(controller)
 
         # Register a callback function for when the QueueModel loads
         # the weights file

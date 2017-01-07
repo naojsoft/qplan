@@ -11,8 +11,8 @@ from qplan.plugins import PlBase
 
 class Logger(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(Logger, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(Logger, self).__init__(controller)
 
         self.histlimit = 1000
         self.histmax = 10000

@@ -9,7 +9,7 @@ import os.path
 import datetime
 
 # ginga imports
-from ginga.misc import Bunch
+from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
 
 # Gen2 imports
@@ -39,8 +39,8 @@ except ImportError:
 
 class ControlPanel(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(ControlPanel, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(ControlPanel, self).__init__(controller)
 
         self.input_dir = "inputs"
 
@@ -56,6 +56,17 @@ class ControlPanel(PlBase.Plugin):
         self.qdb = None
         self.qa = None
         self.qq = None
+
+        self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
+                                  klass='WeightsTab',
+                                  ws='report', tab='Weights', start=True)
+        self.spec_schedule = Bunch(name='scheduletab', module='ScheduleTab',
+                                   klass='ScheduleTab',
+                                   ws='report', tab='Schedule', start=True)
+        self.spec_programs = Bunch(name='programstab', module='ProgramsTab',
+                                   klass='ProgramsTab',
+                                   ws='report', tab='Programs', start=True)
+
 
     def connect_qdb(self):
         # Set up Queue database access
@@ -154,26 +165,23 @@ class ControlPanel(PlBase.Plugin):
             self.weights_qf = filetypes.WeightsFile(self.input_dir, self.logger,
                                                     file_ext=self.input_fmt)
             # Load "Weights" Tab
-            if 'weightstab' not in self.view.plugins:
-                self.view.load_plugin('weightstab', 'WeightsTab', 'WeightsTab',
-                                      'report', 'Weights')
+            if not self.view.gpmon.has_plugin('weightstab'):
+                self.view.load_plugin('weightstab', self.spec_weights)
             self.model.set_weights_qf(self.weights_qf)
 
             # read schedule
             self.schedule_qf = filetypes.ScheduleFile(self.input_dir, self.logger,
                                                       file_ext=self.input_fmt)
             # Load "Schedule" Tab
-            if 'scheduletab' not in self.view.plugins:
-                self.view.load_plugin('scheduletab', 'ScheduleTab', 'ScheduleTab',
-                                      'report', 'Schedule')
+            if not self.view.gpmon.has_plugin('scheduletab'):
+                self.view.load_plugin('scheduletab', self.spec_schedule)
             self.model.set_schedule_qf(self.schedule_qf)
 
             # read proposals
             self.programs_qf = filetypes.ProgramsFile(self.input_dir, self.logger,
                                                       file_ext=self.input_fmt)
-            if 'programstab' not in self.view.plugins:
-                self.view.load_plugin('programstab', 'ProgramsTab', 'ProgramsTab',
-                                      'report', 'Programs')
+            if not self.view.gpmon.has_plugin('programstab'):
+                self.view.load_plugin('programstab', self.spec_programs)
             self.model.set_programs_qf(self.programs_qf)
 
             # read observing blocks

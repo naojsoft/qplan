@@ -18,13 +18,16 @@ from qplan import filetypes, misc
 
 class Errors(PlBase.Plugin):
 
-    def __init__(self, model, view, controller, logger):
-        super(Errors, self).__init__(model, view, controller, logger)
+    def __init__(self, controller):
+        super(Errors, self).__init__(controller)
 
         self.pending_errors = []
         self.gui_up = False
 
     def build_gui(self, container):
+
+        self.msg_font = self.view.get_font('Courier', 12)
+
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
         vbox.set_spacing(2)
