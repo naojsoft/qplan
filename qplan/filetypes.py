@@ -82,8 +82,12 @@ class QueueFile(object):
     def read_csv_file(self):
         if self.filepath:
             self.logger.info('Reading file %s' % self.filepath)
-            with open(self.filepath, 'rb') as f:
-                self.stringio[self.file_prefix] = BytesIO(f.read())
+            with open(self.filepath, 'r') as f:
+                if six.PY2:
+                    buf = BytesIO(f.read())
+                else:
+                    buf = StringIO(f.read())
+                self.stringio[self.file_prefix] = buf
         else:
             raise IOError('File path not defined for file prefix %s' % self.file_prefix)
 
