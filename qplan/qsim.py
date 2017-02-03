@@ -151,6 +151,15 @@ def check_night_visibility(site, schedule, ob):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
+    if schedule.data.dome != ob.telcfg.dome:
+        res.setvals(obs_ok=False, reason="Dome status OB(%s) != schedule(%s)" % (
+            ob.telcfg.dome, schedule.data.dome))
+        return res
+
+    if ob.telcfg.dome == 'closed':
+        res.setvals(obs_ok=True, reason="Dome is closed and this matches OB")
+        return res
+
     # Check visibility of target
     c1 = ob.target.calc(site, schedule.start_time)
 
