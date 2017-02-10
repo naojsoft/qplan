@@ -65,6 +65,7 @@ class Observer(object):
         self.site = self.get_site(date=date)
 
         # used for sunset, sunrise calculations
+        self.horizon6 = -1.0 * ephem.degrees('06:00:00.0')
         self.horizon12 = -1.0 * ephem.degrees('12:00:00.0')
         self.horizon18 = -1.0 * ephem.degrees('18:00:00.0')
         self.sun = ephem.Sun()
@@ -285,6 +286,15 @@ class Observer(object):
         r_date = self.date_to_local(r_date.datetime())
         return r_date
 
+    def evening_twilight_6(self, date=None):
+        """Returns evening 6 degree civil twilight(civil dusk) in observer's time.
+        """
+        self.site.horizon = self.horizon6
+        self._set_site_date(date)
+        r_date = self.site.next_setting(self.sun)
+        r_date = self.date_to_local(r_date.datetime())
+        return r_date
+
     def evening_twilight_12(self, date=None):
         """Returns evening 12 degree (nautical) twilight in observer's time.
         """
@@ -300,6 +310,15 @@ class Observer(object):
         self.site.horizon = self.horizon18
         self._set_site_date(date)
         r_date = self.site.next_setting(self.sun)
+        r_date = self.date_to_local(r_date.datetime())
+        return r_date
+
+    def morning_twilight_6(self, date=None):
+        """Returns morning 6 degree civil twilight(civil dawn) in observer's time.
+        """
+        self.site.horizon = self.horizon6
+        self._set_site_date(date)
+        r_date = self.site.next_rising(self.sun)
         r_date = self.date_to_local(r_date.datetime())
         return r_date
 
