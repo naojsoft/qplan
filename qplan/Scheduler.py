@@ -334,6 +334,9 @@ class Scheduler(Callback.Callbacks):
         t_t1 = time.time()
 
         for rec in self.schedule_recs:
+            if rec.skip:
+                continue
+
             night_start = site.get_date("%s %s" % (rec.date, rec.starttime))
             next_day = night_start + timedelta(0, 3600*14)
             next_day_s = next_day.strftime("%Y-%m-%d")

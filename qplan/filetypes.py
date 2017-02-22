@@ -476,6 +476,7 @@ class ScheduleFile(QueueFile):
             'cur_filter': 'cur_filter',
             'cur_az': 'cur_az',
             'cur_el': 'cur_el',
+            'skip': 'skip',
             'note': 'note',
             }
         super(ScheduleFile, self).__init__(input_dir, 'schedule', logger, file_ext)
@@ -546,6 +547,10 @@ class ScheduleFile(QueueFile):
             if not 'open' in categories:
                 continue
 
+            skip = False
+            if rec.has_key('skip'):
+                skip = rec.skip.strip() != ''
+
             # data record of current conditions
             # All OBs for this schedule slot should end up pointing to this
             # static record
@@ -558,6 +563,7 @@ class ScheduleFile(QueueFile):
             rec2 = Bunch.Bunch(date=rec.date, starttime=rec.starttime,
                                stoptime=rec.stoptime,
                                #categories=categories,
+                               skip=skip,
                                note=rec.note,
                                data=data)
             self.schedule_info.append(rec2)
