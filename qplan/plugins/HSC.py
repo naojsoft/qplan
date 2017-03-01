@@ -260,6 +260,9 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                      filter=self.get_filtername(ob.inscfg.filter))
             cmd_str = 'GetDomeFlat $DEF_IMAGE EXPTIME=%(exptime)d Filter="%(filter)s" NUMBER=%(num_exp)d' % d
             out(cmd_str)
+
+            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
+            out(cmd_str)
             return
 
         elif tgtname == 'bias':
@@ -267,12 +270,18 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
             d = dict(num_exp=ob.inscfg.num_exp)
             cmd_str = 'GetBias $DEF_IMAGE NUMBER=%(num_exp)d' % d
             out(cmd_str)
+
+            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
+            out(cmd_str)
             return
 
         elif tgtname == 'dark':
             out("\n# %s" % (ob.comment))
             d = dict(num_exp=ob.inscfg.num_exp, exptime=ob.inscfg.exp_time)
             cmd_str = 'GetDark $DEF_IMAGE EXPTIME=%(exptime)d NUMBER=%(num_exp)d' % d
+            out(cmd_str)
+
+            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
             out(cmd_str)
             return
 
@@ -283,6 +292,9 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
             out(cmd_str)
 
             cmd_str = '''GetSkyFlat $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+            out(cmd_str)
+
+            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
             out(cmd_str)
             return
 
