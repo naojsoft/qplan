@@ -1217,10 +1217,10 @@ class InsCfgFile(QueueFile):
         self.max_onsource_time_hrs = 2.0 # hours
         super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
         self.excel_converters = {
-            'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, six.text_type) else int(x),
+            'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x),
             'Dither':     lambda x: '' if pd.isnull(x) else str(x),
-            'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, six.text_type) else int(x),
-            'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, six.text_type) else int(x)}
+            'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x),
+            'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x)}
 
         self.semester = None
 
