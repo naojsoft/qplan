@@ -4,7 +4,7 @@ try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
-from ginga.version import version
+from qplan.version import version
 import os
 
 srcdir = os.path.dirname(__file__)

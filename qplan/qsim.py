@@ -107,8 +107,9 @@ def obs_to_slots(logger, slots, site, obs, check_moon=False, check_env=False):
             if res.obs_ok:
                 obmap[key].append(ob)
             else:
-                logger.debug("OB %s no good for slot because: %s" % (
-                    ob, res.reason))
+                ob_id = "%s/%s" % (ob.program, ob.name)
+                logger.debug("OB %s (%s) no good for slot because: %s" % (
+                    ob, ob_id, res.reason))
 
     return obmap
 

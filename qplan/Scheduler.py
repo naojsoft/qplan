@@ -9,7 +9,6 @@ import time
 from datetime import timedelta
 import pytz
 import numpy
-import functools
 from io import BytesIO, StringIO
 
 # 3rd party imports
@@ -20,10 +19,9 @@ from . import misc
 from . import entity
 from . import common
 from . import qsim
+from .util import qsort
 import six
-from six.moves import filter
-from six.moves import map
-from six.moves import zip
+from six.moves import filter, map
 
 # maximum rank for a program
 max_rank = 10.0
@@ -62,8 +60,6 @@ class Scheduler(Callback.Callbacks):
                                    w_slew=0.2, w_priority=0.1,
                                    w_filterchange = 0.3)
 
-        self._sort_key = functools.cmp_to_key(self.cmp_res)
-
         # For callbacks
         for name in ('schedule-cleared', 'schedule-added', 'schedule-completed',):
             self.enable_callback(name)
@@ -94,6 +90,9 @@ class Scheduler(Callback.Callbacks):
         # structure.
         self.schedule_recs = info
 
+    def _ob_code(self, ob):
+        return "%s/%s" % (ob.program, ob.name)
+
     def cmp_res(self, res1, res2):
         """
         Compare two results from check_slot.
@@ -111,8 +110,8 @@ class Scheduler(Callback.Callbacks):
 
         r1_slew = min(res1.slew_sec, self.max_slew) / self.max_slew
         r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay
-        r1_filter = min(res1.filterchange_sec, self.max_filterchange) / \
-                    self.max_filterchange
+        r1_filter = (min(res1.filterchange_sec, self.max_filterchange) /
+                     self.max_filterchange)
         r1_rank = min(res1.ob.program.rank, self.max_rank) / self.max_rank
         # invert because higher rank should make a lower number
         r1_rank = 1.0 - r1_rank
@@ -121,8 +120,8 @@ class Scheduler(Callback.Callbacks):
 
         r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
         r2_delay = min(res2.delay_sec, self.max_delay) / self.max_delay
-        r2_filter = min(res2.filterchange_sec, self.max_filterchange) / \
-                    self.max_filterchange
+        r2_filter = (min(res2.filterchange_sec, self.max_filterchange) /
+                    self.max_filterchange)
         r2_rank = min(res2.ob.program.rank, self.max_rank) / self.max_rank
         r2_rank = 1.0 - r2_rank
         t2 = ((wts.w_slew * r2_slew) + (wts.w_delay * r2_delay) +
@@ -134,6 +133,8 @@ class Scheduler(Callback.Callbacks):
             t2 += wts.w_priority * res2.ob.priority
 
         res = int(numpy.sign(t1 - t2))
+        ## self.logger.debug("%s : %f   %s : %f" % (
+        ##     self._ob_code(res1.ob), t1, self._ob_code(res2.ob), t2))
         return res
 
 
@@ -148,10 +149,12 @@ class Scheduler(Callback.Callbacks):
         bad = list(filter(lambda res: not res.obs_ok, results))
 
         # sort according to desired criteria
-        good.sort(key=self._sort_key)
+        # NOTE: we cannot use python's built in sort with this comparison
+        # function, even using functools.cmp_to_key (!) It does not give
+        # correct results!!
+        good = qsort.qsort(good, cmp_fn=self.cmp_res)
 
         return good, bad
-
 
     def fill_night_schedule(self, schedule, site, oblist, props):
 
@@ -166,7 +169,7 @@ class Scheduler(Callback.Callbacks):
                 usable.append(ob)
             else:
                 cantuse.append(ob)
-                ob_id = "%s/%s" % (res.ob.program, res.ob.name)
+                ob_id = self._ob_code(res.ob)
                 self.logger.debug("rejected %s (%s) because: %s" % (
                     res.ob, ob_id, res.reason))
 
@@ -185,7 +188,7 @@ class Scheduler(Callback.Callbacks):
                 obmap[str(ob)] = res
             else:
                 cantuse.append(ob)
-                ob_id = "%s/%s" % (res.ob.program, res.ob.name)
+                ob_id = self._ob_code(res.ob)
                 self.logger.debug("rejected %s (%s) because: %s" % (
                     res.ob, ob_id, res.reason))
 
@@ -222,7 +225,7 @@ class Scheduler(Callback.Callbacks):
             # remove OBs that can't work in the slot and explain why
             for res in bad:
                 ob = res.ob
-                ob_id = "%s/%s" % (ob.program, ob.name)
+                ob_id = self._ob_code(ob)
                 self.logger.debug("rejected %s (%s) because: %s" % (
                     ob, ob_id, res.reason))
                 cantuse.append(ob)
@@ -230,9 +233,9 @@ class Scheduler(Callback.Callbacks):
 
             # insert top slot/ob into the schedule
             found_one = False
-            for res in good:
+            for idx, res in enumerate(good):
                 ob = res.ob
-                ob_id = "%s/%s" % (ob.program, ob.name)
+                ob_id = self._ob_code(ob)
                 # check whether this proposal has exceeded its allotted time
                 # if we schedule this OB
                 # NOTE: charge them for any delay time, filter exch time, etc?
@@ -310,7 +313,8 @@ class Scheduler(Callback.Callbacks):
             ##     s_slot.set_ob(new_ob)
             ##     schedule.insert_slot(s_slot)
 
-            self.logger.debug("assigning %s(%.2fm) to %s" % (ob, dur, slot))
+            self.logger.debug("assigning %s(%.2fm) to %s" % (
+                self._ob_code(ob), dur, slot))
             _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)
             a_slot.set_ob(ob)
             schedule.insert_slot(a_slot)

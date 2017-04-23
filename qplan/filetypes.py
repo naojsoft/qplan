@@ -1257,7 +1257,7 @@ class InsCfgFile(QueueFile):
                 # Special case For Y2016: some observers might have
                 # specified earlier versions of i or r filters. Silently
                 # upgrade these to ver 2
-                if self.semester.startswith('S16'):
+                if self.semester[:3] in ('S16', 'S17'):
                     rec.filter = 'i2' if rec.filter == 'i' else rec.filter
                     rec.filter = 'r2' if rec.filter == 'r' else rec.filter
 
