@@ -1,3 +1,4 @@
+
 #
 # Report.py -- Report plugin
 #
@@ -83,7 +84,7 @@ class Report(PlBase.Plugin):
             ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
                                                 time.localtime()) + ".ope"
 
-            output_dir = self.control.output_dir
+            output_dir = self.controller.output_dir
             if output_dir is None:
                 output_dir = os.path.join(os.environ['HOME'], "Procedure",
                                           "Queue")
@@ -91,8 +92,6 @@ class Report(PlBase.Plugin):
             ent = Widgets.TextEntry('path')
             ent.set_text(path)
             hbox.add_widget(ent, stretch=1)
-            #hbox.add_widget(Widgets.Label(''), stretch=1)
-            hbox.cfg_expand(0x8, 0x124)
             vbox.add_widget(hbox, stretch=0)
 
             save_as.add_callback('activated',
