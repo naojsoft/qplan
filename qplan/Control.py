@@ -25,19 +25,23 @@ class Controller(Callback.Callbacks):
         self.ev_quit = ev_quit
         self.model = model
 
-        self.settings = self.prefs.createCategory('general')
+        self.settings = self.prefs.create_category('general')
 
         # For asynchronous tasks on the thread pool
         self.tag = 'master'
         self.shares = ['threadPool', 'logger']
 
-        self.input_dir = '.'
+        self.input_dir = self.settings.get('input_dir', '.')
+        self.output_dir = self.settings.get('output_dir', None)
 
         self.idx_tgt_plots = 0
         self.num_tgt_plots = 100
 
     def set_input_dir(self, path):
         self.input_dir = path
+
+    def set_output_dir(self, path):
+        self.output_dir = path
 
     def set_input_fmt(self, fmt):
         self.input_fmt = fmt

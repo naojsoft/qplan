@@ -82,7 +82,12 @@ class Report(PlBase.Plugin):
             hbox.add_widget(save_as, stretch=0)
             ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
                                                 time.localtime()) + ".ope"
-            path = os.path.join(os.environ['HOME'], "Procedure", ope_name)
+
+            output_dir = self.control.output_dir
+            if output_dir is None:
+                output_dir = os.path.join(os.environ['HOME'], "Procedure",
+                                          "Queue")
+            path = os.path.join(output_dir, ope_name)
             ent = Widgets.TextEntry('path')
             ent.set_text(path)
             hbox.add_widget(ent, stretch=1)

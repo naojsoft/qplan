@@ -121,7 +121,7 @@ class QueuePlanner(object):
         optprs.add_option("--numthreads", dest="numthreads", type="int",
                           default=30,
                           help="Start NUM threads in thread pool", metavar="NUM")
-        optprs.add_option("-o", "--output", dest="output_dir", default="output",
+        optprs.add_option("-o", "--output", dest="output_dir", default=None,
                           metavar="DIRECTORY",
                           help="Write output files to DIRECTORY")
         optprs.add_option("--profile", dest="profile", action="store_true",
@@ -178,6 +178,10 @@ class QueuePlanner(object):
         if not os.path.exists(basedir):
             os.mkdir(basedir)
         prefs = Settings.Preferences(basefolder=basedir, logger=logger)
+
+        settings = prefs.create_category('general')
+        settings.load(onError='silent')
+        settings.set_defaults(output_dir=options.output_dir)
 
         mm = ModuleManager.ModuleManager(logger)
 
