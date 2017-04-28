@@ -56,6 +56,9 @@ class QueueQuery(object):
         tbl = self._qa.get_table('ob')
         return tbl[ob_key]
 
+    def ob_keys_to_obs(self, ob_keys):
+        return itertools.imap(self.get_ob, ob_keys)
+
     def ex_ob_to_ob(self, ex_ob):
         """
         Return an OB, given a record for an executed OB.
@@ -69,7 +72,6 @@ class QueueQuery(object):
         tbl = self._qa.get_table('exposure')
         return itertools.imap(lambda exp_key: tbl[exp_key],
                               executed_ob_rec.exp_history)
-
 
     def get_program_by_semester(self, semester):
         """

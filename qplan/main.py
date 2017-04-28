@@ -203,7 +203,7 @@ class QueuePlanner(object):
             with open(options.completed, 'r') as in_f:
                 buf = in_f.read()
             import ast
-            model.completed_keys = ast.literal_eval(buf)
+            model.completed_obs = ast.literal_eval(buf)
 
         # Start up the control/display engine
         qplanner = QueuePlanner(logger, thread_pool, mm,

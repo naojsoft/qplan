@@ -38,15 +38,13 @@ class Scheduler(Callback.Callbacks):
         self.logger = logger
 
         self.site = observer
-        # TODO: encapsulate this
-        #self.timezone = pytz.timezone('US/Hawaii')
-        #self.timezone = HST()
         self.timezone = observer.tz_local
 
         # these are the main data structures used to schedule
         self.oblist = []
         self.schedule_recs = []
-        self.programs = {}
+        self.programs = dict()
+        self.apriori_info = dict()
 
         # FOR SCALING PURPOSES ONLY, define maximums
         # (see cmp_res() )
@@ -89,6 +87,17 @@ class Scheduler(Callback.Callbacks):
         # Set our schedule_recs attribute to the supplied data
         # structure.
         self.schedule_recs = info
+
+    def set_apriori_program_info(self, info):
+        self.apriori_info = info
+
+    def get_sched_time(self, prop, bnch):
+        try:
+            info = self.apriori_info[prop]
+            bnch.update(info)
+
+        except KeyError:
+            pass
 
     def _ob_code(self, ob):
         return "%s/%s" % (ob.program, ob.name)
@@ -377,20 +386,26 @@ class Scheduler(Callback.Callbacks):
         total_program_time = 0
         for key in self.programs:
             total_time = self.programs[key].total_time
+
             props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[],
                                      obcount=0, sched_time=0.0,
                                      total_time=total_time)
+            # get time already spent working on this program
+            self.get_sched_time(key, props[key])
+
             total_program_time += total_time
 
         # count OBs in each program
         total_ob_time = 0
         for ob in self.oblist:
             pgmname = str(ob.program)
-            props[pgmname].obs.append(ob)
+            ob_key = (pgmname, ob.name)
+            props[pgmname].obs.append(ob_key)
             props[pgmname].obcount += 1
             # New policy is not to charge any overhead to the client,
             # including readout time
-            obtime_no_overhead = ob.inscfg.exp_time * ob.inscfg.num_exp
+            #obtime_no_overhead = ob.inscfg.exp_time * ob.inscfg.num_exp
+            obtime_no_overhead = ob.acct_time
             total_ob_time += obtime_no_overhead
 
         unscheduled_obs = list(oblist)
@@ -430,9 +445,7 @@ class Scheduler(Callback.Callbacks):
             ## this_nights_obs = unscheduled_obs
             # sort to force deterministic scheduling if the same
             # files are reloaded
-            this_nights_obs = sorted(unscheduled_obs, key=str
-                                     #cmp=lambda ob1, ob2: cmp(str(ob1), str(ob2))
-                                     )
+            this_nights_obs = sorted(unscheduled_obs, key=str)
 
             # optomize and rank schedules
             self.fill_night_schedule(schedule, site, this_nights_obs, props)
@@ -454,7 +467,8 @@ class Scheduler(Callback.Callbacks):
                         targets[key] = ob.target
                         if self.remove_scheduled_obs:
                             unscheduled_obs.remove(ob)
-                        props[str(ob.program)].obs.remove(ob)
+                        ob_key = (str(ob.program), ob.name)
+                        props[str(ob.program)].obs.remove(ob_key)
 
             waste = res.time_waste_sec / 60.0
             total_waste += waste
@@ -488,11 +502,12 @@ class Scheduler(Callback.Callbacks):
         completed, uncompleted = [], []
         for key in self.programs:
             bnch = props[key]
-            if len(bnch.obs) == 0:
+            if bnch.sched_time >= bnch.total_time:
                 completed.append(bnch)
             else:
                 uncompleted.append(bnch)
 
+        # sort by rank
         completed = sorted(completed,
                            key=lambda bnch: max_rank - bnch.pgm.rank)
         uncompleted = sorted(uncompleted,
@@ -503,20 +518,27 @@ class Scheduler(Callback.Callbacks):
 
         out_f.write("Completed programs\n")
         for bnch in completed:
-            out_f.write("%-12.12s   %5.2f  %d/%d  100%%\n" % (
+            ex_time_hrs = bnch.sched_time / 3600.0
+            tot_time_hrs = bnch.total_time / 3600.0
+            out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs\n" % (
                 str(bnch.pgm), bnch.pgm.rank,
-                bnch.obcount, bnch.obcount))
+                bnch.obcount-len(bnch.obs), bnch.obcount,
+                ex_time_hrs, tot_time_hrs))
 
         out_f.write("\n")
 
         out_f.write("Uncompleted programs\n")
         for bnch in uncompleted:
-            pct = float(bnch.obcount-len(bnch.obs)) / float(bnch.obcount) * 100.0
-            uncompleted_s = ", ".join(map(lambda ob: ob.name, props[str(bnch.pgm)].obs))
+            ex_time_hrs = bnch.sched_time / 3600.0
+            tot_time_hrs = bnch.total_time / 3600.0
+            pct = ex_time_hrs / tot_time_hrs * 100.0
+            uncompleted_s = str(list(map(lambda ob_key: ob_key[1],
+                                         props[str(bnch.pgm)].obs)))
 
-            out_f.write("%-12.12s   %5.2f  %d/%d  %5.2f%%  [%s]\n" % (
+            out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs  %5.2f%%  %s\n" % (
                 str(bnch.pgm), bnch.pgm.rank,
-                bnch.obcount-len(bnch.obs), bnch.obcount, pct,
+                bnch.obcount-len(bnch.obs), bnch.obcount,
+                ex_time_hrs, tot_time_hrs, pct,
                 uncompleted_s))
         out_f.write("\n")
         out_f.write("Total time: avail=%8.2f sched=%8.2f unsched=%8.2f min\n" % (total_avail, (total_avail - total_waste), total_waste))

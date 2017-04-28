@@ -16,7 +16,7 @@ from ginga.gw import Widgets
 have_gen2 = False
 try:
     import remoteObjects as ro
-    from SOSS.status.common import STATNONE,STATERROR
+    from SOSS.status.common import STATNONE, STATERROR
     have_gen2 = True
 
 except ImportError:
@@ -269,20 +269,49 @@ class ControlPanel(PlBase.Plugin):
             self.logger.info("%s OBs after excluding skipped programs." % (
                 len(ob_keys)))
 
-            # TODO: remove keys for OBs that are already executed
+            # Remove keys for OBs that are already executed
             if use_db:
                 self.connect_qdb()
 
                 do_not_execute = set(self.qq.get_do_not_execute_ob_keys())
-                ob_keys -= do_not_execute
-                self.logger.info("%s OBs after removing executed OBs." % (
-                    len(ob_keys)))
 
-            elif self.model.completed_keys is not None:
-                do_not_execute = set(self.model.completed_keys)
+                # Painful reconstruction of time already accumulated
+                # running the programs for executed OBS.  Inform scheduler
+                # so that it can correcly calculate when to stop
+                # allocating OBs for a program that has reached its
+                # time limit.
+                props = {}
+                for ob_key in do_not_execute:
+                    (propid, obcode) = ob_key[:2]
+                    ob = self.qq.get_ob(ob_key)
+                    bnch = props.setdefault(propid, Bunch(obcount=0,
+                                                          sched_time=0.0))
+                    bnch.sched_time += ob.acct_time
+                    bnch.obcount += 1
+
+                sdlr.set_apriori_program_info(props)
+
                 ob_keys -= do_not_execute
-                self.logger.info("%s OBs after removing executed OBs." % (
-                    len(ob_keys)))
+
+            elif self.model.completed_obs is not None:
+                do_not_execute = set(self.model.completed_obs.keys())
+
+                # See comment above.
+                props = {}
+                for ob_key in do_not_execute:
+                    (propid, obcode) = ob_key[:2]
+                    bnch = props.setdefault(propid, Bunch(obcount=0,
+                                                          sched_time=0.0))
+                    info = self.model.completed_obs[ob_key]
+                    bnch.sched_time += info['acct_time']
+                    bnch.obcount += 1
+
+                sdlr.set_apriori_program_info(props)
+
+                ob_keys -= do_not_execute
+
+            self.logger.info("%s OBs after removing executed OBs." % (
+                len(ob_keys)))
 
             # for a deterministic result
             ob_keys = list(ob_keys)
