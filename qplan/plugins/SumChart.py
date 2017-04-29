@@ -89,7 +89,7 @@ class SemesterSumChart(BaseSumChart):
         container.set_spacing(4)
         container.add_widget(canvas, stretch=1)
 
-    def schedule_completed_cb(self, model, completed, uncompleted, schedules):
+    def schedule_completed_cb(self, sldr, completed, uncompleted, schedules):
         self.logger.debug('schedule_completed_cb called')
         self.view.gui_call(self.plot.clear)
-        self.view.error_wrap(self.plot.plot, schedules)
+        self.view.error_wrap(self.plot.plot, sldr, completed, uncompleted, schedules)

@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
+import six
 
 from ginga.util import plots
 
@@ -127,14 +128,14 @@ class ProposalSumPlot(BaseSumPlot):
             grades_dict[grade] = []
         for i, proposal in enumerate(completed+uncompleted):
             #x = [i]
-            total_ob_count = float(proposal.obcount)
-            uncompleted_count = len(proposal.obs)
-            completed_count = float(total_ob_count - uncompleted_count)
+            ex_time = proposal.sched_time
+            tot_time = proposal.total_time
             propID = str(proposal.pgm)
-            completed_pct = 0.0
-            if total_ob_count > 0:
-                completed_pct = completed_count / total_ob_count
-            propID_comp_percent[propID] = completed_pct * 100.0
+
+            if tot_time > 0.0:
+                propID_comp_percent[propID] = ex_time/tot_time * 100.0
+            else:
+                propID_comp_percent[propID] = 0.0
             if propID not in grades_dict[proposal.pgm.grade]:
                 grades_dict[proposal.pgm.grade].append(propID)
 
@@ -199,7 +200,7 @@ class ScheduleSumPlot(BaseSumPlot):
 class SemesterSumPlot(BaseSumPlot):
     # Makes a pie chart to show percentage of available time allocated
     # to each proposal and also the unscheduled time.
-    def plot(self, schedules):
+    def plot(self, sldr, completed, uncompleted, schedules):
         plt = self.fig.add_subplot(111)
         total_time_avail = 0.
         total_time_waste = 0.
@@ -210,24 +211,24 @@ class SemesterSumPlot(BaseSumPlot):
         for schedule in schedules:
             time_avail = schedule.stop_time - schedule.start_time
             time_avail_minutes = time_avail.total_seconds() / 60.0
-            time_waste_minutes = qsim.eval_schedule(schedule).time_waste_sec / 60.0
+
+            sched_eval_res = qsim.eval_schedule(schedule)
+            time_waste_minutes = sched_eval_res.time_waste_sec / 60.0
             total_time_avail += time_avail_minutes
             total_time_waste += time_waste_minutes
-            for slot in schedule.slots:
-                ob = slot.ob
-                if ob is not None:
-                    propID = str(ob.program)
-                    if propID not in grades_dict[ob.program.grade]:
-                        grades_dict[ob.program.grade].append(propID)
-                    if propID in propID_alloc_minutes:
-                        propID_alloc_minutes[propID] += ob.total_time / 60.0
-                    else:
-                        propID_alloc_minutes[propID] = ob.total_time / 60.0
+            for propID, seconds in six.iteritems(sched_eval_res.proposal_total_time_sec):
+                if propID not in grades_dict[sldr.programs[propID].grade]:
+                    grades_dict[sldr.programs[propID].grade].append(propID)
+                if propID in propID_alloc_minutes:
+                    propID_alloc_minutes[propID] += seconds / 60.0
+                else:
+                    propID_alloc_minutes[propID] = seconds / 60.0
 
         total_time_sched = total_time_avail - total_time_waste
         self.logger.debug('propID_alloc_minutes %s' % propID_alloc_minutes)
-        self.logger.debug('total_time_sched %f' % total_time_sched)
-        self.logger.debug('total_time_waste %f' % total_time_waste)
+        self.logger.debug('total_time_avail %f min' % total_time_avail)
+        self.logger.debug('total_time_sched %f min' % total_time_sched)
+        self.logger.debug('total_time_waste %f min' % total_time_waste)
 
         # For the pie chart, we want all proposals grouped into their
         # "grade" category and then, within that category, sort the
@@ -244,11 +245,11 @@ class SemesterSumPlot(BaseSumPlot):
         labels.append('Unscheduled')
         sizes.append(total_time_waste)
         colors.append('darkred')
-        plt.pie(sizes, labels=labels, colors=colors, autopct='%1.0f%%', shadow=True)
+        plt.pie(sizes, labels=labels, colors=colors, autopct='%2.0f%%', shadow=True)
         if '-' in labels[0]:
             # TODO: title if nothing can be scheduled
             semester, ident = labels[0].split('-')
-            plt.set_title('Total for Semester %s = %5.0f Hours' % (semester, total_time_avail / 60.0))
+            plt.set_title('Total for Semester = %5.0f Hours' % (total_time_avail / 60.0))
 
         # Create some matplotlib "Patches" so that we can use them in
         # the legend

@@ -433,6 +433,7 @@ def eval_schedule(schedule):
     current_filter = None
     num_filter_exchanges = 0
     time_waste_sec = 0.0
+    proposal_total_time_sec = {}
 
     for slot in schedule.slots:
         ob = slot.ob
@@ -441,6 +442,12 @@ def eval_schedule(schedule):
             delta = (slot.stop_time - slot.start_time).total_seconds()
             time_waste_sec += delta
             continue
+        else:
+            propID = str(ob.program)
+            if propID in proposal_total_time_sec:
+                proposal_total_time_sec[propID] += ob.total_time
+            else:
+                proposal_total_time_sec[propID] = ob.total_time
 
         if ((ob.inscfg.filter is not None) and
             (ob.inscfg.filter != current_filter)):
@@ -448,7 +455,8 @@ def eval_schedule(schedule):
             current_filter = ob.inscfg.filter
 
     res = Bunch.Bunch(num_filter_exchanges=num_filter_exchanges,
-                      time_waste_sec=time_waste_sec)
+                      time_waste_sec=time_waste_sec,
+                      proposal_total_time_sec=proposal_total_time_sec)
     return res
 
 
