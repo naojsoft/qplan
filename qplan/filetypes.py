@@ -11,6 +11,7 @@ import csv
 from io import BytesIO, StringIO
 import datetime
 import re
+import dateutil.parser
 
 import six
 from six.moves import map
@@ -243,20 +244,25 @@ class QueueFile(object):
         # Iterate through the list of required columns to make sure
         # they are all there.
         for col_name, info in six.iteritems(self.columnInfo):
-            if info['iname'] in column_names:
-                self.logger.debug('Column name %s found in sheet %s' % (info['iname'], self.name))
+            if info['required']:
+                if info['iname'] in column_names:
+                    self.logger.debug('Required column name %s found in sheet %s' % (info['iname'], self.name))
+                else:
+                    msg = 'Required column %s not found in sheet %s' % (info['iname'], self.name)
+                    progFile.logger.error(msg)
+                    progFile.errors[self.name].append([0, [info['iname']], msg])
+                    progFile.error_count += 1
+
             else:
-                msg = 'Required column %s not found in sheet %s' % (info['iname'], self.name)
-                progFile.logger.error(msg)
-                progFile.errors[self.name].append([0, [info['iname']], msg])
-                progFile.error_count += 1
+                if info['iname'] in column_names:
+                    self.logger.debug('Optional column name %s found in sheet %s' % (info['iname'], self.name))
 
             # Warn the user if there is a column with a name that
             # starts with one of the expected names, but then has
-            # appended to the name a ".1", ".2", etc. This means that
-            # there was a duplicate column name in the spreadsheet and
-            # Pandas appended a sequence number to make the subsequent
-            # columns have unique names.
+            # appended to the name a ".1", ".2", etc. This means
+            # that there was a duplicate column name in the
+            # spreadsheet and Pandas appended a sequence number to
+            # make the subsequent columns have unique names.
             pattern = info['iname'] + '\.\d+'
             dup_list = []
             for cname in column_names:
@@ -315,8 +321,14 @@ class QueueFile(object):
             if col_name == 'comment' or self.columnInfo[col_name]['prefilled']:
                 continue
             else:
-                if len(rec[self.column_map[col_name]]) > 0:
-                    return False
+                try:
+                    if len(rec[self.column_map[col_name]]) > 0:
+                        return False
+                except KeyError as e:
+                    if self.columnInfo[col_name]['required']:
+                        self.logger.error('Unexpected error in ignoreRow while checking column %s: %s' % (col_name, str(e)))
+                    else:
+                        pass
         return True
 
     def validate_datatypes(self, progFile):
@@ -726,11 +738,11 @@ class ProposalFile(QueueFile):
             'ph1_moon': 'ph1_moon',
             }
         self.columnInfo = {
-            'prop_id':          {'iname': 'Prop ID',          'type': str,   'constraint': self.checkPropID,                       'prefilled': False},
-            'ph1_seeing':       {'iname': 'Ph1 Seeing',       'type': float, 'constraint': "value > 0.0",                          'prefilled': False},
-            'ph1_transparency': {'iname': 'Ph1 Transparency', 'type': float, 'constraint': "value >= 0.0 and value <= 1.0",        'prefilled': False},
-            'ph1_moon':         {'iname': 'Ph1 Moon',         'type': str,   'constraint': "value in %s" % str(moon_states_upper), 'prefilled': False},
-            'allocated_time':   {'iname': 'Allocated Time',   'type': float, 'constraint': "value >= 0.0",                         'prefilled': False},
+            'prop_id':          {'iname': 'Prop ID',          'type': str,   'constraint': self.checkPropID,                       'prefilled': False, 'required': True},
+            'ph1_seeing':       {'iname': 'Ph1 Seeing',       'type': float, 'constraint': "value > 0.0",                          'prefilled': False, 'required': True},
+            'ph1_transparency': {'iname': 'Ph1 Transparency', 'type': float, 'constraint': "value >= 0.0 and value <= 1.0",        'prefilled': False, 'required': True},
+            'ph1_moon':         {'iname': 'Ph1 Moon',         'type': str,   'constraint': "value in %s" % str(moon_states_upper), 'prefilled': False, 'required': True},
+            'allocated_time':   {'iname': 'Allocated Time',   'type': float, 'constraint': "value >= 0.0",                         'prefilled': False, 'required': True},
             }
         super(ProposalFile, self).__init__(input_dir, 'proposal', logger, file_ext)
 
@@ -798,9 +810,9 @@ class TelCfgFile(QueueFile):
         self.foci = "('P-OPT2',)"
         self.dome_states = "('Open', 'Closed')".upper()
         self.columnInfo = {
-            'code':         {'iname': 'Code', 'type': str, 'constraint': "len(value) > 0",                 'prefilled': False},
-            'foci':         {'iname': 'Foci', 'type': str, 'constraint': "value in %s" % self.foci,        'prefilled': False},
-            'dome':         {'iname': 'Dome', 'type': str, 'constraint': "value in %s" % self.dome_states, 'prefilled': False},
+            'code':         {'iname': 'Code', 'type': str, 'constraint': "len(value) > 0",                 'prefilled': False, 'required': True},
+            'foci':         {'iname': 'Foci', 'type': str, 'constraint': "value in %s" % self.foci,        'prefilled': False, 'required': True},
+            'dome':         {'iname': 'Dome', 'type': str, 'constraint': "value in %s" % self.dome_states, 'prefilled': False, 'required': True},
             }
         super(TelCfgFile, self).__init__(input_dir, 'telcfg', logger, file_ext)
 
@@ -858,18 +870,93 @@ class EnvCfgFile(QueueFile):
             'moon_sep': 'moon_sep',
             #'sky': 'sky',
             'transparency': 'transparency',
+            'lower_time_limit': 'lower_time_limit',
+            'upper_time_limit': 'upper_time_limit',
             'comment': 'comment',
             }
         self.columnInfo = {
-            'code':         {'iname': 'Code',         'type': str,   'constraint': "len(value) > 0", 'prefilled': False},
-            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "value > 0.0",    'prefilled': False},
-            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0",   'prefilled': False},
-            'moon':         {'iname': 'Moon',         'type': str,   'constraint': self.moon_check,  'prefilled': False},
-            'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': self.moon_sep_check,  'prefilled': False},
-            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "value >= 0.0",   'prefilled': False},
+            'code':         {'iname': 'Code',         'type': str,   'constraint': "len(value) > 0", 'prefilled': False, 'required': True},
+            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "value > 0.0",    'prefilled': False, 'required': True},
+            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0",   'prefilled': False, 'required': True},
+            'moon':         {'iname': 'Moon',         'type': str,   'constraint': self.moon_check,  'prefilled': False, 'required': True},
+            'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': self.moon_sep_check,  'prefilled': False, 'required': True},
+            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "value >= 0.0",   'prefilled': False, 'required': True},
+            'lower_time_limit': {'iname': 'Lower Time Limit', 'type': str, 'constraint': self.lowerTimeLimitCheck, 'prefilled': False, 'required': False},
+            'upper_time_limit': {'iname': 'Upper Time Limit', 'type': str, 'constraint': self.upperTimeLimitCheck, 'prefilled': False, 'required': False},
             }
+        self.default_timezone = entity.EnvironmentConfiguration.default_timezone
 
         super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
+
+    def dateTimeCheck(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+        try:
+            pdt = self.parseDateTime(val)
+            progFile.logger.debug("Line %d, column %s of sheet %s: %s '%s' is ok" % (row_num, col_name, self.name, iname, val))
+        except (ValueError, OverflowError) as e:
+            msg = "Error while checking line %d, column %s of sheet %s: %s value '%s' is not valid" % (row_num, iname, self.name, iname, val)
+            progFile.logger.error(msg)
+            progFile.errors[self.name].append([row_num, [iname], msg])
+            progFile.error_count += 1
+
+    def parseDateTime(self, dt_str):
+        if len(dt_str) > 0:
+            dt = dateutil.parser.parse(dt_str)
+            if dt.tzinfo is None:
+                dt = self.default_timezone.localize(dt)
+        else:
+            dt = None
+        return dt
+
+    def lowerTimeLimitCheck(self, val, rec, row_num, col_name, progFile):
+        self.dateTimeCheck(val, rec, row_num, col_name, progFile)
+
+    def upperTimeLimitCheck (self, val, rec, row_num, col_name, progFile):
+        # Checking the upper time limit means checking the upper time
+        # limit itself and also doing few checks on the upper and
+        # lower time limits together. First, check to see if we can
+        # parse the upper time limit. If net, return immediately
+        # because we can't do anything else.
+        err_count = progFile.error_count
+        self.dateTimeCheck(val, rec, row_num, col_name, progFile)
+        if progFile.error_count > err_count:
+            return
+
+        iname = self.columnInfo[col_name]['iname']
+        # Now check the lower time limit and upper time limit
+        # together. First, make sure that we can parse the lower time
+        # limit. If net, return immediately because we can't do
+        # anything else.
+        try:
+            lower_time_limit = self.parseDateTime(rec.lower_time_limit)
+        except (ValueError, OverflowError) as e:
+            return
+        # Check the lower and upper time limits together. We want to
+        # make sure that the upper time limit is greater than the
+        # lower time limit. Also, we want to make sure that, if one
+        # limit value was supplied, then there must also be a value
+        # for the other limit.
+        upper_time_limit = self.parseDateTime(val)
+        if lower_time_limit is not None or upper_time_limit is not None:
+            try:
+                if upper_time_limit > lower_time_limit:
+                    progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is greater than Lower Time Limit %s and is ok' % (row_num, col_name, self.name, iname, val, rec.lower_time_limit))
+                else:
+                    msg = "Error while checking line %d, column %s of sheet %s: %s value %s must be greater than Lower Time Limit value %s" % (row_num, iname, self.name, iname, val, rec.lower_time_limit)
+                    progFile.logger.error(msg)
+                    progFile.errors[self.name].append([row_num, [iname], msg])
+                    progFile.error_count += 1
+            except TypeError:
+                if lower_time_limit is not None and upper_time_limit is None:
+                    msg = "Error while checking line %d, column %s of sheet %s: Lower Time Limit value is %s - %s value must not be blank" % (row_num, iname, self.name, rec.lower_time_limit, iname)
+                    progFile.logger.error(msg)
+                    progFile.errors[self.name].append([row_num, [iname], msg])
+                    progFile.error_count += 1
+                if lower_time_limit is None and upper_time_limit is not None:
+                    msg = "Error while checking line %d, column %s of sheet %s: %s value is %s - Lower Time Limit value must not be blank" % (row_num, iname, self.name, iname, val)
+                    progFile.logger.error(msg)
+                    progFile.errors[self.name].append([row_num, [iname], msg])
+                    progFile.error_count += 1
 
     def parse_input(self):
         """
@@ -971,13 +1058,13 @@ class TgtCfgFile(QueueFile):
             'comment': 'comment',
             }
         self.columnInfo = {
-            'code':         {'iname': 'Code',        'type': str, 'constraint': "len(value) > 0",              'prefilled': False},
-            'target_name':  {'iname': 'Target Name', 'type': str, 'constraint': "len(value) > 0",              'prefilled': False},
-            'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False},
-            'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False},
-            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "value in ('J2000', 'B1950')", 'prefilled': False},
-            'sdss_ra':      {'iname': 'SDSS RA',     'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False},
-            'sdss_dec':     {'iname': 'SDSS DEC',    'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False},
+            'code':         {'iname': 'Code',        'type': str, 'constraint': "len(value) > 0",              'prefilled': False, 'required': True},
+            'target_name':  {'iname': 'Target Name', 'type': str, 'constraint': "len(value) > 0",              'prefilled': False, 'required': True},
+            'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
+            'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
+            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "value in ('J2000', 'B1950')", 'prefilled': False, 'required': True},
+            'sdss_ra':      {'iname': 'SDSS RA',     'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
+            'sdss_dec':     {'iname': 'SDSS DEC',    'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
             }
         super(TgtCfgFile, self).__init__(input_dir, 'targets', logger, file_ext)
 
@@ -1163,23 +1250,23 @@ class InsCfgFile(QueueFile):
         self.guiding_constr = "value in ('Y','N')"
         self.columnInfoAllInst = {
             'HSC': {
-            'code':         {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",                 'prefilled': False},
-            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'HSC'",                 'prefilled': False},
-            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.HSC_modes,   'prefilled': False},
-            'filter':       {'iname': 'Filter',     'type': str,   'constraint': self.filterCheck,                 'prefilled': False},
-            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "value > 0.0",                    'prefilled': False},
-            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "value > 0",                      'prefilled': False},
-            'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr,               'prefilled': False},
-            'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr,              'prefilled': False},
-            'pa':           {'iname': 'PA',         'type': float, 'constraint': None,                             'prefilled': False},
-            'offset_ra':    {'iname': 'Offset RA',  'type': float, 'constraint': None,                             'prefilled': False},
-            'offset_dec':   {'iname': 'Offset DEC', 'type': float, 'constraint': None,                             'prefilled': False},
-            'dith1':        {'iname': 'Dith1',      'type': float, 'constraint': None,                             'prefilled': False},
-            'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None,                             'prefilled': False},
-            'skip':         {'iname': 'Skip',       'type': int,   'constraint': None,                             'prefilled': False},
-            'stop':         {'iname': 'Stop',       'type': int,   'constraint': self.stopCheck,                   'prefilled': True},
-            'on_src_time':  {'iname': 'On-src Time','type': float, 'constraint': self.onSrcTimeCalcCheck,          'prefilled': True},
-            'total_time':   {'iname': 'Total Time', 'type': float, 'constraint': self.totalTimeCalcCheck,          'prefilled': True},
+            'code':         {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",                 'prefilled': False, 'required': True},
+            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'HSC'",                 'prefilled': False, 'required': True},
+            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.HSC_modes,   'prefilled': False, 'required': True},
+            'filter':       {'iname': 'Filter',     'type': str,   'constraint': self.filterCheck,                 'prefilled': False, 'required': True},
+            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "value > 0.0",                    'prefilled': False, 'required': True},
+            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "value > 0",                      'prefilled': False, 'required': True},
+            'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr,               'prefilled': False, 'required': True},
+            'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr,              'prefilled': False, 'required': True},
+            'pa':           {'iname': 'PA',         'type': float, 'constraint': None,                             'prefilled': False, 'required': True},
+            'offset_ra':    {'iname': 'Offset RA',  'type': float, 'constraint': None,                             'prefilled': False, 'required': True},
+            'offset_dec':   {'iname': 'Offset DEC', 'type': float, 'constraint': None,                             'prefilled': False, 'required': True},
+            'dith1':        {'iname': 'Dith1',      'type': float, 'constraint': None,                             'prefilled': False, 'required': True},
+            'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None,                             'prefilled': False, 'required': True},
+            'skip':         {'iname': 'Skip',       'type': int,   'constraint': None,                             'prefilled': False, 'required': True},
+            'stop':         {'iname': 'Stop',       'type': int,   'constraint': self.stopCheck,                   'prefilled': True,  'required': True},
+            'on_src_time':  {'iname': 'On-src Time','type': float, 'constraint': self.onSrcTimeCalcCheck,          'prefilled': True,  'required': True},
+            'total_time':   {'iname': 'Total Time', 'type': float, 'constraint': self.totalTimeCalcCheck,          'prefilled': True,  'required': True},
             },
             'FOCAS': {
             'code':         {'iname': 'Code',        'type': str,   'constraint': "len(value) > 0"},
@@ -1420,14 +1507,14 @@ class OBListFile(QueueFile):
             'comment': 'comment',
             }
         self.columnInfo = {
-            'code':       {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",    'prefilled': False},
-            'tgtcfg':     {'iname': 'tgtcfg',     'type': str,   'constraint': self.tgtcfgCheck,    'prefilled': False},
-            'inscfg':     {'iname': 'inscfg',     'type': str,   'constraint': self.inscfgCheck,    'prefilled': False},
-            'telcfg':     {'iname': 'telcfg',     'type': str,   'constraint': self.telcfgCheck,    'prefilled': False},
-            'envcfg':     {'iname': 'envcfg',     'type': str,   'constraint': self.envcfgCheck,    'prefilled': False},
-            'priority':   {'iname': 'Priority',   'type': float, 'constraint': None,                'prefilled': False},
-            'on_src_time':{'iname': 'On-src Time','type': float, 'constraint': self.checkOnSrcTime, 'prefilled': True},
-            'total_time': {'iname': 'Total Time', 'type': float, 'constraint': self.checkTotalTime, 'prefilled': True},
+            'code':       {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",    'prefilled': False, 'required': True},
+            'tgtcfg':     {'iname': 'tgtcfg',     'type': str,   'constraint': self.tgtcfgCheck,    'prefilled': False, 'required': True},
+            'inscfg':     {'iname': 'inscfg',     'type': str,   'constraint': self.inscfgCheck,    'prefilled': False, 'required': True},
+            'telcfg':     {'iname': 'telcfg',     'type': str,   'constraint': self.telcfgCheck,    'prefilled': False, 'required': True},
+            'envcfg':     {'iname': 'envcfg',     'type': str,   'constraint': self.envcfgCheck,    'prefilled': False, 'required': True},
+            'priority':   {'iname': 'Priority',   'type': float, 'constraint': None,                'prefilled': False, 'required': True},
+            'on_src_time':{'iname': 'On-src Time','type': float, 'constraint': self.checkOnSrcTime, 'prefilled': True,  'required': True},
+            'total_time': {'iname': 'Total Time', 'type': float, 'constraint': self.checkTotalTime, 'prefilled': True,  'required': True},
             }
         super(OBListFile, self).__init__(input_dir, 'ob', logger, file_ext=file_ext)
 

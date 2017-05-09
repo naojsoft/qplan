@@ -58,7 +58,7 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         else:
             spec = Bunch(module='ProposalTab', klass='ProposalTab',
                          ws='report', tab=proposal, name=proposal,
-                         start=False)
+                         start=False, ptype='global')
             self.view.load_plugin(proposal, spec)
 
         self.view.start_plugin(proposal)

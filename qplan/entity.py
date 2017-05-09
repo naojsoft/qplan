@@ -5,6 +5,8 @@
 #
 from datetime import timedelta, datetime
 import math
+import dateutil.parser
+import pytz
 
 # 3rd party imports
 import numpy as np
@@ -546,8 +548,12 @@ class FOCASConfiguration(InstrumentConfiguration):
 
 class EnvironmentConfiguration(object):
 
+    # Default time zone for lower_time_limit and upper_time_limit
+    default_timezone = pytz.utc
+
     def __init__(self, seeing=None, airmass=None, moon='any',
-                 transparency=None, moon_sep=None, comment=''):
+                 transparency=None, moon_sep=None, lower_time_limit=None,
+                 upper_time_limit=None, comment=''):
         super(EnvironmentConfiguration, self).__init__()
         self.seeing = seeing
         self.airmass = airmass
@@ -556,7 +562,18 @@ class EnvironmentConfiguration(object):
         if (moon == None) or (len(moon) == 0):
             moon = 'any'
         self.moon = moon.lower()
+        self.lower_time_limit = lower_time_limit
+        self.upper_time_limit = upper_time_limit
         self.comment = comment
+
+    def parseDateTime(self, dt_str):
+        if len(dt_str) > 0:
+            dt = dateutil.parser.parse(dt_str)
+            if dt.tzinfo is None:
+                dt = self.default_timezone.localize(dt)
+        else:
+            dt = None
+        return dt
 
     def import_record(self, rec):
         code = rec.code.strip()
@@ -576,6 +593,14 @@ class EnvironmentConfiguration(object):
         self.moon = rec.moon
         self.moon_sep = float(rec.moon_sep)
         self.transparency = float(rec.transparency)
+        try:
+            self.lower_time_limit = self.parseDateTime(rec.lower_time_limit)
+        except KeyError as e:
+            self.lower_time_limit = None
+        try:
+            self.upper_time_limit = self.parseDateTime(rec.upper_time_limit)
+        except KeyError as e:
+            self.upper_time_limit = None
         self.comment = rec.comment.strip()
         return code
 
