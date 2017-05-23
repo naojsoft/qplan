@@ -11,7 +11,6 @@ import csv
 from io import BytesIO, StringIO
 import datetime
 import re
-import dateutil.parser
 
 import six
 from six.moves import map
@@ -891,22 +890,13 @@ class EnvCfgFile(QueueFile):
     def dateTimeCheck(self, val, rec, row_num, col_name, progFile):
         iname = self.columnInfo[col_name]['iname']
         try:
-            pdt = self.parseDateTime(val)
+            pdt = entity.parse_date_time(val, self.default_timezone)
             progFile.logger.debug("Line %d, column %s of sheet %s: %s '%s' is ok" % (row_num, col_name, self.name, iname, val))
         except (ValueError, OverflowError) as e:
             msg = "Error while checking line %d, column %s of sheet %s: %s value '%s' is not valid" % (row_num, iname, self.name, iname, val)
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [iname], msg])
             progFile.error_count += 1
-
-    def parseDateTime(self, dt_str):
-        if len(dt_str) > 0:
-            dt = dateutil.parser.parse(dt_str)
-            if dt.tzinfo is None:
-                dt = self.default_timezone.localize(dt)
-        else:
-            dt = None
-        return dt
 
     def lowerTimeLimitCheck(self, val, rec, row_num, col_name, progFile):
         self.dateTimeCheck(val, rec, row_num, col_name, progFile)
@@ -928,7 +918,8 @@ class EnvCfgFile(QueueFile):
         # limit. If net, return immediately because we can't do
         # anything else.
         try:
-            lower_time_limit = self.parseDateTime(rec.lower_time_limit)
+            lower_time_limit = entity.parse_date_time(rec.lower_time_limit,
+                                                      self.default_timezone)
         except (ValueError, OverflowError) as e:
             return
         # Check the lower and upper time limits together. We want to
@@ -936,7 +927,8 @@ class EnvCfgFile(QueueFile):
         # lower time limit. Also, we want to make sure that, if one
         # limit value was supplied, then there must also be a value
         # for the other limit.
-        upper_time_limit = self.parseDateTime(val)
+        upper_time_limit = entity.parse_date_time(val,
+                                                  self.default_timezone)
         if lower_time_limit is not None or upper_time_limit is not None:
             try:
                 if upper_time_limit > lower_time_limit:

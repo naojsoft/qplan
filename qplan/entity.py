@@ -566,15 +566,6 @@ class EnvironmentConfiguration(object):
         self.upper_time_limit = upper_time_limit
         self.comment = comment
 
-    def parseDateTime(self, dt_str):
-        if len(dt_str) > 0:
-            dt = dateutil.parser.parse(dt_str)
-            if dt.tzinfo is None:
-                dt = self.default_timezone.localize(dt)
-        else:
-            dt = None
-        return dt
-
     def import_record(self, rec):
         code = rec.code.strip()
 
@@ -594,11 +585,13 @@ class EnvironmentConfiguration(object):
         self.moon_sep = float(rec.moon_sep)
         self.transparency = float(rec.transparency)
         try:
-            self.lower_time_limit = self.parseDateTime(rec.lower_time_limit)
+            self.lower_time_limit = parse_date_time(rec.lower_time_limit,
+                                                    self.default_timezone)
         except KeyError as e:
             self.lower_time_limit = None
         try:
-            self.upper_time_limit = self.parseDateTime(rec.upper_time_limit)
+            self.upper_time_limit = parse_date_time(rec.upper_time_limit,
+                                                    self.default_timezone)
         except KeyError as e:
             self.upper_time_limit = None
         self.comment = rec.comment.strip()
@@ -667,6 +660,16 @@ class HSC_Exposure(PersistentEntity):
 
     def __str__(self):
         return self.exp_id
+
+
+def parse_date_time(dt_str, default_timezone):
+    if len(dt_str) > 0:
+        dt = dateutil.parser.parse(dt_str)
+        if dt.tzinfo is None:
+            dt = default_timezone.localize(dt)
+    else:
+        dt = None
+    return dt
 
 
 #END

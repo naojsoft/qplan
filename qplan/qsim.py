@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 #
 # qsim.py -- Observing Queue Planner
 #
@@ -247,6 +246,19 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
             delta, ob.total_time))
         return res
 
+    # Check time limits on OB
+    if (ob.envcfg.lower_time_limit is not None and
+        ob.envcfg.lower_time_limit > slot.stop_time):
+        res.setvals(obs_ok=False,
+                    reason="Slot end time is before OB lower time limit")
+        return res
+
+    if (ob.envcfg.upper_time_limit is not None and
+        ob.envcfg.upper_time_limit < slot.start_time):
+        res.setvals(obs_ok=False,
+                    reason="Slot start time is after OB upper time limit")
+        return res
+
     ## # check if instrument will be installed
     ## if not (ob.inscfg.insname in slot.data.instruments):
     ##     res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
@@ -407,13 +419,26 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
 
     # calculate delay until we could actually start observing the object
     # in this slot
+    if ob.envcfg.lower_time_limit is not None:
+        t_start = max(t_start, ob.envcfg.lower_time_limit)
+
     delay_sec = (t_start - start_time).total_seconds()
 
     stop_time = t_start + timedelta(0, ob.total_time)
 
+    if ob.envcfg.upper_time_limit is not None:
+        t_stop = min(ob.envcfg.upper_time_limit, t_stop)
+
+    t_stop = min(t_stop, slot.stop_time)
+
+    if t_stop < stop_time:
+        res.setvals(obs_ok=False,
+                    reason="Not enough time in slot after all prep/delay")
+        return res
+
     # check moon constraints between start and stop time
     if check_moon:
-        obs_ok = check_moon_cond(site, start_time, stop_time, ob, res)
+        obs_ok = check_moon_cond(site, t_start, stop_time, ob, res)
     else:
         obs_ok = True
 
