@@ -32,8 +32,8 @@ log_file = os.path.join(QUEUE_FILE_TOP_DIR, 'qcheck.log')
 logger = log.get_logger(name='qcheck', level=20, log_file=log_file)
 
 magic_types = {
-    'xls':  'Composite Document File V2 Document',
-    'xlsx': 'Zip archive data'
+    'xls':  ['Composite Document File V2 Document',],
+    'xlsx': ['Zip archive data', 'Microsoft Excel 2007+']
     }
 
 def html_header(l, formatters=None):
@@ -460,10 +460,11 @@ if len(fileList[0].filename) > 0:
             """ % (item.filename, ms.error())
             logger.error(ms.error())
         try:
-            if magic_types[ext] in magic_filetype:
-                magic_filetype_ok = True
-            else:
-                magic_filetype_ok = False
+            magic_type_list = magic_types[ext]
+            magic_filetype_ok = False
+            for t in magic_type_list:
+                if t in magic_filetype:
+                    magic_filetype_ok = True
         except KeyError as e:
             magic_filetype_ok = False
 
