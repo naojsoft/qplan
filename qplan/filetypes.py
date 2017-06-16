@@ -315,8 +315,9 @@ class QueueFile(object):
         # then this row is considered a blank or a comment row and can
         # be ignored. Also, for the OBListFile, if the content of the
         # first column starts with "#", then the row can be ignored.
-        if row[0].lower() == 'comment' or \
-               (isinstance(self, OBListFile) and len(row[0]) > 0 and row[0][0] == '#'):
+        first_col_content = row[0].strip()
+        if first_col_content.lower() == 'comment' or \
+               (isinstance(self, OBListFile) and len(first_col_content) > 0 and first_col_content[0] == '#'):
             return True
         for i, col_name in enumerate(self.column_map):
             if col_name == 'comment' or self.columnInfo[col_name]['prefilled']:
@@ -1619,10 +1620,12 @@ class OBListFile(QueueFile):
                 lineNum += 1
 
                 # skip comments
-                if row[0].lower() == 'comment':
+                first_col_content = row[0].strip()
+                if first_col_content.lower() == 'comment' or \
+                   (len(first_col_content) > 0 and first_col_content[0] == '#'):
                     continue
                 # skip blank lines
-                if len(row[0].strip()) == 0:
+                if len(first_col_content) == 0:
                     continue
 
                 rec = self.parse_row(row, self.columnNames,
