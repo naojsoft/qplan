@@ -1296,7 +1296,7 @@ class InsCfgFile(QueueFile):
             'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None},
             },
             }
-        self.max_onsource_time_hrs = 2.0 # hours
+        self.max_onsource_time_mins = 100.0 # minutes
         super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
         self.excel_converters = {
             'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x),
@@ -1433,14 +1433,14 @@ class InsCfgFile(QueueFile):
             progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname'], iname], msg])
             progFile.error_count += 1
 
-        onsource_time_hrs = float(calc_time) / 3600.0
-        if onsource_time_hrs <= self.max_onsource_time_hrs:
-            progFile.logger.debug('Line %d, column %s of sheet %s: onsource time of %.1f hours is less than recommended maximum value of %.1f hours' % (row_num, iname, self.name, onsource_time_hrs, self.max_onsource_time_hrs))
+        onsource_time_mins = float(calc_time) / 60.0
+        if onsource_time_mins <= self.max_onsource_time_mins:
+            progFile.logger.debug('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than recommended maximum value of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins))
         else:
-            msg = 'Warning while checking line %d, column %s of sheet %s: onsource time of %.1f hours exceeds recommended maximum of %.1f hours' % (row_num, iname, self.name, onsource_time_hrs, self.max_onsource_time_hrs)
-            progFile.logger.warn(msg)
-            progFile.warnings[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
-            progFile.warn_count += 1
+            msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins)
+            progFile.logger.error(msg)
+            progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
+            progFile.error_count += 1
 
     def totalTimeCalcCheck(self, val, rec, row_num, col_name, progFile):
         num_exp = int(rec.num_exp)
