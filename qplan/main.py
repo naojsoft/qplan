@@ -42,7 +42,7 @@ default_layout = ['seq', {},
                         # (tabname, layout), ...
                         ],
                        ],
-                      ['hpanel', {},
+                      ['hpanel', dict(height=520),
                        ['ws', dict(name='sub1', width=700, height=520,
                                    group=1)],
                        ['ws', dict(name='sub2', width=500, group=1)],

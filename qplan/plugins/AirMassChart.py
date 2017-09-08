@@ -115,7 +115,7 @@ class AirMassChart(PlBase.Plugin):
         # clip all arrays to same length
         min_len = 0
         if len(lengths) > 0:
-            min_len = min(*lengths)
+            min_len = min(lengths)
         for il in target_data:
             il.history = il.history[:min_len]
 
