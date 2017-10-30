@@ -319,6 +319,10 @@ class QueueFile(object):
         if first_col_content.lower() == 'comment' or \
                (isinstance(self, OBListFile) and len(first_col_content) > 0 and first_col_content[0] == '#'):
             return True
+        # If this is the "targets" or "inscfg" sheet, and the first
+        # column has the string "default" in it, then ignore the row.
+        if self.name in ('targets', 'inscfg') and first_col_content.lower() == 'default':
+            return True
         for i, col_name in enumerate(self.column_map):
             if col_name == 'comment' or self.columnInfo[col_name]['prefilled']:
                 continue
@@ -452,8 +456,9 @@ class QueueFile(object):
             # Ignore code values that are blank
             if len(code) > 0:
                 # Ignore rows that have the "Code" value set to the
-                # string "comment"
-                if code.lower() == 'comment':
+                # string "comment" or, on "targets" and "inscfg"
+                # sheets, "Code" set to "default".
+                if code.lower() == 'comment' or (self.name in ('targets', 'inscfg') and code.lower() == 'default'):
                     progFile.logger.debug('On Sheet %s, ignore Line %d with contents %s' % (self.name, row_num, row))
                 else:
                     # Check to see that the specified code appears in
@@ -1058,8 +1063,8 @@ class TgtCfgFile(QueueFile):
             'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
             'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
             'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "value in ('J2000', 'B1950')", 'prefilled': False, 'required': True},
-            'sdss_ra':      {'iname': 'SDSS RA',     'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
-            'sdss_dec':     {'iname': 'SDSS DEC',    'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
+            'sdss_ra':      {'iname': 'SDSS RA',     'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': False},
+            'sdss_dec':     {'iname': 'SDSS DEC',    'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': False},
             }
         super(TgtCfgFile, self).__init__(input_dir, 'targets', logger, file_ext)
 
@@ -1136,8 +1141,8 @@ class TgtCfgFile(QueueFile):
             try:
                 lineNum += 1
 
-                # skip comments
-                if row[0].lower() == 'comment':
+                # skip comments and 'default' line
+                if row[0].lower() in ('comment', 'default'):
                     continue
                 # skip blank lines
                 if len(row[0].strip()) == 0:
@@ -1159,7 +1164,7 @@ class TgtCfgFile(QueueFile):
                 self.tgt_cfgs[code] = target
 
             except Exception as e:
-                raise ValueError("Error reading line %d of oblist from file %s: %s" % (
+                raise ValueError("Error reading line %d of target configuration from file %s: %s" % (
                     lineNum, self.filepath, str(e)))
 
 
@@ -1322,8 +1327,8 @@ class InsCfgFile(QueueFile):
             try:
                 lineNum += 1
 
-                # skip comments
-                if row[0].lower() == 'comment':
+                # skip comments and 'default' line
+                if row[0].lower() in ('comment', 'default'):
                     continue
                 # skip blank lines
                 if len(row[0].strip()) == 0:
@@ -1370,6 +1375,12 @@ class InsCfgFile(QueueFile):
         row = next(reader)
         rec = self.parse_row(row, column_names, self.column_map)
         insname = rec.insname
+        # If the second row has a blank instrument name, then look at
+        # the third row.
+        if len(insname.strip()) == 0:
+            row = next(reader)
+            rec = self.parse_row(row, column_names, self.column_map)
+            insname = rec.insname
         return insname
 
     def validate_column_names(self, progFile):
@@ -1494,6 +1505,8 @@ class OBListFile(QueueFile):
             'code': 'code',
             'tgtcfg': 'tgt_code',
             'inscfg': 'ins_code',
+            'calib_tgtcfg': 'calib_tgt_code',
+            'calib_inscfg': 'calib_ins_code',
             'telcfg': 'tel_code',
             'envcfg': 'env_code',
             'priority': 'priority',
@@ -1505,6 +1518,8 @@ class OBListFile(QueueFile):
             'code':       {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0",    'prefilled': False, 'required': True},
             'tgtcfg':     {'iname': 'tgtcfg',     'type': str,   'constraint': self.tgtcfgCheck,    'prefilled': False, 'required': True},
             'inscfg':     {'iname': 'inscfg',     'type': str,   'constraint': self.inscfgCheck,    'prefilled': False, 'required': True},
+            'calib_tgtcfg': {'iname': 'calib_tgtcfg', 'type': str, 'constraint': self.calibTgtcfgCheck, 'prefilled': False, 'required': False},
+            'calib_inscfg': {'iname': 'calib_inscfg', 'type': str, 'constraint': self.calibInscfgCheck, 'prefilled': False, 'required': False},
             'telcfg':     {'iname': 'telcfg',     'type': str,   'constraint': self.telcfgCheck,    'prefilled': False, 'required': True},
             'envcfg':     {'iname': 'envcfg',     'type': str,   'constraint': self.envcfgCheck,    'prefilled': False, 'required': True},
             'priority':   {'iname': 'Priority',   'type': float, 'constraint': None,                'prefilled': False, 'required': True},
@@ -1527,9 +1542,29 @@ class OBListFile(QueueFile):
         cfg_name = 'targets'
         self.cfgCheck(val, rec, row_num, col_name, progFile, cfg_name, progFile.cfg[cfg_name].tgt_cfgs)
 
+    def calibTgtcfgCheck(self, val, rec, row_num, col_name, progFile):
+        cfg_name = 'targets'
+        iname = self.columnInfo[col_name]['iname']
+        if val == 'DEFAULT':
+            progFile.logger.debug('Line %d, column %s of sheet %s: value %s is OK' % (row_num, iname, self.name, val))
+        elif len(val) == 0:
+            progFile.logger.debug('Line %d, column %s of sheet %s: blank value is OK' % (row_num, iname, self.name))
+        else:
+            self.cfgCheck(val, rec, row_num, col_name, progFile, cfg_name, progFile.cfg[cfg_name].tgt_cfgs)
+
     def inscfgCheck(self, val, rec, row_num, col_name, progFile):
         cfg_name = 'inscfg'
         self.cfgCheck(val, rec, row_num, col_name, progFile, cfg_name, progFile.cfg[cfg_name].ins_cfgs)
+
+    def calibInscfgCheck(self, val, rec, row_num, col_name, progFile):
+        cfg_name = 'inscfg'
+        iname = self.columnInfo[col_name]['iname']
+        if val == 'DEFAULT':
+            progFile.logger.debug('Line %d, column %s of sheet %s: value %s is OK' % (row_num, iname, self.name, val))
+        elif len(val) == 0:
+            progFile.logger.debug('Line %d, column %s of sheet %s: blank value is OK' % (row_num, iname, self.name))
+        else:
+            self.cfgCheck(val, rec, row_num, col_name, progFile, cfg_name, progFile.cfg[cfg_name].ins_cfgs)
 
     def telcfgCheck(self, val, rec, row_num, col_name, progFile):
         cfg_name = 'telcfg'
@@ -1560,6 +1595,48 @@ class OBListFile(QueueFile):
     def checkTotalTime(self, val, rec, row_num, col_name, progFile):
         inscfg_col_name = 'total_time'
         self.checkTime(val, rec, row_num, col_name, progFile, inscfg_col_name)
+
+    def calibCheck(self, progFile):
+        # Check calib_tgt_code and calib_ins_code to make sure they
+        # are either both specified or both empty. Otherwise, report
+        # an error.
+        begin_error_count = progFile.error_count
+
+        # First, get the column names from the first row.
+        self.stringio[self.name].seek(0)
+        reader = csv.reader(self.stringio[self.name], **self.fmtparams)
+        column_names = next(reader)
+        for i, row in enumerate(reader):
+            row_num = i + 1
+            rec = self.parse_row(row, column_names, self.column_map)
+
+            # Ignore comment rows
+            if self.ignoreRow(row, rec):
+                progFile.logger.debug('On Sheet %s, ignore Line %d with contents %s' % (self.name, row_num, row))
+            else:
+                # Check calib_tgt_code and calib_ins_code only if both
+                # items are in rec.
+                if rec.has_key('calib_tgt_code') and rec.has_key('calib_ins_code'):
+                    calib_tgt_code_len = len(rec.calib_tgt_code)
+                    calib_ins_code_len = len(rec.calib_ins_code)
+                    if calib_tgt_code_len == 0 and calib_ins_code_len == 0:
+                        progFile.logger.debug('Line %d, columns calib_tgtcfg and calib_inscfg of sheet %s: are both empty and are ok' % (row_num, self.name))
+                    elif calib_tgt_code_len > 0 and calib_ins_code_len > 0:
+                        progFile.logger.debug('Line %d, columns calib_tgtcfg and calib_inscfg of sheet %s: are both non-empty and are ok' % (row_num, self.name))
+                    elif calib_tgt_code_len > 0 and calib_ins_code_len == 0:
+                        val = rec.calib_tgt_code
+                        iname = self.columnInfo['calib_inscfg']['iname']
+                        msg = 'Error while checking line %d, columns calib_tgtcfg and calib_inscfg of sheet %s: calib_tgtcfg is %s but calib_inscfg is empty' % (row_num, self.name, val)
+                        progFile.logger.error(msg)
+                        progFile.errors[self.name].append([row_num, [iname], msg])
+                        progFile.error_count += 1
+                    elif  calib_tgt_code_len == 0 and calib_ins_code_len > 0:
+                        val = rec.calib_ins_code
+                        iname = self.columnInfo['calib_tgtcfg']['iname']
+                        msg = 'Error while checking line %d, columns calib_tgtcfg and calib_inscfg of sheet %s: calib_tgtcfg is empty but calib_inscfg is %s' % (row_num, self.name, val)
+                        progFile.logger.error(msg)
+                        progFile.errors[self.name].append([row_num, [iname], msg])
+                        progFile.error_count += 1
 
     def totalOnSrcTimeCheck(self, progFile):
         # Add up the on-source time for all the observing blocks in
@@ -1596,8 +1673,13 @@ class OBListFile(QueueFile):
         ph1_allocated_time = round(ph1_allocated_time,1)
         # Compare onSrcTimeSum to ph1_allocated_time and report error
         # if onSrcTimeSum is greater than ph1_allocated_time
-        if onSrcTimeSum <= ph1_allocated_time:
-            progFile.logger.debug('Column %s of sheet %s: On-source time sum of %s seconds is less than or equal to the Phase 1 allocated value of %s seconds and is ok' % (iname, self.name, onSrcTimeSum, ph1_allocated_time))
+        if onSrcTimeSum < ph1_allocated_time:
+            msg = 'Warning while checking column %s of sheet %s: On-source time sum of %s seconds is less than the Phase 1 allocated value of %s seconds' % (iname, self.name, onSrcTimeSum, ph1_allocated_time )
+            progFile.logger.warn(msg)
+            progFile.warnings[self.name].append([None, [iname], msg])
+            progFile.warn_count += 1
+        elif onSrcTimeSum == ph1_allocated_time:
+            progFile.logger.debug('Column %s of sheet %s: On-source time sum of %s seconds is equal to the Phase 1 allocated value of %s seconds and is ok' % (iname, self.name, onSrcTimeSum, ph1_allocated_time))
         else:
             msg = 'Warning while checking column %s of sheet %s: On-source time sum of %s seconds is greater than the Phase 1 allocated value of %s seconds' % (iname, self.name, onSrcTimeSum, ph1_allocated_time )
             progFile.logger.warn(msg)
@@ -1638,10 +1720,34 @@ class OBListFile(QueueFile):
                 tgtcfg = self.tgtcfgs[rec.tgt_code.strip()]
                 inscfg = self.inscfgs[rec.ins_code.strip()]
 
+                if rec.has_key('calib_tgt_code'):
+                    calib_tgt_code =  rec.calib_tgt_code.strip()
+                    if calib_tgt_code == 'default':
+                        calib_tgtcfg = self.tgtcfgs[rec.tgt_code.strip()]
+                    elif len(calib_tgt_code) == 0:
+                        calib_tgtcfg = None
+                    else:
+                        calib_tgtcfg = self.tgtcfgs[calib_tgt_code]
+                else:
+                    calib_tgtcfg = None
+
+                if rec.has_key('calib_ins_code'):
+                    calib_ins_code =  rec.calib_ins_code.strip()
+                    if calib_ins_code == 'default':
+                        calib_inscfg = self.inscfgs[rec.ins_code.strip()]
+                    elif len(calib_ins_code) == 0:
+                        calib_inscfg = None
+                    else:
+                        calib_inscfg = self.inscfgs[calib_ins_code]
+                else:
+                    calib_inscfg = None
+
                 priority = 1.0
                 if rec.priority != None:
                     priority = float(rec.priority)
 
+                ## TODO: Add calib_tgtcfg and calib_inscfg to
+                ## entity.OB
                 ob = entity.OB(program=program,
                                target=tgtcfg,
                                inscfg=inscfg,
@@ -1816,6 +1922,11 @@ class ProgramFile(QueueFile):
         error_incr = self.cfg['ob'].validate_data(self)
         if error_incr > 0:
             return
+
+        # Check the "ob" sheet to see if there are any OB rows that
+        # have non-empty calib_tgtcfg but empty calib_inscfg or vice
+        # versa.
+        self.cfg['ob'].calibCheck(self)
 
         # Compute the sum of the on-source time of all the observing
         # blocks and compare the result to the allocated time on the

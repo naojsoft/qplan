@@ -378,7 +378,7 @@ class HSCTarget(StaticTarget):
     def import_record(self, rec):
         code = super(HSCTarget, self).import_record(rec)
 
-        if (rec.sdss_ra is not None) and (len(rec.sdss_ra.strip()) > 0):
+        if rec.has_key('sdss_ra') and (rec.sdss_ra is not None) and (len(rec.sdss_ra.strip()) > 0):
             self.sdss_calib = StaticTarget(name='SDSS_calib',
                                            ra=rec.sdss_ra, dec=rec.sdss_dec)
         return code
