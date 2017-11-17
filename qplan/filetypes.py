@@ -445,7 +445,7 @@ class QueueFile(object):
 
         return progFile.error_count - begin_error_count
 
-    def checkForOrphanCodes(self, progFile, ob_col_name):
+    def checkForOrphanCodes(self, progFile, ob_col_name_list):
         # Check to see if the codes supplied in the sheet appears in
         # the ob sheet. If not, report a warning.
 
@@ -465,7 +465,8 @@ class QueueFile(object):
                     # the ob sheet.
                     found = False
                     for ob_row in progFile.cfg['ob'].rows:
-                        if code == ob_row[ob_col_name]:
+                        codes = (ob_row[n] for n in ob_col_name_list)
+                        if code in codes:
                             found = True
                             break
                     if found:
@@ -1939,9 +1940,10 @@ class ProgramFile(QueueFile):
         # Finally, check for orphan codes on the targets, envcfg,
         # inscfg, and telcfg sheets, i.e., codes that are on those
         # sheets but not on the "ob" sheet.
-        self.cfg['targets'].checkForOrphanCodes(self, 'tgtcfg')
-        for name in ('envcfg', 'inscfg', 'telcfg'):
-            self.cfg[name].checkForOrphanCodes(self, name)
+        self.cfg['targets'].checkForOrphanCodes(self, ('tgtcfg', 'calib_tgtcfg'))
+        self.cfg['inscfg'].checkForOrphanCodes(self, ('inscfg', 'calib_inscfg'))
+        for name in ('envcfg', 'telcfg'):
+            self.cfg[name].checkForOrphanCodes(self, (name,))
 
     def checkForRequiredSheets(self):
         # Check to see if all required sheets were in the file by
