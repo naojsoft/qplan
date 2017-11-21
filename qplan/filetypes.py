@@ -25,7 +25,10 @@ from qplan.util.site import site_subaru
 # In moon_states, the dict keys are the allowable the Phase 1 Moon
 # illumination names. The dict values are the list of acceptable Moon
 # values in the envcfg sheet.
-moon_states = {'dark': ('dark', 'gray', 'dark+gray'), 'gray': ('gray',), 'dark/gray': ('gray', 'dark+gray')}
+moon_states = {'dark': ('dark', 'gray', 'dark+gray'),
+               'gray': ('gray',),
+               'dark/gray': ('gray', 'dark+gray'),
+               'dark+gray': ('gray', 'dark+gray')}
 moon_states_upper = [state.upper() for state in moon_states.keys()]
 moon_sep_dist_warn = 30.0
 
