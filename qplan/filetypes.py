@@ -22,7 +22,10 @@ from . import entity
 from .cfg import HSC_cfg
 from qplan.util.site import site_subaru
 
-moon_states = {'dark': 0, 'gray': 1, 'dark+gray': 2, 'dark/gray': 2}
+# In moon_states, the dict keys are the allowable the Phase 1 Moon
+# illumination names. The dict values are the list of acceptable Moon
+# values in the envcfg sheet.
+moon_states = {'dark': ('dark', 'gray', 'dark+gray'), 'gray': ('gray',), 'dark/gray': ('gray', 'dark+gray')}
 moon_states_upper = [state.upper() for state in moon_states.keys()]
 moon_sep_dist_warn = 30.0
 
@@ -1008,29 +1011,15 @@ class EnvCfgFile(QueueFile):
         ph1MoonConstraint = progFile.cfg['proposal'].proposal_info['ph1_moon']
         iname = self.columnInfo[col_name]['iname']
 
-        # First, make sure the supplied value is one of those in the
-        # moon_states list.
-        try:
-            val_req_num = moon_states[val.lower()]
-            progFile.logger.debug('Line %d, column %s of sheet %s: %s %s found in %s' % (row_num, col_name, self.name, col_name, val, moon_states))
-        except KeyError as e:
-            msg = "Error while checking line %d, column %s of sheet %s: %s value '%s' does not match allowed values in %s" % (row_num, iname, self.name, iname, val, moon_states_upper)
+        allowed_moon_states = moon_states[ph1MoonConstraint.lower()]
+        if val.lower() in allowed_moon_states:
+            progFile.logger.debug('Line %d, column %s of sheet %s: %s %s found in %s' % (row_num, col_name, self.name, col_name, val, allowed_moon_states))
+        else:
+            msg = 'Error while checking line %d, column %s of sheet %s: %s value %s is not one of the allowed moon states for Phase 1 Moon constraint %s; allowed values are: %s' % (row_num, iname, self.name, iname, val, ph1MoonConstraint, allowed_moon_states)
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [iname], msg])
             progFile.error_count += 1
             return
-
-        # Make sure that the requested moon value is the same as or
-        # less restrictive than the Phase 1 value from the "proposal"
-        # sheet.
-        ph1Const_num = moon_states[ph1MoonConstraint.lower()]
-        if val_req_num >= ph1Const_num:
-            progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, self.name, col_name, val))
-        else:
-            msg = 'Error while checking line %d, column %s of sheet %s: %s value %s is more restrictive than Phase 1 Moon value %s' % (row_num, iname, self.name, iname, val, ph1MoonConstraint)
-            progFile.logger.error(msg)
-            progFile.errors[self.name].append([row_num, [iname], msg])
-            progFile.error_count += 1
 
     def moon_sep_check(self, val, rec, row_num, col_name, progFile):
         iname = self.columnInfo[col_name]['iname']
