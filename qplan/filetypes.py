@@ -26,7 +26,7 @@ from qplan.util.site import site_subaru
 # illumination names. The dict values are the list of acceptable Moon
 # values in the envcfg sheet.
 moon_states = {'dark': ('dark', 'gray', 'dark+gray'),
-               'gray': ('gray',),
+               'gray': ('gray', 'dark+gray'),
                'dark/gray': ('gray', 'dark+gray'),
                'dark+gray': ('gray', 'dark+gray')}
 moon_states_upper = [state.upper() for state in moon_states.keys()]
