@@ -5,6 +5,7 @@
 #
 
 # stdlib imports
+import sys, traceback
 import os.path
 import datetime
 
@@ -163,46 +164,57 @@ class ControlPanel(PlBase.Plugin):
         container.add_widget(sw, stretch=1)
 
     def initialize_model_cb(self, widget):
+        self.controller.error_wrap(self.initialize_model)
+
+    def initialize_model(self):
         self.input_dir = self.w.input_dir.get_text().strip()
         self.input_fmt = self.controller.input_fmt
 
-        try:
-            # read weights
-            self.weights_qf = filetypes.WeightsFile(self.input_dir, self.logger,
-                                                    file_ext=self.input_fmt)
-            # Load "Weights" Tab
-            if not self.view.gpmon.has_plugin('weightstab'):
-                self.view.load_plugin('weightstab', self.spec_weights)
-            self.model.set_weights_qf(self.weights_qf)
+        # read weights
+        self.weights_qf = filetypes.WeightsFile(self.input_dir, self.logger,
+                                                file_ext=self.input_fmt)
+        # Load "Weights" Tab
+        if not self.view.gpmon.has_plugin('weightstab'):
+            self.view.load_plugin('weightstab', self.spec_weights)
+        self.model.set_weights_qf(self.weights_qf)
 
-            # read schedule
-            self.schedule_qf = filetypes.ScheduleFile(self.input_dir, self.logger,
-                                                      file_ext=self.input_fmt)
-            # Load "Schedule" Tab
-            if not self.view.gpmon.has_plugin('scheduletab'):
-                self.view.load_plugin('scheduletab', self.spec_schedule)
-            self.model.set_schedule_qf(self.schedule_qf)
+        # read schedule
+        self.schedule_qf = filetypes.ScheduleFile(self.input_dir, self.logger,
+                                                  file_ext=self.input_fmt)
+        # Load "Schedule" Tab
+        if not self.view.gpmon.has_plugin('scheduletab'):
+            self.view.load_plugin('scheduletab', self.spec_schedule)
+        self.model.set_schedule_qf(self.schedule_qf)
 
-            # read proposals
-            self.programs_qf = filetypes.ProgramsFile(self.input_dir, self.logger,
-                                                      file_ext=self.input_fmt)
-            if not self.view.gpmon.has_plugin('programstab'):
-                self.view.load_plugin('programstab', self.spec_programs)
-            self.model.set_programs_qf(self.programs_qf)
+        # read proposals
+        self.programs_qf = filetypes.ProgramsFile(self.input_dir, self.logger,
+                                                  file_ext=self.input_fmt)
+        if not self.view.gpmon.has_plugin('programstab'):
+            self.view.load_plugin('programstab', self.spec_programs)
+        self.model.set_programs_qf(self.programs_qf)
 
-            # read observing blocks
-            self.ob_qf_dict = {}
-            self.tgtcfg_qf_dict = {}
-            self.envcfg_qf_dict = {}
-            self.inscfg_qf_dict = {}
-            self.telcfg_qf_dict = {}
-            self.oblist_info = []
+        # read observing blocks
+        self.ob_qf_dict = {}
+        self.tgtcfg_qf_dict = {}
+        self.envcfg_qf_dict = {}
+        self.inscfg_qf_dict = {}
+        self.telcfg_qf_dict = {}
+        self.oblist_info = []
 
-            propnames = list(self.programs_qf.programs_info.keys())
-            propnames.sort()
+        propnames = list(self.programs_qf.programs_info.keys())
+        propnames.sort()
 
-            for propname in propnames:
-                pf = filetypes.ProgramFile(self.input_dir, self.logger, propname,
+        for propname in propnames:
+            pgm_info = self.programs_qf.programs_info[propname]
+            if pgm_info.skip:
+                self.logger.info("skipping program '%s'" % (propname))
+                continue
+
+            self.logger.info("attempting to read phase 2 info for '%s'" % (
+                propname))
+            try:
+                pf = filetypes.ProgramFile(self.input_dir, self.logger,
+                                           propname,
                                            self.programs_qf.programs_info,
                                            file_ext=self.input_fmt)
 
@@ -231,8 +243,19 @@ class ControlPanel(PlBase.Plugin):
                 #self.oblist_info.extend(self.oblist[propname].obs_info)
                 self.model.set_ob_qf_dict(self.ob_qf_dict)
 
-        except Exception as e:
-            self.logger.error("Error initializing: %s" % (str(e)))
+            except Exception as e:
+                errmsg = "error attempting to read phase 2 info for '%s'\n" % (
+                    propname)
+                errmsg += "\n".join([e.__class__.__name__, str(e)])
+                try:
+                    (type, value, tb) = sys.exc_info()
+                    tb_str = "\n".join(traceback.format_tb(tb))
+                except Exception as e:
+                    tb_str = "Traceback information unavailable."
+                errmsg += tb_str
+                self.logger.error(errmsg)
+                self.controller.gui_do(self.controller.show_error, errmsg,
+                                       raisetab=True)
 
 
     def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):

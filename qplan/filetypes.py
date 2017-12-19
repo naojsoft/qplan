@@ -132,7 +132,6 @@ class QueueFile(object):
             return False
 
     def process_input(self):
-
         # Read and save the first line, which should have the column
         # titles.
         self.stringio[self.name].seek(0)
@@ -1716,7 +1715,7 @@ class OBListFile(QueueFile):
                 if rec.has_key('calib_tgt_code'):
                     calib_tgt_code =  rec.calib_tgt_code.strip()
                     if calib_tgt_code == 'default':
-                        calib_tgtcfg = self.tgtcfgs[rec.tgt_code.strip()]
+                        calib_tgtcfg = calib_tgt_code
                     elif len(calib_tgt_code) == 0:
                         calib_tgtcfg = None
                     else:
@@ -1727,7 +1726,7 @@ class OBListFile(QueueFile):
                 if rec.has_key('calib_ins_code'):
                     calib_ins_code =  rec.calib_ins_code.strip()
                     if calib_ins_code == 'default':
-                        calib_inscfg = self.inscfgs[rec.ins_code.strip()]
+                        calib_inscfg = calib_ins_code
                     elif len(calib_ins_code) == 0:
                         calib_inscfg = None
                     else:
@@ -1746,6 +1745,8 @@ class OBListFile(QueueFile):
                                inscfg=inscfg,
                                envcfg=envcfg,
                                telcfg=telcfg,
+                               calib_tgtcfg=calib_tgtcfg,
+                               calib_inscfg=calib_inscfg,
                                priority=priority,
                                name=code,
                                total_time=float(rec.total_time),

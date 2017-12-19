@@ -297,14 +297,12 @@ class Scheduler(Callback.Callbacks):
                 d_slot.set_ob(new_ob)
                 schedule.insert_slot(d_slot)
 
-            # is there an SDSS calibration target?
-            if ob.target.sdss_calib is not None:
+            # is there a calibration target?
+            if ob.calib_tgtcfg is not None:
                 time_add_sec = res.calibration_sec + res.slew_sec
                 _xx, f_slot, slot = slot.split(slot.start_time,
                                                time_add_sec)
-                sdss_target = ob.target.sdss_calib
-                new_ob = qsim.calibration_ob(ob, sdss_target,
-                                             time_add_sec)
+                new_ob = qsim.calibration_ob(ob, time_add_sec)
                 f_slot.set_ob(new_ob)
                 schedule.insert_slot(f_slot)
 
@@ -463,6 +461,7 @@ class Scheduler(Callback.Callbacks):
                 if ob != None:
                     if not ob.derived:
                         # not an OB generated to serve another OB
+                        # TODO: what about calib_tgtcfg ?
                         key = (ob.target.ra, ob.target.dec)
                         targets[key] = ob.target
                         if self.remove_scheduled_obs:

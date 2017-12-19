@@ -282,7 +282,8 @@ class OB(PersistentEntity):
     count = 1
 
     def __init__(self, id=None, program=None, target=None, telcfg=None,
-                 inscfg=None, envcfg=None, total_time=None, acct_time=None,
+                 inscfg=None, envcfg=None, calib_tgtcfg=None,
+                 calib_inscfg=None, total_time=None, acct_time=None,
                  priority=1.0, name=None, derived=None, comment=''):
         super(OB, self).__init__()
         if id is None:
@@ -301,9 +302,36 @@ class OB(PersistentEntity):
         self.inscfg = inscfg
         self.telcfg = telcfg
         self.envcfg = envcfg
-        self.total_time = total_time
+
+        # this can be None, "default" or a valid target configuration
+        if calib_tgtcfg == 'default':
+            # default calib_tgtcfg is same pointing as science target,
+            # but name is prefixed with "calib for "
+            calib_tgtcfg = HSCTarget(name="calib for %s" % target.name,
+                                     ra=target.ra, dec=target.dec,
+                                     equinox=target.equinox)
+        self.calib_tgtcfg = calib_tgtcfg
+
+        if calib_inscfg == 'default':
+            # default calib_inscfg is a 30 sec single shot with same
+            # filter as the science inscfg
+            calib_inscfg = HSCConfiguration(filter=inscfg.filter,
+                                            guiding=False, num_exp=1,
+                                            exp_time=30,
+                                            mode='IMAGE', dither=1,
+                                            comment='default 30 sec calib shot')
+
+        elif calib_inscfg is None:
+            if calib_tgtcfg is not None:
+                raise ValueError("No calib_inscfg, but calib_tgtcfg specified")
+
+        else:
+            if calib_inscfg.filter != inscfg.filter:
+                raise ValueError("calib_inscfg specifies different filter")
+        self.calib_inscfg = calib_inscfg
 
         # other fields
+        self.total_time = total_time
         self.derived = derived
         self.comment = comment
         self.acct_time = acct_time
@@ -372,16 +400,6 @@ class StaticTarget(BaseTarget):
 class HSCTarget(StaticTarget):
     def __init__(self, *args, **kwdargs):
         super(HSCTarget, self).__init__(*args, **kwdargs)
-
-        self.sdss_calib = None
-
-    def import_record(self, rec):
-        code = super(HSCTarget, self).import_record(rec)
-
-        if rec.has_key('sdss_ra') and (rec.sdss_ra is not None) and (len(rec.sdss_ra.strip()) > 0):
-            self.sdss_calib = StaticTarget(name='SDSS_calib',
-                                           ra=rec.sdss_ra, dec=rec.sdss_dec)
-        return code
 
 
 class TelescopeConfiguration(object):

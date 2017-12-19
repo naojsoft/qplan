@@ -58,12 +58,12 @@ def longslew_ob(prev_ob, ob, total_time):
     return new_ob
 
 
-def calibration_ob(ob, sdss_target, total_time):
-    new_ob = entity.OB(program=ob.program, target=sdss_target,
-                       telcfg=ob.telcfg,
-                       inscfg=ob.inscfg, envcfg=ob.envcfg,
+def calibration_ob(ob, total_time):
+    new_ob = entity.OB(program=ob.program, target=ob.calib_tgtcfg,
+                       telcfg=ob.telcfg, inscfg=ob.calib_inscfg,
+                       envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
-                       comment="SDSS calibration for %s" % (ob))
+                       comment="Calibration for %s" % (ob))
     return new_ob
 
 
@@ -347,10 +347,10 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
                 return res
 
     # Calculate cost of slew to this target
-    # Assume that we want to do the SDSS calibration target first
-    target = ob.target.sdss_calib
+    # Assume that we want to do the calibration target first
+    target = ob.calib_tgtcfg
     if target is None:
-        # No SDSS calibration target specified--go with OB main target
+        # No calibration target specified--go with OB main target
         target = ob.target
 
     if prev_ob is None:
@@ -376,13 +376,14 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
     # adjust on-target start time
     start_time += timedelta(0, slew_sec)
 
-    # Is there an SDSS calibration target?  If so, then calculate in
+    # Is there a calibration target?  If so, then calculate in
     # calibration exposure and slew to main OB target
     calibration_sec = 0.0
     slew2_sec = 0.0
-    if ob.target.sdss_calib is not None:
-
-        calibration_sec = 30.0
+    if ob.calib_tgtcfg is not None:
+        # TODO: take overheads into account?
+        c_i = ob.calib_inscfg
+        calibration_sec = c_i.exp_time * c_i.num_exp
 
         prep_sec += calibration_sec
         # adjust on-target start time
