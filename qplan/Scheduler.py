@@ -166,40 +166,27 @@ class Scheduler(Callback.Callbacks):
         return good, bad
 
     def fill_night_schedule(self, schedule, site, oblist, props):
-
-        cantuse = []
-
+        """Fill the schedule `schedule` for observations from site `site` using
+        observation blocks from `oblist` with OB<->proposal index `props`.
+        """
         # check all available OBs against this slot and remove those
-        # that cannot be used a priori
-        usable = []
-        for ob in oblist:
-            res = qsim.check_schedule_invariant(site, schedule, ob)
-            if res.obs_ok:
-                usable.append(ob)
-            else:
-                cantuse.append(ob)
-                ob_id = self._ob_code(res.ob)
-                self.logger.debug("rejected %s (%s) because: %s" % (
-                    res.ob, ob_id, res.reason))
-
-        # reassign usable OBs
-        oblist = usable
+        # that cannot be used in this schedule a priori (e.g. wrong instrument, etc.)
+        usable, cantuse, results = qsim.check_schedule_invariant(site, schedule, oblist)
+        for ob in cantuse:
+            res = results[ob]
+            ob_id = self._ob_code(res.ob)
+            self.logger.debug("rejected %s (%s) because: %s" % (
+                res.ob, ob_id, res.reason))
 
         # make a visibility map, and reject OBs that are not visible
-        # during this night
-        usable = []
-        obmap = {}
-        for ob in oblist:
-            res = qsim.check_night_visibility(site, schedule, ob)
-            if res.obs_ok:
-                usable.append(ob)
-                # record visibility window
-                obmap[str(ob)] = res
-            else:
-                cantuse.append(ob)
-                ob_id = self._ob_code(res.ob)
-                self.logger.debug("rejected %s (%s) because: %s" % (
-                    res.ob, ob_id, res.reason))
+        # during this night for long enough to meet the exposure times
+        usable, bad, obmap = qsim.check_night_visibility(site, schedule, usable)
+        cantuse.extend(bad)
+        for ob in bad:
+            res = obmap[str(ob)]
+            ob_id = self._ob_code(res.ob)
+            self.logger.debug("rejected %s (%s) because: %s" % (
+                res.ob, ob_id, res.reason))
 
         # reassign usable OBs
         oblist = usable

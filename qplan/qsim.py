@@ -120,7 +120,7 @@ def calc_slew_time(cur_alt_deg, cur_az_deg, to_alt_deg, to_az_deg):
     return slew_sec
 
 
-def check_schedule_invariant(site, schedule, ob):
+def check_schedule_invariant_one(site, schedule, ob):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
@@ -147,7 +147,21 @@ def check_schedule_invariant(site, schedule, ob):
     return res
 
 
-def check_night_visibility(site, schedule, ob):
+def check_schedule_invariant(site, schedule, oblist):
+    good, bad, results = [], [], {}
+    # TODO: chance for vectorization
+    for ob in oblist:
+        res = check_schedule_invariant_one(site, schedule, ob)
+        results[ob] = res
+        if res.obs_ok:
+            good.append(ob)
+        else:
+            bad.append(ob)
+
+    return good, bad, results
+
+
+def check_night_visibility_one(site, schedule, ob):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
@@ -159,9 +173,6 @@ def check_night_visibility(site, schedule, ob):
     if ob.telcfg.dome == 'closed':
         res.setvals(obs_ok=True, reason="Dome is closed and this matches OB")
         return res
-
-    # Check visibility of target
-    c1 = ob.target.calc(site, schedule.start_time)
 
     min_el, max_el = ob.telcfg.get_el_minmax()
 
@@ -178,9 +189,43 @@ def check_night_visibility(site, schedule, ob):
                     reason="Time or visibility of target")
         return res
 
+    tgt_cal = ob.calib_tgtcfg
+    if tgt_cal is not None:
+        obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
+        obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
+        if obj2 != obj1:
+            # is calibration target visible during this night, and when?
+            (obs_ok2, t_start2, t_stop2) = site.observable(tgt_cal,
+                                                           schedule.start_time,
+                                                           schedule.stop_time,
+                                                           min_el, max_el,
+                                                           ob.total_time,
+                                                           airmass=ob.envcfg.airmass,
+                                                           moon_sep=ob.envcfg.moon_sep)
+
+            if not obs_ok2:
+                res.setvals(obs_ok=False,
+                            reason="Time or visibility of calibration target")
+                return res
+
+            t_start = max(t_start, t_start2)
+            # assume we will take the calibration first
+            #t_stop = min(t_stop, t_stop2)
+
     res.setvals(obs_ok=obs_ok, start_time=t_start, stop_time=t_stop)
     return res
 
+def check_night_visibility(site, schedule, oblist):
+    good, bad, results = [], [], {}
+    for ob in oblist:
+        res = check_night_visibility_one(site, schedule, ob)
+        results[str(ob)] = res
+        if res.obs_ok:
+            good.append(ob)
+        else:
+            bad.append(ob)
+
+    return good, bad, results
 
 def check_moon_cond(site, start_time, stop_time, ob, res):
     """Check whether the moon is at acceptable darkness for this OB
@@ -376,11 +421,14 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
     # adjust on-target start time
     start_time += timedelta(0, slew_sec)
 
+    min_el, max_el = ob.telcfg.get_el_minmax()
+
     # Is there a calibration target?  If so, then calculate in
     # calibration exposure and slew to main OB target
     calibration_sec = 0.0
     slew2_sec = 0.0
-    if ob.calib_tgtcfg is not None:
+    tgt_cal = ob.calib_tgtcfg
+    if tgt_cal is not None:
         # TODO: take overheads into account?
         c_i = ob.calib_inscfg
         calibration_sec = c_i.exp_time * c_i.num_exp
@@ -389,21 +437,35 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
         # adjust on-target start time
         start_time += timedelta(0, calibration_sec)
 
-        # add slew time from calibration target to main target
-        c2 = ob.target.calc(site, start_time)
-        slew2_sec = calc_slew_time(c1.alt_deg, c1.az_deg, c2.alt_deg, c2.az_deg)
-        #print("slew time from calib tgt to ob target is %f sec" % (slew2_sec))
+        # is calibration target the same as science target?
+        obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
+        obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
+        if obj2 != obj1:
+            # no!
+            # find the time that calibration target begins to be visible
+            (obs_ok, t_start, t_stop) = site.observable(tgt_cal,
+                                                        start_time, slot.stop_time,
+                                                        min_el, max_el, calibration_sec,
+                                                        airmass=ob.envcfg.airmass,
+                                                        moon_sep=ob.envcfg.moon_sep)
+            if not obs_ok:
+                res.setvals(obs_ok=False,
+                    reason="Time or visibility of separate calibration target")
+                return res
 
-        prep_sec += slew2_sec
-        # adjust on-target start time
-        start_time += timedelta(0, slew2_sec)
+            # add slew time from calibration target to main target
+            c2 = ob.target.calc(site, start_time)
+            slew2_sec = calc_slew_time(c1.alt_deg, c1.az_deg, c2.alt_deg, c2.az_deg)
+            #print("slew time from calib tgt to ob target is %f sec" % (slew2_sec))
+
+            prep_sec += slew2_sec
+            # adjust on-target start time
+            start_time += timedelta(0, slew2_sec)
 
     # Check whether OB will fit in this slot
     ## delta = (slot.stop_time - start_time).total_seconds()
     ## if ob.total_time > delta:
     ##     return False
-
-    min_el, max_el = ob.telcfg.get_el_minmax()
 
     # find the time that this object begins to be visible
     # TODO: figure out the best place to split the slot
