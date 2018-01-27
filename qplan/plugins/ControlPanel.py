@@ -206,10 +206,6 @@ class ControlPanel(PlBase.Plugin):
 
         for propname in propnames:
             pgm_info = self.programs_qf.programs_info[propname]
-            if pgm_info.skip:
-                self.logger.info("skipping program '%s'" % (propname))
-                continue
-
             self.logger.info("attempting to read phase 2 info for '%s'" % (
                 propname))
             try:
