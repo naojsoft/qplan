@@ -231,7 +231,7 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 out(cmd_str)
                 return
 
-            elif ob.comment.startswith('SDSS calibration'):
+            elif ob.comment.startswith('Calibration for'):
                 out("\n# %s" % (ob.comment))
                 d = {}
                 self._setup_target(d, ob)
@@ -352,7 +352,7 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 out(cmd_str)
 
         else:
-            raise ValueError("Instrument dither must be one of {1, 5, N}")
+            raise ValueError("Instrument dither must be one of {'1', '5', 'N'}, not (%s)" % repr(ob.inscfg.dither))
 
         cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
         out(cmd_str)

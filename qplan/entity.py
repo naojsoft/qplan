@@ -13,6 +13,8 @@ import numpy as np
 from six.moves import map
 from six.moves import zip
 
+entity_version = 20180129.0
+
 # ZOPE imports
 try:
     import persistent
@@ -21,6 +23,7 @@ try:
 
         def __init__(self):
             super(PersistentEntity, self).__init__()
+            self._e_version = entity_version
 
 except ImportError:
     # No ZOPE, so define as an ordinary base object
@@ -28,6 +31,7 @@ except ImportError:
 
         def __init__(self):
             super(PersistentEntity, self).__init__()
+            self._e_version = entity_version
             self._p_changed = False
 
 from ginga.misc import Bunch
@@ -318,7 +322,7 @@ class OB(PersistentEntity):
             calib_inscfg = HSCConfiguration(filter=inscfg.filter,
                                             guiding=False, num_exp=1,
                                             exp_time=30,
-                                            mode='IMAGE', dither=1,
+                                            mode='IMAGE', dither='1',
                                             comment='default 30 sec calib shot')
 
         elif calib_inscfg is None:
