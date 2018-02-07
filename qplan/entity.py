@@ -154,7 +154,7 @@ class Slot(object):
     def __repr__(self):
         #s = self.start_time.strftime("%H:%M:%S")
         duration = self.size() / 60.0
-        s = self.start_time.strftime("%H:%M") + ("(%.2fm)" % duration)
+        s = self.start_time.strftime("%Y-%m-%d %H:%M") + ("(%.2fm)" % duration)
         return s
 
     __str__ = __repr__

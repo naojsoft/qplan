@@ -218,7 +218,8 @@ class ControlPanel(PlBase.Plugin):
                     propname))
                 continue
 
-        self.load_program(propname)
+            # Just auto-load programs on-demand
+            #self.load_program(propname)
 
     def load_program(self, propname):
         self.logger.info("attempting to read phase 2 info for '%s'" % (

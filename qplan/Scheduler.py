@@ -365,6 +365,12 @@ class Scheduler(Callback.Callbacks):
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
         obmap = qsim.obs_to_slots(self.logger, night_slots, site,
                                   self.oblist)
+
+        self.logger.debug('OB MAP')
+        for key in obmap:
+            self.logger.debug("-- %s --" % key)
+            self.logger.debug(str(obmap[key]))
+            self.logger.debug("--------")
         schedulable = set([])
         for obs in obmap.values():
             schedulable = schedulable.union(set(obs))
