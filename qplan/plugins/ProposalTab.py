@@ -15,6 +15,7 @@ class ProposalTab(PlBase.Plugin):
 
         # Hmm.. Should this share MM of view?
         self.mm = ModuleManager.ModuleManager(self.logger)
+        #self.mm = self.controller.mm
 
         # Register a callback function for when the we want to show
         # the ProposalTab
@@ -67,4 +68,4 @@ class ProposalTab(PlBase.Plugin):
 
     def close_tab_cb(self, widget):
         self.logger.info('Closing tab for proposal %s' % self.proposal)
-        self.view.close_plugin(self.proposal)
+        self.view.stop_plugin(self.proposal)

@@ -28,7 +28,7 @@ parked_az_deg = 270.0
 parked_alt_deg = 90.0
 
 # Subaru defines a dark night as one that is 2-3 days before or
-# after a new moon (0%).  Since a half moon (50%)occurs just 7 days
+# after a new moon (0%).  Since a half moon (50%) occurs just 7 days
 # prior to a new moon, we can roughly calculate a dark night as
 # being < 25% illumination
 dark_night_moon_pct_limit = 0.25
@@ -89,6 +89,15 @@ def setup_ob(ob, total_time):
                        comment="Setup OB: %s" % (comment))
     #
     new_ob.orig_ob = ob
+    return new_ob
+
+
+def teardown_ob(ob, total_time):
+    new_ob = entity.OB(program=ob.program, target=ob.target,
+                       telcfg=ob.telcfg,
+                       inscfg=ob.inscfg, envcfg=ob.envcfg,
+                       total_time=total_time, derived=True,
+                       comment="Teardown for %s" % (ob))
     return new_ob
 
 

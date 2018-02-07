@@ -21,6 +21,8 @@ class Plugin(object):
         self.model = controller.get_model()
         self.view = controller
         self.controller = controller
+        # for limited ginga plugin compatibility
+        self.fv = controller
 
         # and establish a logger
         self.logger = controller.get_logger()
@@ -36,5 +38,9 @@ class Plugin(object):
     def stop(self):
         # Subclass can override this method, but doesn't have to
         pass
+
+    def help(self):
+        # Subclass can override this method, but doesn't have to
+        self.fv.show_error("Sorry, no help available yet")
 
 #END

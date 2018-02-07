@@ -168,7 +168,7 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                  pi=ob.program.pi,
                  tgtname=ob.target.name)
         # write out any comments
-        out("\n## ob: %s" % (ob.comment))
+        out("\n## %s" % (ob.comment))
         # TODO: need the comment from the root OB
         if len(ob.target.comment) > 0:
             out("\n## tgt: %s" % (ob.target.comment))
@@ -178,6 +178,14 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
             out("\n## env: %s" % (ob.envcfg.comment))
 
         cmd_str = '''Start_OB $DEF_CMNTOOL OB_ID="%(obname)s" PROPOSAL="%(proposal)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s" PROP_PI="%(pi)s"''' % d
+        out(cmd_str)
+
+    def out_teardown_ob(self, ob, out_f):
+        out = self._mk_out(out_f)
+        # write out any comments
+        out("\n## %s" % (ob.comment))
+
+        cmd_str = '''Stop_OB $DEF_CMNTOOL\n'''
         out(cmd_str)
 
     def out_focusobe(self, ob, out_f):
@@ -211,6 +219,10 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 self.out_setup_ob(ob, out_f)
                 return
 
+            elif ob.comment.startswith('Teardown for'):
+                self.out_teardown_ob(ob, out_f)
+                return
+
             elif ob.comment.startswith('Filter change'):
                 self.out_filterchange(ob, out_f)
                 self.out_focusobe(ob, out_f)
@@ -232,23 +244,14 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 return
 
             elif ob.comment.startswith('Calibration for'):
-                out("\n# %s" % (ob.comment))
-                d = {}
-                self._setup_target(d, ob)
-                # TODO: get this from the OB
-                d['exptime'] = 30.0
-                cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s''' % d
-                out(cmd_str)
-
-                cmd_str = '''GetObject $DEF_IMAGE %(tgtstr)s EXPTIME=%(exptime)d''' % d
-                out(cmd_str)
+                self.out_exp_ob(ob, out, gettype='GetStandard')
                 return
 
         tgtname = ob.target.name.lower()
 
         if tgtname == 'domeflat':
             out("\n# %s" % (ob.comment))
-            cmd_str = 'SetupDomeFlat $DEF_CMNTOOL SETUP=SETUP  LAMP=4X10W VOLT=4.00 AMP=5.10'
+            cmd_str = 'SetupDomeFlat $DEF_CMNTOOL SETUP=SETUP LAMP=4X10W VOLT=4.00 AMP=5.10'
             out(cmd_str)
 
             ## # Do we need this or will qplan make a filterchange OB for us?
@@ -260,9 +263,6 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                      filter=self.get_filtername(ob.inscfg.filter))
             cmd_str = 'GetDomeFlat $DEF_IMAGE EXPTIME=%(exptime)d Filter="%(filter)s" NUMBER=%(num_exp)d' % d
             out(cmd_str)
-
-            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
-            out(cmd_str)
             return
 
         elif tgtname == 'bias':
@@ -270,18 +270,12 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
             d = dict(num_exp=ob.inscfg.num_exp)
             cmd_str = 'GetBias $DEF_IMAGE NUMBER=%(num_exp)d' % d
             out(cmd_str)
-
-            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
-            out(cmd_str)
             return
 
         elif tgtname == 'dark':
             out("\n# %s" % (ob.comment))
             d = dict(num_exp=ob.inscfg.num_exp, exptime=ob.inscfg.exp_time)
             cmd_str = 'GetDark $DEF_IMAGE EXPTIME=%(exptime)d NUMBER=%(num_exp)d' % d
-            out(cmd_str)
-
-            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
             out(cmd_str)
             return
 
@@ -293,34 +287,35 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
 
             cmd_str = '''GetSkyFlat $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
             out(cmd_str)
-
-            cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
-            out(cmd_str)
             return
 
         # <-- normal OBs
-        out = self._mk_out(out_f)
-        out("\n# %s" % (ob.comment))
+        self.out_exp_ob(ob, out)
 
-        d = {}
+    def out_exp_ob(self, ob, out, gettype='GetObject'):
+
+        d = dict(gettype=gettype)
         self._setup_target(d, ob)
 
-        cmd_str = '''#FOCUSOBE $DEF_IMAGE %(tgtstr)s DELTA_Z=0.05 DELTA_DEC=5 EXPTIME=10 Z=3.75''' % d
-        out(cmd_str)
-        out("\n")
+        if gettype.lower() == 'getobject':
+            # don't insert commented FOCUSOBE line for custom standards
+            cmd_str = '''\n#FOCUSOBE $DEF_IMAGE %(tgtstr)s DELTA_Z=0.05 DELTA_DEC=5 EXPTIME=10 Z=3.75''' % d
+            out(cmd_str)
+
+        out("\n# %s" % (ob.comment))
 
         if ob.inscfg.dither == '1':
             if ob.inscfg.guiding:
                 cmd_str = '''SetupField $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
                 out(cmd_str)
             else:
                 cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s %(guidestr)s''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
                 out(cmd_str)
 
         elif ob.inscfg.dither == '5':
@@ -328,13 +323,13 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 cmd_str = '''SetupField $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
             else:
                 cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
         elif ob.inscfg.dither == 'N':
@@ -342,21 +337,17 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 cmd_str = '''SetupField $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
             else:
                 cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''GetObject $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
         else:
             raise ValueError("Instrument dither must be one of {'1', '5', 'N'}, not (%s)" % repr(ob.inscfg.dither))
-
-        cmd_str = '''\nStop_OB $DEF_CMNTOOL\n'''
-        out(cmd_str)
-
 
     def mangle_name(self, name):
         for char in str(name):

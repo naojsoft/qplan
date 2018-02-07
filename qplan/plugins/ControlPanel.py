@@ -59,13 +59,16 @@ class ControlPanel(PlBase.Plugin):
         self.qq = None
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
-                                  klass='WeightsTab',
+                                  klass='WeightsTab', ptype='global',
+                                  hidden=True,
                                   ws='report', tab='Weights', start=True)
         self.spec_schedule = Bunch(name='scheduletab', module='ScheduleTab',
-                                   klass='ScheduleTab',
+                                   klass='ScheduleTab', ptype='global',
+                                   hidden=True,
                                    ws='report', tab='Schedule', start=True)
         self.spec_programs = Bunch(name='programstab', module='ProgramsTab',
-                                   klass='ProgramsTab',
+                                   klass='ProgramsTab', ptype='global',
+                                   hidden=True,
                                    ws='report', tab='Programs', start=True)
 
 
@@ -176,6 +179,7 @@ class ControlPanel(PlBase.Plugin):
         # Load "Weights" Tab
         if not self.view.gpmon.has_plugin('weightstab'):
             self.view.load_plugin('weightstab', self.spec_weights)
+            self.view.start_plugin('weightstab')
         self.model.set_weights_qf(self.weights_qf)
 
         # read schedule
@@ -184,6 +188,7 @@ class ControlPanel(PlBase.Plugin):
         # Load "Schedule" Tab
         if not self.view.gpmon.has_plugin('scheduletab'):
             self.view.load_plugin('scheduletab', self.spec_schedule)
+            self.view.start_plugin('scheduletab')
         self.model.set_schedule_qf(self.schedule_qf)
 
         # read proposals
@@ -191,6 +196,7 @@ class ControlPanel(PlBase.Plugin):
                                                   file_ext=self.input_fmt)
         if not self.view.gpmon.has_plugin('programstab'):
             self.view.load_plugin('programstab', self.spec_programs)
+            self.view.start_plugin('programstab')
         self.model.set_programs_qf(self.programs_qf)
 
         # read observing blocks
@@ -206,52 +212,61 @@ class ControlPanel(PlBase.Plugin):
 
         for propname in propnames:
             pgm_info = self.programs_qf.programs_info[propname]
-            self.logger.info("attempting to read phase 2 info for '%s'" % (
-                propname))
+
+            if pgm_info.skip:
+                self.logger.info('skip flag for program %s is set--not loading this program' % (
+                    propname))
+                continue
+
+        self.load_program(propname)
+
+    def load_program(self, propname):
+        self.logger.info("attempting to read phase 2 info for '%s'" % (
+            propname))
+        try:
+            pf = filetypes.ProgramFile(self.input_dir, self.logger,
+                                       propname,
+                                       self.programs_qf.programs_info,
+                                       file_ext=self.input_fmt)
+
+            # Set telcfg
+            telcfg_qf = pf.cfg['telcfg']
+            self.telcfg_qf_dict[propname] = telcfg_qf
+            self.model.set_telcfg_qf_dict(self.telcfg_qf_dict)
+
+            # Set inscfg
+            inscfg_qf = pf.cfg['inscfg']
+            self.inscfg_qf_dict[propname] = inscfg_qf
+            self.model.set_inscfg_qf_dict(self.inscfg_qf_dict)
+
+            # Set envcfg
+            envcfg_qf = pf.cfg['envcfg']
+            self.envcfg_qf_dict[propname] = envcfg_qf
+            self.model.set_envcfg_qf_dict(self.envcfg_qf_dict)
+
+            # Set targets
+            tgtcfg_qf = pf.cfg['targets']
+            self.tgtcfg_qf_dict[propname] = tgtcfg_qf
+            self.model.set_tgtcfg_qf_dict(self.tgtcfg_qf_dict)
+
+            # Finally, set OBs
+            self.ob_qf_dict[propname] = pf.cfg['ob']
+            #self.oblist_info.extend(self.oblist[propname].obs_info)
+            self.model.set_ob_qf_dict(self.ob_qf_dict)
+
+        except Exception as e:
+            errmsg = "error attempting to read phase 2 info for '%s'\n" % (
+                propname)
+            errmsg += "\n".join([e.__class__.__name__, str(e)])
             try:
-                pf = filetypes.ProgramFile(self.input_dir, self.logger,
-                                           propname,
-                                           self.programs_qf.programs_info,
-                                           file_ext=self.input_fmt)
-
-                # Set telcfg
-                telcfg_qf = pf.cfg['telcfg']
-                self.telcfg_qf_dict[propname] = telcfg_qf
-                self.model.set_telcfg_qf_dict(self.telcfg_qf_dict)
-
-                # Set inscfg
-                inscfg_qf = pf.cfg['inscfg']
-                self.inscfg_qf_dict[propname] = inscfg_qf
-                self.model.set_inscfg_qf_dict(self.inscfg_qf_dict)
-
-                # Set envcfg
-                envcfg_qf = pf.cfg['envcfg']
-                self.envcfg_qf_dict[propname] = envcfg_qf
-                self.model.set_envcfg_qf_dict(self.envcfg_qf_dict)
-
-                # Set targets
-                tgtcfg_qf = pf.cfg['targets']
-                self.tgtcfg_qf_dict[propname] = tgtcfg_qf
-                self.model.set_tgtcfg_qf_dict(self.tgtcfg_qf_dict)
-
-                # Finally, set OBs
-                self.ob_qf_dict[propname] = pf.cfg['ob']
-                #self.oblist_info.extend(self.oblist[propname].obs_info)
-                self.model.set_ob_qf_dict(self.ob_qf_dict)
-
+                (type, value, tb) = sys.exc_info()
+                tb_str = "\n".join(traceback.format_tb(tb))
             except Exception as e:
-                errmsg = "error attempting to read phase 2 info for '%s'\n" % (
-                    propname)
-                errmsg += "\n".join([e.__class__.__name__, str(e)])
-                try:
-                    (type, value, tb) = sys.exc_info()
-                    tb_str = "\n".join(traceback.format_tb(tb))
-                except Exception as e:
-                    tb_str = "Traceback information unavailable."
-                errmsg += tb_str
-                self.logger.error(errmsg)
-                self.controller.gui_do(self.controller.show_error, errmsg,
-                                       raisetab=True)
+                tb_str = "Traceback information unavailable."
+            errmsg += tb_str
+            self.logger.error(errmsg)
+            self.controller.gui_do(self.controller.show_error, errmsg,
+                                   raisetab=True)
 
 
     def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):
@@ -277,6 +292,11 @@ class ControlPanel(PlBase.Plugin):
                 if not ignore_pgm_skip_flag and pgms[propname].skip:
                     self.logger.info('skip flag for program %s is set - skipping all OB in this program' % propname)
                     continue
+
+                if not propname in self.ob_qf_dict:
+                    # we skipped loading this program earlier
+                    self.load_program(propname)
+
                 okprops.append(propname)
 
                 # get all OB keys for this program

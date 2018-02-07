@@ -262,6 +262,7 @@ class Scheduler(Callback.Callbacks):
             props[str(ob.program)].sched_time += acct_time
             dur = ob.total_time / 60.0
 
+            # a derived ob to setup the overall OB
             ob_change_sec = 1.0
             _xx, s_slot, slot = slot.split(slot.start_time, ob_change_sec)
             new_ob = qsim.setup_ob(ob, ob_change_sec)
@@ -312,6 +313,15 @@ class Scheduler(Callback.Callbacks):
             _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)
             a_slot.set_ob(ob)
             schedule.insert_slot(a_slot)
+
+            # a derived ob to shutdown the overall OB
+            ob_stop_sec = 1.0
+            _xx, q_slot, slot = slot.split(slot.start_time, ob_stop_sec)
+            new_ob = qsim.teardown_ob(ob, ob_stop_sec)
+            q_slot.set_ob(new_ob)
+            schedule.insert_slot(q_slot)
+
+            # finally, remove this OB from the list
             oblist.remove(ob)
 
         # return list of unused OBs

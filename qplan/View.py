@@ -31,14 +31,18 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         GwMain.GwMain.__init__(self, logger=logger, ev_quit=ev_quit,
                                app=self)
         self.w = Bunch.Bunch()
+        self.layout_file = None
 
         # For now...
         self.controller = self
 
         # dictionary of plugins
         self.plugins = {}
+        self.plugin_lst = []
+        self._plugin_sort_method = self.get_plugin_menuname
 
-    def build_toplevel(self, layout):
+    def build_toplevel(self, layout, layout_file=None):
+        self.layout_file = layout_file
         self.font = self.get_font('fixedFont', 12)
         self.font11 = self.get_font('fixedFont', 11)
         self.font14 = self.get_font('fixedFont', 14)
@@ -47,7 +51,8 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         self.w.tooltips = None
 
         self.ds = Desktop.Desktop(self)
-        self.ds.make_desktop(layout, widget_dict=self.w)
+        self.ds.build_desktop(layout, lo_file=layout_file,
+                              widget_dict=self.w)
 
         self.gpmon = PluginManager(self.logger, self, self.ds, self.mm)
 
@@ -82,8 +87,9 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         item = filemenu.add_name("Quit")
         item.add_callback('activated', lambda w: self.quit())
 
-        # create a Option pulldown menu, and add it to the menu bar
-        ## optionmenu = menubar.add_name("Option")
+        # create a Plugins pulldown menu, and add it to the menu bar
+        pluginmenu = menubar.add_name("Plugins")
+        self.w.menu_plug = pluginmenu
 
     def add_statusbar(self, holder):
         self.w.status = Widgets.StatusBar()
@@ -98,6 +104,9 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         """Quit the application.
         """
         self.logger.info("Attempting to shut down the application...")
+        if self.layout_file is not None:
+            self.error_wrap(self.ds.write_layout_conf, self.layout_file)
+
         self.stop()
 
         root = self.w.root
@@ -150,9 +159,8 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
         self.gpmon.load_plugin(name, spec)
 
-        start = spec.get('start', True)
-        if start:
-            self.start_plugin(name, raise_tab=False)
+        if not spec.get('hidden', False):
+            self.plugin_lst.append(spec)
 
     def start_plugin(self, plugin_name, raise_tab=False):
         self.gpmon.start_plugin_future(None, plugin_name, None)
@@ -160,7 +168,7 @@ class Viewer(GwMain.GwMain, Widgets.Application):
             p_info = self.gpmon.get_plugin_info(plugin_name)
             self.ds.raise_tab(p_info.tabname)
 
-    def close_plugin(self, plugin_name):
+    def stop_plugin(self, plugin_name):
         self.logger.info('deactivating plugin %s' % (plugin_name))
         self.gpmon.deactivate(plugin_name)
         return True
@@ -177,6 +185,54 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
     def get_plugin(self, plugin_name):
         return self.gpmon.get_plugin(plugin_name)
+
+    def add_plugin_menu(self, name, spec):
+        # NOTE: self.w.menu_plug is a ginga.Widgets wrapper
+        if 'menu_plug' not in self.w:
+            return
+        category = spec.get('category', None)
+        categories = None
+        if category is not None:
+            categories = category.split('.')
+        menuname = spec.get('menu', spec.get('tab', name))
+
+        menu = self.w.menu_plug
+        if categories is not None:
+            for catname in categories:
+                try:
+                    menu = menu.get_menu(catname)
+                except KeyError:
+                    menu = menu.add_menu(catname)
+
+        item = menu.add_name(menuname)
+        item.add_callback('activated',
+                          lambda *args: self.start_plugin(name))
+
+    def boot_plugins(self):
+        # Sort plugins according to desired order
+        self.plugin_lst.sort(key=self._plugin_sort_method)
+
+        for spec in self.plugin_lst:
+            name = spec.setdefault('name', spec.get('klass', spec.module))
+            hidden = spec.get('hidden', False)
+            if not hidden:
+                self.add_plugin_menu(name, spec)
+
+            start = spec.get('start', True)
+            # for now only start plugins that have start==True
+            if start and spec.get('ptype', 'global') == 'global':
+                self.error_wrap(self.start_plugin, name)
+
+    def get_plugin_menuname(self, spec):
+        category = spec.get('category', None)
+        name = spec.setdefault('name', spec.get('klass', spec.module))
+        menu = spec.get('menu', spec.get('tab', name))
+        if category is None:
+            return menu
+        return category + '.' + menu
+
+    def set_plugin_sortmethod(self, fn):
+        self._plugin_sort_method = fn
 
     def logit(self, text):
         try:

@@ -25,6 +25,7 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
 
     def build_gui(self, container):
         super(ProgramsTab, self).build_gui(container)
+
         self.tableview.doubleClicked.connect(self.doubleClicked)
 
     def build_table(self):
@@ -58,7 +59,7 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         else:
             spec = Bunch(module='ProposalTab', klass='ProposalTab',
                          ws='report', tab=proposal, name=proposal,
-                         start=False, ptype='global')
+                         start=False, ptype='global', hidden=True)
             self.view.load_plugin(proposal, spec)
 
         self.view.start_plugin(proposal)

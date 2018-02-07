@@ -55,27 +55,27 @@ default_layout = ['seq', {},
 
 plugins = [
     Bunch(name='slewchart', module='SlewChart', klass='SlewChart',
-          tab='Slew Chart', ws='sub2', start=True),
+          ptype='global', tab='Slew Chart', ws='sub2', start=True),
     Bunch(name='airmasschart', module='AirMassChart', klass='AirMassChart',
-          tab='Airmass Chart', ws='sub1', start=True),
+          ptype='global', tab='Airmass Chart', ws='sub1', start=True),
     Bunch(name='schedule', module='Schedule', klass='Schedule',
-          tab='Schedule', ws='left', start=True),
+          ptype='global', tab='Schedule', ws='left', start=True),
     Bunch(name='report', module='Report', klass='Report',
-          tab='Report', ws='report', start=True),
+          ptype='global', tab='Report', ws='report', start=True),
     Bunch(name='logger', module='Logger', klass='Logger',
-          tab='Log', ws='report', start=True),
+          ptype='global', tab='Log', ws='report', start=False),
     Bunch(name='cp', module='ControlPanel', klass='ControlPanel',
-          tab='Control Panel', ws='right', start=True),
+          ptype='global', tab='Control Panel', ws='right', start=True),
     Bunch(name='night_activity', module='SumChart', klass='NightSumChart',
-          tab='Night Activity Chart', ws='sub1', start=True),
+          ptype='global', tab='Night Activity Chart', ws='sub1', start=True),
     Bunch(name='night_sched', module='SumChart', klass='SchedSumChart',
-          tab='Schedules Chart', ws='sub1', start=True),
+          ptype='global', tab='Schedules Chart', ws='sub1', start=True),
     Bunch(name='proposals', module='SumChart', klass='ProposalSumChart',
-          tab='Proposals Chart', ws='sub1', start=True),
+          ptype='global', tab='Proposals Chart', ws='sub1', start=True),
     Bunch(name='semester', module='SumChart', klass='SemesterSumChart',
-          tab='Semester Chart', ws='sub1', start=True),
+          ptype='global', tab='Semester Chart', ws='sub1', start=True),
     Bunch(name='errors', module='Errors', klass='Errors',
-          tab='Errors', ws='right', start=True),
+          ptype='global', tab='Errors', ws='right', start=True),
     ]
 
 
@@ -116,6 +116,9 @@ class QueuePlanner(object):
         optprs.add_option("-f", "--format", dest="input_fmt", default=None,
                           metavar="FILE_FORMAT",
                           help="Specify input file format (csv, xls, or xlsx)")
+        optprs.add_option("--norestore", dest="norestore", default=False,
+                          action="store_true",
+                          help="Don't restore the GUI from a saved layout")
         ## optprs.add_option("--modules", dest="modules", metavar="NAMES",
         ##                   help="Specify additional modules to load")
         optprs.add_option("--numthreads", dest="numthreads", type="int",
@@ -181,7 +184,8 @@ class QueuePlanner(object):
 
         settings = prefs.create_category('general')
         settings.load(onError='silent')
-        settings.set_defaults(output_dir=options.output_dir)
+        settings.set_defaults(output_dir=options.output_dir,
+                              save_layout=False)
 
         mm = ModuleManager.ModuleManager(logger)
 
@@ -211,14 +215,21 @@ class QueuePlanner(object):
         qplanner.set_input_dir(options.input_dir)
         qplanner.set_input_fmt(options.input_fmt)
 
+        layout_file = None
+        if not options.norestore and settings.get('save_layout', False):
+            layout_file = os.path.join(basedir, 'layout')
+
         # Build desired layout
-        qplanner.build_toplevel(default_layout)
+        qplanner.build_toplevel(default_layout, layout_file=layout_file)
         for w in qplanner.ds.toplevels:
             w.show()
 
         # load plugins
-        for bnch in plugins:
-            qplanner.load_plugin(bnch.name, bnch)
+        for spec in plugins:
+            qplanner.load_plugin(spec.name, spec)
+
+        # start any plugins that have start=True
+        qplanner.boot_plugins()
 
         qplanner.ds.raise_tab('Control Panel')
 
