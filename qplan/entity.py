@@ -323,6 +323,7 @@ class OB(PersistentEntity):
                                             guiding=False, num_exp=1,
                                             exp_time=30,
                                             mode='IMAGE', dither='1',
+                                            pa=inscfg.pa,
                                             comment='default 30 sec calib shot')
 
         elif calib_inscfg is None:

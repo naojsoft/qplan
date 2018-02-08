@@ -287,14 +287,31 @@ class Scheduler(Callback.Callbacks):
 
             # is there a calibration target?
             if ob.calib_tgtcfg is not None:
+                # TODO: add overhead?
                 time_add_sec = res.calibration_sec + res.slew_sec
-                _xx, f_slot, slot = slot.split(slot.start_time,
+                _xx, c_slot, slot = slot.split(slot.start_time,
                                                time_add_sec)
                 new_ob = qsim.calibration_ob(ob, time_add_sec)
-                f_slot.set_ob(new_ob)
-                schedule.insert_slot(f_slot)
+                c_slot.set_ob(new_ob)
+                schedule.insert_slot(c_slot)
 
                 slew_sec = res.slew2_sec
+
+                # if calibration target is not the same as the science target
+                # then insert a 30 sec additional calibration on the science tgt
+                tgt_cal = ob.calib_tgtcfg
+                obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
+                obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
+                if obj2 != obj1:
+                    time_add_sec = 30.0 + slew_sec
+                    _xx, c_slot, slot = slot.split(slot.start_time,
+                                                   time_add_sec)
+                    new_ob = qsim.calibration30_ob(ob, time_add_sec)
+                    c_slot.set_ob(new_ob)
+                    schedule.insert_slot(c_slot)
+
+                    # we're already at the target
+                    slew_sec = 0.0
             else:
                 slew_sec = res.slew_sec
 
@@ -308,6 +325,7 @@ class Scheduler(Callback.Callbacks):
             ##     s_slot.set_ob(new_ob)
             ##     schedule.insert_slot(s_slot)
 
+            # this is the actual science target ob
             self.logger.debug("assigning %s(%.2fm) to %s" % (
                 self._ob_code(ob), dur, slot))
             _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)
@@ -371,6 +389,7 @@ class Scheduler(Callback.Callbacks):
             self.logger.debug("-- %s --" % key)
             self.logger.debug(str(obmap[key]))
             self.logger.debug("--------")
+
         schedulable = set([])
         for obs in obmap.values():
             schedulable = schedulable.union(set(obs))

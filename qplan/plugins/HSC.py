@@ -244,7 +244,13 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 return
 
             elif ob.comment.startswith('Calibration for'):
-                self.out_exp_ob(ob, out, gettype='GetStandard')
+                # this should eventually be 'GetStandard'
+                #self.out_exp_ob(ob, out, gettype='GetStandard')
+                self.out_exp_ob(ob, out, gettype='GetObject')
+                return
+
+            elif ob.comment.startswith('30 sec calib shot'):
+                self.out_exp_ob(ob, out, gettype='GetObject')
                 return
 
         tgtname = ob.target.name.lower()
@@ -297,10 +303,10 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
         d = dict(gettype=gettype)
         self._setup_target(d, ob)
 
-        if gettype.lower() == 'getobject':
-            # don't insert commented FOCUSOBE line for custom standards
-            cmd_str = '''\n#FOCUSOBE $DEF_IMAGE %(tgtstr)s DELTA_Z=0.05 DELTA_DEC=5 EXPTIME=10 Z=3.75''' % d
-            out(cmd_str)
+        ## if gettype.lower() == 'getobject':
+        ##     # don't insert commented FOCUSOBE line for custom standards
+        ##     cmd_str = '''\n#FOCUSOBE $DEF_IMAGE %(tgtstr)s DELTA_Z=0.05 DELTA_DEC=5 EXPTIME=10 Z=3.75''' % d
+        ##     out(cmd_str)
 
         out("\n# %s" % (ob.comment))
 

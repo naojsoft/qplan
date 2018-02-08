@@ -67,6 +67,21 @@ def calibration_ob(ob, total_time):
     return new_ob
 
 
+def calibration30_ob(ob, total_time):
+    calib_inscfg = entity.HSCConfiguration(filter=ob.inscfg.filter,
+                                           guiding=False, num_exp=1,
+                                           exp_time=30,
+                                           mode='IMAGE', dither='1',
+                                           pa=ob.inscfg.pa,
+                                           comment='30 sec calib shot')
+    new_ob = entity.OB(program=ob.program, target=ob.target,
+                       telcfg=ob.telcfg, inscfg=calib_inscfg,
+                       envcfg=ob.envcfg,
+                       total_time=total_time, derived=True,
+                       comment="30 sec calibration for %s" % (ob))
+    return new_ob
+
+
 def delay_ob(ob, total_time):
     new_ob = entity.OB(program=ob.program, target=ob.target,
                        telcfg=ob.telcfg,
