@@ -7,14 +7,12 @@ import time
 
 from ginga import trcalc
 from q2ope import BaseConverter
-from six.moves import map
-from six.moves import zip
 
 
 class Converter(BaseConverter):
 
     def _setup_target(self, d, ob):
-        
+
         funky_ra = self.ra_to_funky(ob.target.ra)
         funky_dec = self.dec_to_funky(ob.target.dec)
 
@@ -27,7 +25,7 @@ class Converter(BaseConverter):
             filtername = 'B'
         else:
             filtername = ob.inscfg.filter.upper()
-            
+
         d.update(dict(object=ob.target.name,
                       ra="%010.3f" % funky_ra, dec="%+010.2f" % funky_dec,
                       equinox=ob.target.equinox, pa=ob.inscfg.pa,
@@ -50,7 +48,7 @@ class Converter(BaseConverter):
         else:
             fcsname = 'BB_%s' % (filtername)
         d['filter'] = fcsname
-            
+
         tgtstr = 'OBJECT="%(object)s" RA=%(ra)s DEC=%(dec)s EQUINOX=%(equinox)6.1f INSROT_PA=%(pa).1f $FILTER_%(filter)s' % d
         d.update(dict(tgtstr=tgtstr))
 
@@ -90,13 +88,13 @@ OBSERVATION_FILE_TYPE=OPE
             if ob.comment.startswith('Filter change'):
                 #self.out_filterchange(ob, out_f)
                 return
-                
+
             elif ob.comment.startswith('Long slew'):
                 out("\n# %s" % (ob.comment))
                 d = {}
                 self._setup_target(d, ob)
                 cmd_str = 'SetupField $DEF_IMAG %(tgtstr)s $MASK_NONE Shift_Sec=%(offset_sec)d Delta_Ra=%(offset_ra)d Delta_Dec=%(offset_dec)d' % d
-        
+
                 cmd_str = cmd_str + (' AUTOGUIDE=%(autoguide)s' % d)
                 out(cmd_str)
                 return
@@ -139,7 +137,7 @@ OBSERVATION_FILE_TYPE=OPE
         self._setup_target(d, ob)
 
         cmd_str = 'SetupField $DEF_IMAG %(tgtstr)s $MASK_NONE Shift_Sec=%(offset_sec)d Delta_Ra=%(offset_ra)d Delta_Dec=%(offset_dec)d' % d
-        
+
         if ob.inscfg.guiding:
             dith_cmd = "MoveGuide0"
             cmd_str = cmd_str + (' AUTOGUIDE=%(autoguide)s' % d)
@@ -152,11 +150,11 @@ OBSERVATION_FILE_TYPE=OPE
 
         d_ra, d_dec = d['dither_ra'], d['dither_dec']
         d_theta = d['dither_theta']
-        
+
         abs_off = ((0, 0), (d_ra, d_dec), (-d_dec, d_ra), (-d_ra, -d_dec),
                    (d_dec, -d_ra), (0, 0))
         # rotate box points according to dither theta
-        abs_off = map(lambda p: trcalc.rotate_pt(p[0], p[1], d_theta), abs_off)
+        abs_off = [trcalc.rotate_pt(p[0], p[1], d_theta) for p in abs_off]
 
         # 5 dither sequence
         d['mask'] = 'NONE'
@@ -248,8 +246,8 @@ FILTER_BB_G=GRISM=0 FILTER01=0 FILTER02=1 FILTER03=0 POLARIZER=NOP
 SetupField $DEF_IMAGE $SA110 OFFSET_RA=0 OFFSET_DEC=30 Filter="W-J-B"
 GetStandard $DEF_IMAGE $SA110 EXPTIME=5 DELTA_Z=0.4 OFFSET_RA=0 OFFSET_DEC=30 Filter="W-J-B"
 
-SetupField $DEF_IMAGE_VGW $SA112 AG_SELECT=SEMIAUTO OFFSET_RA=0 OFFSET_DEC=0 Filter="W-S-Z+" 
-GetObject  $DEF_IMAGE_VGW $SA112 AG_SELECT=SEMIAUTO OFFSET_RA=0 OFFSET_DEC=0 EXPTIME=20 Filter="W-S-Z+" 
+SetupField $DEF_IMAGE_VGW $SA112 AG_SELECT=SEMIAUTO OFFSET_RA=0 OFFSET_DEC=0 Filter="W-S-Z+"
+GetObject  $DEF_IMAGE_VGW $SA112 AG_SELECT=SEMIAUTO OFFSET_RA=0 OFFSET_DEC=0 EXPTIME=20 Filter="W-S-Z+"
 
 Setupfield $DEF_IMAGE5 $SA113 DITH_RA=60 DITH_DEC=60 OFFSET_RA=0 OFFSET_DEC=0 Filter="W-S-Z+"
 GetObject $DEF_IMAGE5 $SA113  DITH_RA=60 DITH_DEC=60 EXPTIME=20 OFFSET_RA=0 OFFSET_DEC=0 Filter="W-S-Z+"
@@ -258,18 +256,18 @@ Setupfield $DEF_IMAGE5_VGW $SA113 DITH_RA=60 DITH_DEC=60 OFFSET_RA=0 OFFSET_DEC=
 GetObject $DEF_IMAGE5_VGW $SA113  DITH_RA=60 DITH_DEC=60 EXPTIME=20 OFFSET_RA=0 OFFSET_DEC=0 Filter="W-S-Z+"
 
 SetupField $DEF_IMAGEN $SA113 OFFSET_RA=0 OFFSET_DEC=0 NDITH=3 RDITH=60.0 TDITH=
-15 Filter="W-S-Z+" 
+15 Filter="W-S-Z+"
 GetObject  $DEF_IMAGEN $SA113 OFFSET_RA=0 OFFSET_DEC=0 EXPTIME=20 NDITH=3 RDITH=
-60.0 TDITH=15 Filter="W-S-Z+" 
+60.0 TDITH=15 Filter="W-S-Z+"
 
-SetupField $DEF_IMAGEN_VGW $GUIDE $NGC6705 OFFSET_RA=0 OFFSET_DEC=-320 NDITH=6 RDITH=25 TDITH=15 Filter="W-J-V" 
-GetObject  $DEF_IMAGEN_VGW $GUIDE $NGC6705 OFFSET_RA=0 OFFSET_DEC=-320 EXPTIME=300 NDITH=6 RDITH=25.0 TDITH=15 Filter="W-J-V" 
+SetupField $DEF_IMAGEN_VGW $GUIDE $NGC6705 OFFSET_RA=0 OFFSET_DEC=-320 NDITH=6 RDITH=25 TDITH=15 Filter="W-J-V"
+GetObject  $DEF_IMAGEN_VGW $GUIDE $NGC6705 OFFSET_RA=0 OFFSET_DEC=-320 EXPTIME=300 NDITH=6 RDITH=25.0 TDITH=15 Filter="W-J-V"
 
 # Skyflat
 SetupField $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC OFFSET_RA=10 OFFSET_DEC=10 Filter="W-J-B"
 GetSkyFlat $DEF_IMAGE RA=!STATS.RA DEC=!STATS.DEC EXPTIME=30 Filter="W-J-B"
 
-# Domeflat       
+# Domeflat
 SetupDomeFlat $DEF_CMNTOOL SETUP=SETUP  LAMP=4X10W VOLT=6.00 AMP=6.33
 GetDomeFlat $DEF_IMAGE EXPTIME=40 Filter="W-J-B"
 
@@ -304,7 +302,7 @@ So, for the above dithering pattern, we need
  GetObject ...
  MoveGuide0 $DEF_TOOL DELTA_RA=10 DELTA_DEC=-6
  GetObject ...
- MoveGuide0 $DEF_TOOL DELTA_RA=-2 DELTA_DEC=8 
+ MoveGuide0 $DEF_TOOL DELTA_RA=-2 DELTA_DEC=8
 
 '''
 #END

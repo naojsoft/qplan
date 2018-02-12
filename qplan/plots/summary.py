@@ -7,8 +7,8 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
-import six
 
+from ginga.util import six
 from ginga.util import plots
 
 from qplan import qsim

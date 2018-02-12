@@ -13,6 +13,8 @@ from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
+from ginga.util import six
+from ginga.util.six.moves import filter, map
 
 # local imports
 from . import misc
@@ -20,8 +22,6 @@ from . import entity
 from . import common
 from . import qsim
 from .util import qsort
-import six
-from six.moves import filter, map
 
 # maximum rank for a program
 max_rank = 10.0

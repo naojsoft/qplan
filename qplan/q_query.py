@@ -4,8 +4,6 @@
 
 import itertools
 import datetime as dt
-from six.moves import map
-from six.moves import zip
 
 # MODULE FUNCTIONS
 
@@ -79,7 +77,7 @@ class QueueQuery(object):
             args: semester is list.   e.g. ['S16A', 'S16B']
         """
         tbl = self._qa.get_table('program')
-        semester = list(map(str.upper, semester))
+        semester = [str.upper(s) for s in semester]
         def match_semester(rec):
             return rec.proposal[:4] in semester
         return itertools.ifilter(match_semester, tbl.values())

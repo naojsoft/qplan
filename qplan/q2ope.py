@@ -15,12 +15,12 @@ from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import log
+from ginga.util import six
 
 # Local imports
 from . import entity
 from .Model import QueueModel
 
-import six
 
 version = '20150105.0'
 

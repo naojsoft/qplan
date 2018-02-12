@@ -17,8 +17,6 @@ from matplotlib.ticker import FormatStrFormatter
 
 from ginga.misc import Bunch
 from ginga.util import plots
-from six.moves import map
-from six.moves import zip
 
 class AirMassPlot(plots.Plot):
 
@@ -70,15 +68,14 @@ class AirMassPlot(plots.Plot):
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = list(map(lambda info: info.ut.astimezone(tz),
-                      tgt_data[0].history))
+        lt_data = [info.ut.astimezone(tz) for info in tgt_data[0].history]
         # sanity check on dates in preferred timezone
         ## for dt in lt_data[:10]:
         ##     print(dt.strftime("%Y-%m-%d %H:%M:%S"))
 
         # plot targets airmass vs. time
         for i, info in enumerate(tgt_data):
-            am_data = numpy.array(list(map(lambda info: info.airmass, info.history)))
+            am_data = numpy.array([t.airmass for t in info.history])
             am_min = numpy.argmin(am_data)
             am_data_dots = am_data
             color = self.colors[i % len(self.colors)]
@@ -120,8 +117,7 @@ class AirMassPlot(plots.Plot):
 
         # Plot moon altitude and degree scale
         ax2 = ax1.twinx()
-        moon_data = numpy.array(list(map(lambda info: info.moon_alt,
-                                    tgt_data[0].history)))
+        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
         #moon_illum = site.moon_phase()
         ax2.plot_date(lt_data, moon_data, '#666666', linewidth=2.0,
                       alpha=0.5, aa=True, tz=tz)
@@ -162,22 +158,21 @@ class AirMassPlot(plots.Plot):
         majorTick = mpl_dt.HourLocator(tz=tz)
         majorFmt = mpl_dt.DateFormatter('%Hh')
         # set minor ticks to 15 min intervals
-        minorTick = mpl_dt.MinuteLocator(list(range(0,59,15)), tz=tz)
+        minorTick = mpl_dt.MinuteLocator(list(range(0, 59, 15)), tz=tz)
 
         figure.clf()
         ax1 = figure.add_subplot(111)
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = list(map(lambda info: info.ut.astimezone(tz),
-                      tgt_data[0].history))
+        lt_data = [t.ut.astimezone(tz) for t in tgt_data[0].history]
         # sanity check on dates in preferred timezone
         ## for dt in lt_data[:10]:
         ##     print(dt.strftime("%Y-%m-%d %H:%M:%S"))
 
         # plot targets elevation vs. time
         for i, info in enumerate(tgt_data):
-            alt_data = numpy.array(list(map(lambda info: info.alt_deg, info.history)))
+            alt_data = numpy.array([t.alt_deg for t in info.history])
             alt_min = numpy.argmin(alt_data)
             alt_data_dots = alt_data
             color = self.colors[i % len(self.colors)]
@@ -210,8 +205,7 @@ class AirMassPlot(plots.Plot):
         ax1.set_ylabel('Altitude')
 
         # Plot moon trajectory and illumination
-        moon_data = numpy.array(list(map(lambda info: info.moon_alt,
-                                    tgt_data[0].history)))
+        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
         illum_time = lt_data[moon_data.argmax()]
         moon_illum = site.moon_phase(date=illum_time)
         moon_color = '#666666'
@@ -225,7 +219,7 @@ class AirMassPlot(plots.Plot):
         # Plot airmass scale
         altitude_ticks = numpy.array([20, 30, 40, 50, 60, 70, 80, 90])
         airmass_ticks = 1.0/numpy.cos(numpy.radians(90 - altitude_ticks))
-        airmass_ticks = list(map(lambda n: "%.3f" % n, airmass_ticks))
+        airmass_ticks = ["%.3f" % n for n in airmass_ticks]
 
         ax2 = ax1.twinx()
         #ax2.set_ylim(None, 0.98)

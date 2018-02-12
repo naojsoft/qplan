@@ -10,8 +10,6 @@ import traceback
 from ginga.gw import GwHelp, GwMain, Widgets, Desktop
 from ginga.gw.PluginManager import PluginManager
 from ginga.misc import Bunch
-from six.moves import map
-from six.moves import zip
 
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
 icon_path = os.path.abspath(os.path.join(moduleHome, '..', 'icons'))
@@ -145,12 +143,12 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
         if dim != None:
             # user specified dimensions
-            dim = list(map(int, dim.split('x')))
+            dim = [int(i) for i in dim.split('x')]
             self.set_size(*dim)
 
         if len(coords) > 0:
             # user specified position
-            coords = list(map(int, coords))
+            coords = [int(i) for i in coords]
             self.set_pos(*coords)
 
     def load_plugin(self, name, spec):

@@ -12,9 +12,8 @@ from io import BytesIO, StringIO
 import datetime
 import re
 
-import six
-from six.moves import map
-from six.moves import zip
+from ginga.util import six
+from ginga.util.six.moves import map, zip
 
 from ginga.misc import Bunch
 
@@ -550,9 +549,9 @@ class ScheduleFile(QueueFile):
             # "YYYY-MM-DD" string.
             rec.date = site_subaru.get_date(rec.date).strftime('%Y-%m-%d')
 
-            filters = list(map(lambda s: s.strip(), rec.filters.lower().split(',')))
-            instruments = list(map(lambda s: s.strip(),
-                                   rec.instruments.upper().split(',')))
+            filters = [s.strip() for s in rec.filters.lower().split(',')]
+            instruments = [s.strip()
+                           for s in rec.instruments.upper().split(',')]
             seeing = float(rec.seeing)
             categories = rec.categories.replace(' ', '').lower().split(',')
             transparency = float(rec.transparency)

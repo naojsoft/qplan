@@ -10,8 +10,7 @@ import pytz
 
 # 3rd party imports
 import numpy as np
-from six.moves import map
-from six.moves import zip
+from ginga.util import wcs
 
 entity_version = 20180129.0
 
@@ -63,7 +62,7 @@ class Program(PersistentEntity):
         self.grade = grade
         self.partner = partner
         self.category = category.lower()
-        self.instruments = list(map(str.upper, instruments))
+        self.instruments = [str.upper(s) for s in instruments]
         self.total_time = hours * 3600.0
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
@@ -355,8 +354,7 @@ class StaticTarget(BaseTarget):
                  comment=''):
         super(StaticTarget, self).__init__()
         self.name = name
-        self.ra = ra
-        self.dec = dec
+        self.ra, self.dec = normalize_radec_str(ra, dec)
         self.equinox = equinox
         self.comment = comment
 
@@ -369,8 +367,7 @@ class StaticTarget(BaseTarget):
     def import_record(self, rec):
         code = rec.code.strip()
         self.name = rec.name
-        self.ra = rec.ra
-        self.dec = rec.dec
+        self.ra, self.dec = normalize_radec_str(rec.ra, rec.dec)
 
         # transform equinox, e.g. "J2000" -> 2000
         eq = rec.eq
@@ -694,5 +691,15 @@ def parse_date_time(dt_str, default_timezone):
         dt = None
     return dt
 
+def normalize_radec_str(ra_str, dec_str):
+    if ra_str is None or ra_str == '':
+        ra = ra_str
+    else:
+        ra = wcs.raDegToString(wcs.hmsStrToDeg(ra_str))
+    if dec_str is None or dec_str == '':
+        dec = dec_str
+    else:
+        dec = wcs.decDegToString(wcs.dmsStrToDeg(dec_str))
+    return (ra, dec)
 
 #END
