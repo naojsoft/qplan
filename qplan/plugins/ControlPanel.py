@@ -255,6 +255,8 @@ class ControlPanel(PlBase.Plugin):
             #self.oblist_info.extend(self.oblist[propname].obs_info)
             self.model.set_ob_qf_dict(self.ob_qf_dict)
 
+            return True
+
         except Exception as e:
             errmsg = "error attempting to read phase 2 info for '%s'\n" % (
                 propname)
@@ -268,7 +270,7 @@ class ControlPanel(PlBase.Plugin):
             self.logger.error(errmsg)
             self.controller.gui_do(self.controller.show_error, errmsg,
                                    raisetab=True)
-
+            return False
 
     def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):
         sdlr = self.model.get_scheduler()
@@ -295,8 +297,8 @@ class ControlPanel(PlBase.Plugin):
                     continue
 
                 if not propname in self.ob_qf_dict:
-                    # we skipped loading this program earlier
-                    self.load_program(propname)
+                    if not self.load_program(propname):
+                        continue
 
                 okprops.append(propname)
 
