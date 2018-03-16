@@ -33,7 +33,7 @@ logger = log.get_logger(name='qcheck', level=20, log_file=log_file)
 
 magic_types = {
     'xls':  ['Composite Document File V2 Document',],
-    'xlsx': ['Zip archive data', 'Microsoft Excel 2007+']
+    'xlsx': ['Zip archive data', 'Microsoft Excel 2007+', 'Microsoft OOXML']
     }
 
 def html_header(l, formatters=None):
