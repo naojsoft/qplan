@@ -1,8 +1,7 @@
-from __future__ import print_function
 #
 # calcpos.py -- module for wrapping astronomical ephemeris calculations
 #
-
+from __future__ import print_function
 import math
 
 # third-party imports
@@ -129,6 +128,20 @@ class Observer(object):
         self.date = self.date_to_local(date)
         # ephem deals only in UTC
         self.site.date = ephem.Date(self.date_to_utc(self.date))
+
+    def radec_of(self, az_deg, alt_deg):
+        ra, dec = self.site.radec_of(np.radians(az_deg), np.radians(alt_deg))
+        ra_deg, dec_deg = np.degrees([ra, dec])
+        return ra_deg, dec_deg
+
+    def azalt_of(self, ra_deg, dec_deg):
+        body = ephem.FixedBody()
+        body._ra = np.radians(ra_deg)
+        body._dec = np.radians(dec_deg)
+        body.compute(self.site)
+
+        az_deg, alt_deg = np.degrees([body.az, body.alt])
+        return az_deg, alt_deg
 
     def calc(self, body, time_start):
         return body.calc(self, time_start)
