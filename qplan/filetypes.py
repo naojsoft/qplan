@@ -736,7 +736,7 @@ class WeightsFile(QueueFile):
 
 class ProposalFile(QueueFile):
 
-    propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE|QN|QF|OT|TEK|TEG|TEU)\d{2,3}|UH\w{1,8})$')
+    propID_re = re.compile('S\d{2}[AB]-((\d{3})|EN\d{2}|(SV|TE|QN|QF|QI|OT|TEK|TEG|TEU)\d{2,3}|UH\w{1,8})$')
 
     def __init__(self, input_dir, logger, file_ext=None):
 
