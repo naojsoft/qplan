@@ -25,8 +25,12 @@ class AZELPlot(plots.Plot):
         self.colors = ['r', 'b', 'g', 'c', 'm', 'y']
 
     def setup(self):
-        ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8],
-                               projection='polar', axisbg='#d5de9c')
+        kwargs = dict(projection='polar')
+        if plots.MPL_GE_2_0:
+            kwargs['facecolor'] = '#d5de9c'
+        else:
+            kwargs['axisbg'] = '#d5de9c'
+        ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8], **kwargs)
         self.ax = ax
         # don't clear plot when we call plot()
         ax.hold(True)
