@@ -33,7 +33,8 @@ class AZELPlot(plots.Plot):
         ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8], **kwargs)
         self.ax = ax
         # don't clear plot when we call plot()
-        ax.hold(True)
+        # TODO: remove--this is supposedly the default and call is deprecated
+        #ax.hold(True)
         #ax.set_title("Slew order", fontsize=14)
         self.orient_plot()
 
