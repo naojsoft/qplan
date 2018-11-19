@@ -11,4 +11,5 @@ filters = {
     'S17B': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB387', 'NB527', 'NB816', 'NB926')],
     'S18A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'IB945', 'NB101', 'NB816')],
     'S18B': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'IB945', 'NB387', 'NB468', 'NB527', 'NB816', 'NB921')],
+    'S19A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'IB945', 'NB387', 'NB527', 'NB816')],
     }
