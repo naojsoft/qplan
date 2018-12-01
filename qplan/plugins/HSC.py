@@ -366,10 +366,12 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
         if name in filternames:
             return filternames[name]
 
-        # narrowband filter
-        if name.startswith('NB'):
+        # narrowband and intermediate-band filter
+        if name.startswith('NB') or name.startswith('IB'):
+            prefix = name[0:2]
             num = int(name[2:])
-            name = "NB%04d" % num
+            name = "%2s%04d" % (prefix, num)
+
         return "%s" % (name)
 
     def get_ag_exp(self, filter_name):
