@@ -403,8 +403,10 @@ class ControlPanel(PlBase.Plugin):
                 cur_filter = 'y'
             if 'NB0' in cur_filter:
                 cur_filter = cur_filter.replace('NB0', 'NB')
-            # Set all 'NB' flters to lower-case
-            if 'NB' in cur_filter:
+            if 'IB0' in cur_filter:
+                cur_filter = cur_filter.replace('IB0', 'IB')
+            # Set all 'NB' and 'IB' filters to lower-case
+            if ('NB' in cur_filter) or ('IB' in cur_filter):
                 cur_filter = cur_filter.lower()
             self.logger.info('Current filter %s' % (cur_filter))
             self.schedule_qf.update(rownum, 'Cur Filter', cur_filter, False)
