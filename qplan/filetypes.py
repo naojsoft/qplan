@@ -1227,7 +1227,7 @@ class InsCfgFile(QueueFile):
                         }),
             }
 
-        self.HSC_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB468', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'NB926', 'IB945', 'NB973')]
+        self.HSC_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB468', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'NB926', 'IB945', 'NB973', 'NB1010')]
         self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')".upper()
         self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')".upper()
 
