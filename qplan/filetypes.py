@@ -1227,7 +1227,6 @@ class InsCfgFile(QueueFile):
                         }),
             }
 
-        self.HSC_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB468', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'NB926', 'IB945', 'NB973', 'NB1010')]
         self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')".upper()
         self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')".upper()
 
@@ -1462,17 +1461,17 @@ class InsCfgFile(QueueFile):
     def filterCheck(self, val, rec, row_num, col_name, progFile):
         iname = self.columnInfo[col_name]['iname']
         if self.insname == 'HSC':
-            if val in self.HSC_filters:
+            if val in HSC_cfg.all_filters:
                 progFile.logger.debug('line %d, column %s of sheet %s: filter %s is ok' % (row_num, iname, self.name, rec.filter))
             else:
-                msg = 'Error while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, self.HSC_filters)
+                msg = 'Error while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, HSC_cfg.all_filters)
                 progFile.logger.error(msg)
                 progFile.errors[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
                 progFile.error_count += 1
-            if val in HSC_cfg.filters[self.semester]:
+            if val in HSC_cfg.semester_filters[self.semester]:
                 progFile.logger.debug('line %d, column %s of sheet %s: filter %s is in semester %s list and is ok' % (row_num, iname, self.name, rec.filter, self.semester))
             else:
-                msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in semester %s list %s' % (row_num, iname, self.name, val, self.semester, HSC_cfg.filters[self.semester])
+                msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in semester %s list %s' % (row_num, iname, self.name, val, self.semester, HSC_cfg.semester_filters[self.semester])
                 progFile.logger.warn(msg)
                 progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
                 progFile.warn_count += 1
