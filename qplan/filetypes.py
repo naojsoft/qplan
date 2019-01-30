@@ -1391,8 +1391,8 @@ class InsCfgFile(QueueFile):
         return super(InsCfgFile, self).validate_datatypes(progFile)
 
     def validate_data(self, progFile, propname):
-        semester, dummy = propname.split('-')
-        self.semester = semester
+        prop_split = propname.split('-')
+        self.semester = prop_split[0]
         self.insname = self.get_insname()
         self.column_map = self.configs[self.insname][1]
         self.columnInfo = self.columnInfoAllInst[self.insname]
