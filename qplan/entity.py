@@ -287,7 +287,8 @@ class OB(PersistentEntity):
     def __init__(self, id=None, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, calib_tgtcfg=None,
                  calib_inscfg=None, total_time=None, acct_time=None,
-                 priority=1.0, name=None, derived=None, comment=''):
+                 priority=1.0, name=None, derived=None, comment='',
+                 extra_params=''):
         super(OB, self).__init__()
         if id is None:
             id = "ob%d" % (OB.count)
@@ -339,6 +340,7 @@ class OB(PersistentEntity):
         self.derived = derived
         self.comment = comment
         self.acct_time = acct_time
+        self.extra_params = extra_params
 
     def __repr__(self):
         return self.id

@@ -328,17 +328,21 @@ class QueueFile(object):
         if self.name in ('targets', 'inscfg') and first_col_content.lower() == 'default':
             return True
         for i, col_name in enumerate(self.column_map):
-            if col_name == 'comment' or self.columnInfo[col_name]['prefilled']:
+            if col_name == 'comment':
                 continue
-            else:
-                try:
-                    if len(rec[self.column_map[col_name]]) > 0:
-                        return False
-                except KeyError as e:
-                    if self.columnInfo[col_name]['required']:
-                        self.logger.error('Unexpected error in ignoreRow while checking column %s: %s' % (col_name, str(e)))
-                    else:
-                        pass
+            if (col_name in self.columnInfo and
+                self.columnInfo[col_name]['prefilled']):
+                continue
+
+            try:
+                if len(rec[self.column_map[col_name]]) > 0:
+                    return False
+            except KeyError as e:
+                if (col_name in self.columnInfo and
+                    self.columnInfo[col_name]['required']):
+                    self.logger.error('Unexpected error in ignoreRow while checking column %s: %s' % (col_name, str(e)))
+                else:
+                    pass
         return True
 
     def validate_datatypes(self, progFile):
@@ -1502,6 +1506,7 @@ class OBListFile(QueueFile):
             'priority': 'priority',
             'on_src_time': 'on_src_time',
             'total_time': 'total_time',
+            'extra_params': 'extra_params',
             'comment': 'comment',
             }
         self.columnInfo = {
@@ -1603,6 +1608,7 @@ class OBListFile(QueueFile):
             # Ignore comment rows
             if self.ignoreRow(row, rec):
                 progFile.logger.debug('On Sheet %s, ignore Line %d with contents %s' % (self.name, row_num, row))
+
             else:
                 # Check calib_tgt_code and calib_ins_code only if both
                 # items are in rec.
@@ -1736,8 +1742,17 @@ class OBListFile(QueueFile):
                 if rec.priority != None:
                     priority = float(rec.priority)
 
-                ## TODO: Add calib_tgtcfg and calib_inscfg to
-                ## entity.OB
+                # for HSC SSP--special extra params to be passed to OPE
+                # file generation
+                extra_params = ''
+                print(rec)
+                if rec.has_key('extra_params'):
+                    extra_params = rec.extra_params.strip()
+
+                comment = ''
+                if rec.has_key('comment'):
+                    comment = rec.comment.strip()
+
                 ob = entity.OB(program=program,
                                target=tgtcfg,
                                inscfg=inscfg,
@@ -1748,7 +1763,9 @@ class OBListFile(QueueFile):
                                priority=priority,
                                name=code,
                                total_time=float(rec.total_time),
-                               acct_time=float(rec.on_src_time))
+                               acct_time=float(rec.on_src_time),
+                               comment=comment,
+                               extra_params=extra_params)
                 self.obs_info.append(ob)
 
             except Exception as e:

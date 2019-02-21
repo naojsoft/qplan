@@ -63,7 +63,9 @@ class Converter(BaseConverter):
                       dith1=ob.inscfg.dith1, dith2=ob.inscfg.dith2,
                       skip=ob.inscfg.skip, stop=ob.inscfg.stop,
                       filter=filtername,
-                      autoguide=autoguide))
+                      autoguide=autoguide,
+                      extra_params=ob.extra_params,
+                      comment=ob.comment))
 
         # TODO: build guiding params from table as described below
         if autoguide:
@@ -166,10 +168,10 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                  proposal=ob.program.proposal,
                  observer='!FITS.HSC.OBSERVER',
                  pi=ob.program.pi,
-                 tgtname=ob.target.name)
+                 tgtname=ob.target.name,
+                 extra_params=ob.extra_params)
         # write out any comments
         out("\n## %s" % (ob.comment))
-        # TODO: need the comment from the root OB
         if len(ob.target.comment) > 0:
             out("\n## tgt: %s" % (ob.target.comment))
         if len(ob.inscfg.comment) > 0:
@@ -315,13 +317,13 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 cmd_str = '''SetupField $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s''' % d
                 out(cmd_str)
 
-                cmd_str = '''%(gettype)s $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d %(extra_params)s''' % d
                 out(cmd_str)
             else:
                 cmd_str = '''SetupField $DEF_IMAGE %(tgtstr)s %(guidestr)s''' % d
                 out(cmd_str)
 
-                cmd_str = '''%(gettype)s $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d %(extra_params)s''' % d
                 out(cmd_str)
 
         elif ob.inscfg.dither == '5':
@@ -329,13 +331,13 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 cmd_str = '''SetupField $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''%(gettype)s $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE5_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d %(extra_params)s''' % d
                 out(cmd_str)
             else:
                 cmd_str = '''SetupField $DEF_IMAGE5 %(tgtstr)s %(guidestr)s DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''%(gettype)s $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGE5 %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d DITH_RA=%(dith1).1f DITH_DEC=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d %(extra_params)s''' % d
                 out(cmd_str)
 
         elif ob.inscfg.dither == 'N':
@@ -343,13 +345,13 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
                 cmd_str = '''SetupField $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''%(gettype)s $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGEN_VGW %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d %(extra_params)s''' % d
                 out(cmd_str)
             else:
                 cmd_str = '''SetupField $DEF_IMAGEN %(tgtstr)s %(guidestr)s NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
                 out(cmd_str)
 
-                cmd_str = '''%(gettype)s $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d''' % d
+                cmd_str = '''%(gettype)s $DEF_IMAGEN %(tgtstr)s %(guidestr)s EXPTIME=%(exptime)d NDITH=%(num_exp)d RDITH=%(dith1).1f TDITH=%(dith2).1f SKIP=%(skip)d STOP=%(stop)d %(extra_params)s''' % d
                 out(cmd_str)
 
         else:
