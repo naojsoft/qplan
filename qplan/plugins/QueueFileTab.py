@@ -259,7 +259,7 @@ class TableModel(GenericTableModel):
             return None
 
     def headerData(self, section, orientation, role):
-        #print 'headerData called with col', col, 'orientation',orientation,'role',role
+        #print('headerData called with col', col, 'orientation',orientation,'role',role)
         if (orientation == QtCore.Qt.Horizontal) and \
                (role == QtCore.Qt.DisplayRole):
             return self.columns[section]

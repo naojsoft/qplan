@@ -51,7 +51,7 @@ class Program(PersistentEntity):
         super(Program, self).__init__()
 
         self.proposal = proposal
-        if propid == None:
+        if propid is None:
             # TODO: is there an algorithm to turn proposals
             # into propids?
             propid = proposal
@@ -263,7 +263,7 @@ class Schedule(object):
         ## total = (stop_time - start_time).total_seconds()
 
         ## for slot in self.slots:
-        ##     if slot.data == None:
+        ##     if slot.data is None:
         ##         total += slot.size()
 
         ## return total
@@ -296,7 +296,7 @@ class OB(PersistentEntity):
 
         self.program = program
         self.priority = priority
-        if name == None:
+        if name is None:
             name = self.id
         self.name = name
 
@@ -457,7 +457,7 @@ class SPCAMConfiguration(InstrumentConfiguration):
         self.offset_dec = offset_dec
         self.pa = pa
         self.dith1 = dith1
-        if dith2 == None:
+        if dith2 is None:
             # TODO: defaults for this depends on mode
             dith2 = 0
         self.dith2 = dith2
@@ -579,7 +579,7 @@ class EnvironmentConfiguration(object):
         self.airmass = airmass
         self.transparency = transparency
         self.moon_sep = moon_sep
-        if (moon == None) or (len(moon) == 0):
+        if (moon is None) or (len(moon) == 0):
             moon = 'any'
         self.moon = moon.lower()
         self.lower_time_limit = lower_time_limit

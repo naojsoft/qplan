@@ -1,7 +1,6 @@
 #
 # calcpos.py -- module for wrapping astronomical ephemeris calculations
 #
-from __future__ import print_function
 import math
 
 # third-party imports
@@ -84,7 +83,7 @@ class Observer(object):
         else:
             site.horizon = self.horizon
         site.epoch = 2000.0
-        if date == None:
+        if date is None:
             date = self.tz_utc.localize(datetime.utcnow())
         site.date = ephem.Date(self.date_to_utc(date))
         return site
@@ -94,11 +93,11 @@ class Observer(object):
         NOTE: If the datetime object is not timezone aware, it is
         assumed to be in the timezone of the observer.
         """
-        try:
+        if date.tzinfo is not None:
             # date is timezone-aware
             date = date.astimezone(self.tz_utc)
 
-        except Exception:
+        else:
             # date is a naive date: assume expressed in local time
             date = self.tz_local.localize(date)
             # and converted to UTC
@@ -110,15 +109,16 @@ class Observer(object):
         NOTE: If the datetime object is not timezone aware, it is
         assumed to be in UTC.
         """
-        try:
+        if date.tzinfo is not None:
             # date is timezone-aware
             date = date.astimezone(self.tz_local)
 
-        except Exception:
+        else:
             # date is a naive date: assume expressed in UTC
             date = self.tz_utc.localize(date)
             # and converted to local time
             date = date.astimezone(self.tz_local)
+
         return date
 
     def set_date(self, date):
@@ -151,7 +151,7 @@ class Observer(object):
         The timezone is assumed to be that of the observer, unless
         explicitly supplied in the `timezone` kwarg.
         """
-        if timezone == None:
+        if timezone is None:
             timezone = self.tz_local
 
         formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d %H',
@@ -177,7 +177,7 @@ class Observer(object):
     ##     return ((el_min_deg <= c1.alt_deg <= el_max_deg) and
     ##             (el_min_deg <= c2.alt_deg <= el_max_deg)
     ##             and
-    ##             ((airmass == None) or ((c1.airmass <= airmass) and
+    ##             ((airmass is None) or ((c1.airmass <= airmass) and
     ##                                    (c2.airmass <= airmass))))
 
     def observable(self, target, time_start, time_stop,
@@ -207,7 +207,7 @@ class Observer(object):
         # important: ephem only deals with UTC!!
         time_start_utc = ephem.Date(self.date_to_utc(time_start))
         time_stop_utc = ephem.Date(self.date_to_utc(time_stop))
-        #print "period (UT): %s to %s" % (time_start_utc, time_stop_utc)
+        #print("period (UT): %s to %s" % (time_start_utc, time_stop_utc))
 
         if d1.alt_deg >= min_alt_deg:
             # body is above desired altitude at start of period
@@ -215,7 +215,7 @@ class Observer(object):
             time_rise = time_start_utc
             time_set = site.next_setting(target.body._body,
                                          start=time_start_utc)
-            #print "body already up: set=%s" % (time_set)
+            #print("body already up: set=%s" % (time_set))
 
         else:
             # body is below desired altitude at start of period
@@ -227,13 +227,13 @@ class Observer(object):
             except ephem.NeverUpError:
                 return (False, None, None)
 
-            #print "body not up: rise=%s set=%s" % (time_rise, time_set)
+            #print("body not up: rise=%s set=%s" % (time_rise, time_set))
             ## if time_rise < time_set:
-            ##     print "body still rising, below threshold"
+            ##     print("body still rising, below threshold")
             ##     # <-- body is still rising, just not high enough yet
             ## else:
             ##     # <-- body is setting
-            ##     print "body setting, below threshold"
+            ##     print("body setting, below threshold")
             ##     # calculate rise time backward from end of period
             ##     #time_rise = site.previous_rising(target.body, start=time_stop_utc)
             ##     pass
@@ -257,8 +257,8 @@ class Observer(object):
         diff = duration - float(time_needed)
         #can_obs = diff > -0.001
         can_obs = duration > time_needed
-        #print "can_obs=%s duration=%f needed=%f diff=%f" % (
-        #    can_obs, duration, time_needed, diff)
+        #print("can_obs=%s duration=%f needed=%f diff=%f" % (
+        #    can_obs, duration, time_needed, diff))
 
         # convert times back to datetime's
         time_rise = self.date_to_local(time_rise.datetime())
@@ -428,10 +428,10 @@ class Observer(object):
             sr = _set_time(ephem.Date(ephem.Date(time_stop) + t_ival))
             return np.arange(ss, sr, t_ival)
 
-        if time_start == None:
+        if time_start is None:
             # default for start time is sunset on the current date
             time_start = self.sunset()
-        if time_stop == None:
+        if time_stop is None:
             # default for stop time is sunrise on the current date
             time_stop = self.sunrise(date=time_start)
 

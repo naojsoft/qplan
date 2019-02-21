@@ -226,7 +226,7 @@ class QueueFile(object):
             key = colname.strip().lower().replace(' ', '_').replace('-', '_')
             # get attr key
             if not key in column_map:
-                #self.logger.warn("No column->record map entry for column '%s' (%s); skipping..." % (colname, key))
+                #self.logger.warning("No column->record map entry for column '%s' (%s); skipping..." % (colname, key))
                 continue
             attrkey = column_map[key]
             rec[attrkey] = row[i].strip()
@@ -275,7 +275,7 @@ class QueueFile(object):
             dup_count = len(dup_list)
             if dup_count > 0:
                 msg = 'Warning: %d duplicate %s column(s) found in sheet %s' % (dup_count, info['iname'], self.name)
-                progFile.logger.warn(msg)
+                progFile.logger.warning(msg)
                 progFile.warnings[self.name].append([0, dup_list, msg])
                 progFile.warn_count += 1
 
@@ -477,7 +477,7 @@ class QueueFile(object):
                         progFile.logger.debug('Line %d of sheet %s: Code %s was found in ob sheet' % (row_num, self.name, row['Code']))
                     else:
                         msg = 'Warning while checking line %d of sheet %s: Code %s was not found in ob sheet' % (row_num, self.name, row['Code'])
-                        progFile.logger.warn(msg)
+                        progFile.logger.warning(msg)
                         progFile.warnings[self.name].append([row_num, ['Code',], msg])
                         progFile.warn_count += 1
 
@@ -1030,7 +1030,7 @@ class EnvCfgFile(QueueFile):
             progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, col_name, self.name, col_name, val))
         else:
             msg = 'Warning while checking line %d, column %s of sheet %s: %s value %s deg is less than minimum moon separation distance %s deg' % (row_num, iname, self.name, iname, val, moon_sep_dist_warn)
-            progFile.logger.warn(msg)
+            progFile.logger.warning(msg)
             progFile.warnings[self.name].append([row_num, [iname], msg])
             progFile.warn_count += 1
 
@@ -1074,7 +1074,7 @@ class TgtCfgFile(QueueFile):
             # but report a warning message if they are blank.
             if col_name in ('sdss_ra', 'sdss_dec'):
                 msg = 'Warning while checking line %d, column %s of sheet %s: %s is blank' % (row_num, iname, self.name, iname)
-                progFile.logger.warn(msg)
+                progFile.logger.warning(msg)
                 progFile.warnings[self.name].append([row_num, [iname], msg])
                 progFile.warn_count += 1
                 valid = True
@@ -1415,7 +1415,7 @@ class InsCfgFile(QueueFile):
             progFile.logger.debug('Line %d, column %s of sheet %s: %s value %d is greater than or equal to Num Exp value of %d and is ok' % (row_num, iname, self.name, iname, stop, num_exp))
         else:
             msg = 'Warning while checking line %d, column %s of sheet %s: %s value %d is less than Num Exp value of %d' % (row_num, iname, self.name, iname, stop, num_exp)
-            progFile.logger.warn(msg)
+            progFile.logger.warning(msg)
             progFile.warnings[self.name].append([row_num, [iname], msg])
             progFile.warn_count += 1
 
@@ -1472,7 +1472,7 @@ class InsCfgFile(QueueFile):
                 progFile.logger.debug('line %d, column %s of sheet %s: filter %s is in semester %s list and is ok' % (row_num, iname, self.name, rec.filter, self.semester))
             else:
                 msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in semester %s list %s' % (row_num, iname, self.name, val, self.semester, HSC_cfg.semester_filters[self.semester])
-                progFile.logger.warn(msg)
+                progFile.logger.warning(msg)
                 progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
                 progFile.warn_count += 1
 
@@ -1665,14 +1665,14 @@ class OBListFile(QueueFile):
         # if onSrcTimeSum is greater than ph1_allocated_time
         if onSrcTimeSum < ph1_allocated_time:
             msg = 'Warning while checking column %s of sheet %s: On-source time sum of %s seconds is less than the Phase 1 allocated value of %s seconds' % (iname, self.name, onSrcTimeSum, ph1_allocated_time )
-            progFile.logger.warn(msg)
+            progFile.logger.warning(msg)
             progFile.warnings[self.name].append([None, [iname], msg])
             progFile.warn_count += 1
         elif onSrcTimeSum == ph1_allocated_time:
             progFile.logger.debug('Column %s of sheet %s: On-source time sum of %s seconds is equal to the Phase 1 allocated value of %s seconds and is ok' % (iname, self.name, onSrcTimeSum, ph1_allocated_time))
         else:
             msg = 'Warning while checking column %s of sheet %s: On-source time sum of %s seconds is greater than the Phase 1 allocated value of %s seconds' % (iname, self.name, onSrcTimeSum, ph1_allocated_time )
-            progFile.logger.warn(msg)
+            progFile.logger.warning(msg)
             progFile.warnings[self.name].append([None, [iname], msg])
             progFile.warn_count += 1
 

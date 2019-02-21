@@ -44,7 +44,7 @@ def filterchange_ob(ob, total_time):
 
 
 def longslew_ob(prev_ob, ob, total_time):
-    if prev_ob == None:
+    if prev_ob is None:
         klass = ob.inscfg.__class__
         inscfg = klass(filter=None)
     else:
@@ -272,8 +272,8 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
 
     # if observer specified a moon phase, check it now
     if ob.envcfg.moon == 'dark':
-        ## print "moon pct=%f moon alt=%f moon_sep=%f" % (
-        ##     c1.moon_pct, c1.moon_alt, c1.moon_sep)
+        ## print("moon pct=%f moon alt=%f moon_sep=%f" % (
+        ##       c1.moon_pct, c1.moon_alt, c1.moon_sep))
         if not is_dark_night:
             res.setvals(obs_ok=False,
                         reason="Moon illumination=%f not acceptable (alt 1=%.2f 2=%.2f" % (
@@ -352,7 +352,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
     filterchange_sec = 0.0
 
     # get immediately previous ob and filter
-    if (prev_slot == None) or (prev_slot.ob == None):
+    if (prev_slot is None) or (prev_slot.ob is None):
         prev_ob = None
         cur_filter = slot.data.cur_filter
 
@@ -365,7 +365,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
         # filter exchange necessary
         filterchange = True
         filterchange_sec = ob.inscfg.calc_filter_change_time()
-    #print "filter change time for new ob is %f sec" % (filterchange_sec)
+    #print("filter change time for new ob is %f sec" % (filterchange_sec))
 
     # for adding up total preparation time for new OB
     prep_sec = filterchange_sec
@@ -550,7 +550,7 @@ def eval_schedule(schedule):
     for slot in schedule.slots:
         ob = slot.ob
         # TODO: fix up a more solid check for delays
-        if (ob == None) or ob.comment.startswith('Delay'):
+        if (ob is None) or ob.comment.startswith('Delay'):
             delta = (slot.stop_time - slot.start_time).total_seconds()
             time_waste_sec += delta
             continue

@@ -3,7 +3,6 @@
 #
 # Eric Jeschke (eric@naoj.org)
 #
-from __future__ import print_function
 from datetime import timedelta
 #import pytz
 

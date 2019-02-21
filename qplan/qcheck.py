@@ -9,8 +9,6 @@ Usage:
     qcheck.py -i <queue file directory>
     qcheck.py --file <Excel queue file>
 """
-from __future__ import print_function
-
 import sys, os
 import logging
 from ginga.misc import log
