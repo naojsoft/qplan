@@ -1,4 +1,3 @@
-from six.moves import filter
 import numpy
 
 def cmp_num(x, y):

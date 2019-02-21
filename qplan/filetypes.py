@@ -12,9 +12,6 @@ from io import BytesIO, StringIO
 import datetime
 import re
 
-import six
-from six.moves import map, zip
-
 from ginga.misc import Bunch
 
 from . import entity
@@ -88,10 +85,7 @@ class QueueFile(object):
         if self.filepath:
             self.logger.info('Reading file %s' % self.filepath)
             with open(self.filepath, 'r') as f:
-                if six.PY2:
-                    buf = BytesIO(f.read())
-                else:
-                    buf = StringIO(f.read())
+                buf = StringIO(f.read())
                 self.stringio[self.file_prefix] = buf
         else:
             raise IOError('File path not defined for file prefix %s' % self.file_prefix)
@@ -114,10 +108,7 @@ class QueueFile(object):
                     except (KeyError, AttributeError):
                         excel_converters = None
                     self.df[name] = datasrc.parse(name, converters=excel_converters)
-                    if six.PY2:
-                        buf = BytesIO()
-                    else:
-                        buf = StringIO()
+                    buf = StringIO()
                     self.stringio[name] = buf
                     self.df[name].to_csv(self.stringio[name], index=False)
                     self.stringio[name].seek(0)
@@ -189,10 +180,7 @@ class QueueFile(object):
         # Create a buffer object and write our columnNames
         # and rows attributes into that object. This gives us an
         # object that looks like a disk file so we can parse the data.
-        if six.PY2:
-            self.queue_file = BytesIO()
-        else:
-            self.queue_file = StringIO()
+        self.queue_file = StringIO()
         writer = csv.writer(self.queue_file, **self.fmtparams)
         writer.writerow(self.columnNames)
         writer = csv.DictWriter(self.queue_file, self.columnNames, **self.fmtparams)
@@ -246,7 +234,7 @@ class QueueFile(object):
 
         # Iterate through the list of required columns to make sure
         # they are all there.
-        for col_name, info in six.iteritems(self.columnInfo):
+        for col_name, info in self.columnInfo.items():
             if info['required']:
                 if info['iname'] in column_names:
                     self.logger.debug('Required column name %s found in sheet %s' % (info['iname'], self.name))
@@ -367,7 +355,7 @@ class QueueFile(object):
 
             else:
                 # Iterate through all the columns and check dataypes
-                for col_name, info in six.iteritems(self.columnInfo):
+                for col_name, info in self.columnInfo.items():
                     rec_name = self.column_map[col_name]
                     try:
                         str_val = rec[rec_name]
@@ -415,7 +403,7 @@ class QueueFile(object):
             else:
                 # Iterate through all the columns and check
                 # constraints, if any.
-                for col_name, info in six.iteritems(self.columnInfo):
+                for col_name, info in self.columnInfo.items():
                     rec_name = self.column_map[col_name]
                     try:
                         str_val = rec[rec_name]
@@ -1294,10 +1282,10 @@ class InsCfgFile(QueueFile):
         self.max_onsource_time_mins = 100.0 # minutes
         super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
         self.excel_converters = {
-            'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x),
+            'Num Exp':    lambda x: x if pd.isnull(x) or isinstance(x, str) else int(x),
             'Dither':     lambda x: '' if pd.isnull(x) else str(x),
-            'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x),
-            'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, six.string_types) else int(x)}
+            'Skip':       lambda x: x if pd.isnull(x) or isinstance(x, str) else int(x),
+            'Stop':       lambda x: x if pd.isnull(x) or isinstance(x, str) else int(x)}
 
         self.semester = None
 
@@ -1815,13 +1803,13 @@ class ProgramFile(QueueFile):
                 with open(self.filepath, 'rb') as excel_file:
                     self.file_obj = BytesIO(excel_file.read())
 
-            for name, cfg in six.iteritems(self.cfg):
+            for name, cfg in self.cfg.items():
                 cfg.filepath = self.filepath
 
             self.read_excel_file()
 
         elif os.path.isdir(dir_path) or file_ext == 'csv':
-            for name, cfg in six.iteritems(self.cfg):
+            for name, cfg in self.cfg.items():
                 cfg.find_filepath()
                 cfg.read_csv_file()
                 self.stringio[name] = cfg.stringio
@@ -1835,12 +1823,12 @@ class ProgramFile(QueueFile):
 
         # All sheets were read in. Set the configuration objects to
         # have the BytesIO version of the input data
-        for name, cfg in six.iteritems(self.cfg):
+        for name, cfg in self.cfg.items():
             cfg.stringio[name] = self.stringio[name]
 
         # Check to make sure all sheets have the required columns
         error_incr = 0
-        for name, cfg in six.iteritems(self.cfg):
+        for name, cfg in self.cfg.items():
             error_incr += cfg.validate_column_names(self)
         if error_incr > 0:
             return
@@ -1848,7 +1836,7 @@ class ProgramFile(QueueFile):
         # Check to see if there are any duplicate Code values in any
         # of the sheets
         error_incr = 0
-        for name, cfg in six.iteritems(self.cfg):
+        for name, cfg in self.cfg.items():
             error_incr += cfg.checkCodesUnique(self)
         if error_incr > 0:
             return
@@ -1884,7 +1872,7 @@ class ProgramFile(QueueFile):
 
         # We have checked the targets, envcfg, inscfg, and telcfg
         # sheets, so process their input now.
-        for name, cfg in six.iteritems(self.cfg):
+        for name, cfg in self.cfg.items():
             if name != 'proposal':
                 cfg.process_input()
 

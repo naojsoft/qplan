@@ -15,7 +15,6 @@ from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import log
-import six
 
 # Local imports
 from . import entity
@@ -131,10 +130,7 @@ def main(options, args):
     loader.update_model()
 
     # buffer for OPE output
-    if six.PY2:
-        out_f = BytesIO()
-    else:
-        out_f = StringIO()
+    out_f = StringIO()
 
     # write preamble
     converter.write_ope_header(out_f)
