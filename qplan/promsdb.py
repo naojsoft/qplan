@@ -1,4 +1,3 @@
-from __future__ import print_function
 #!/usr/bin/env python
 
 # Connect to the ProMS MySQL user database. Includes queries for ProMS

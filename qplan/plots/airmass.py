@@ -6,7 +6,6 @@
 # Some code based on "Observer" module by Daniel Magee
 #   Copyright (c) 2008 UCO/Lick Observatory.
 #
-from __future__ import print_function
 from datetime import datetime, timedelta
 import pytz
 import numpy
@@ -308,7 +307,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         outfile = sys.argv[1]
 
-    if outfile == None:
+    if outfile is None:
         app = Widgets.Application()
         topw = app.make_window()
         plotw = Plot.PlotWidget(plot)
@@ -362,7 +361,7 @@ if __name__ == '__main__':
     ##                    target_data=target_data)
     plot.plot_airmass(site, target_data, tz)
 
-    if outfile == None:
+    if outfile is None:
         topw.show()
     else:
         plot.fig.savefig(outfile)

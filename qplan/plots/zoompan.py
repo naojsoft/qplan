@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 class ZoomPan(object):
     def __init__(self):
         self.press = None

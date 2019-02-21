@@ -1,10 +1,8 @@
-
 #
 # Report.py -- Report plugin
 #
 # Eric Jeschke (eric@naoj.org)
 #
-from __future__ import print_function
 import time
 import os
 import re
