@@ -248,7 +248,7 @@ class SemesterSumPlot(BaseSumPlot):
         plt.pie(sizes, labels=labels, colors=colors, autopct='%2.0f%%', shadow=True)
         if '-' in labels[0]:
             # TODO: title if nothing can be scheduled
-            semester, ident = labels[0].split('-')
+            semester, _, ident = labels[0].partition('-')
             plt.set_title('Total for Semester = %5.0f Hours' % (total_time_avail / 60.0))
 
         # Create some matplotlib "Patches" so that we can use them in
