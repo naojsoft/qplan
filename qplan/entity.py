@@ -437,36 +437,6 @@ class InstrumentConfiguration(object):
         self.mode = None
         self.comment = ''
 
-class SPCAMConfiguration(InstrumentConfiguration):
-
-    def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
-                 mode='IMAGE', offset_ra=0, offset_dec=0, pa=90,
-                 dith1=60, dith2=None):
-        super(SPCAMConfiguration, self).__init__()
-
-        self.insname = 'SPCAM'
-        if filter is not None:
-            filter = filter.lower()
-        self.filter = filter
-        self.dither = dither
-        self.guiding = guiding
-        self.num_exp = num_exp
-        self.exp_time = exp_time
-        self.mode = mode
-        self.offset_ra = offset_ra
-        self.offset_dec = offset_dec
-        self.pa = pa
-        self.dith1 = dith1
-        if dith2 is None:
-            # TODO: defaults for this depends on mode
-            dith2 = 0
-        self.dith2 = dith2
-
-    def calc_filter_change_time(self):
-        # TODO: this needs to become more accurate
-        filter_change_time_sec = 10.0 * 60.0
-        return filter_change_time_sec
-
 class HSCConfiguration(InstrumentConfiguration):
 
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
@@ -677,6 +647,7 @@ class HSC_Exposure(PersistentEntity):
         self.data_type = None
         self.propid = None
         self.purpose = None
+        self.obsmthd = None
 
     def __str__(self):
         return self.exp_id
