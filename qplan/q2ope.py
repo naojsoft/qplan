@@ -8,6 +8,7 @@
 Usage:
     q2ope.py
 """
+from __future__ import print_function
 # stdlib imports
 import sys, os
 from io import BytesIO, StringIO
