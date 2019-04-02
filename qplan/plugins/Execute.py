@@ -9,7 +9,7 @@ from ginga.misc import Widgets
 from ginga.qtw import QtHelp
 
 # Gen2
-#import remoteObjects as ro
+#from g2base.remoteObjects import remoteObjects as ro
 
 from qplan.plugins import Report
 

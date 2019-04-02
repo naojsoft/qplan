@@ -16,7 +16,7 @@ from ginga.gw import Widgets
 # Gen2 imports
 have_gen2 = False
 try:
-    import remoteObjects as ro
+    from g2base.remoteObjects import remoteObjects as ro
     from SOSS.status.common import STATNONE, STATERROR
     have_gen2 = True
 
