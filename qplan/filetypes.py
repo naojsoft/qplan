@@ -1745,7 +1745,6 @@ class OBListFile(QueueFile):
                 # for HSC SSP--special extra params to be passed to OPE
                 # file generation
                 extra_params = ''
-                print(rec)
                 if rec.has_key('extra_params'):
                     extra_params = rec.extra_params.strip()
 
