@@ -2,7 +2,6 @@
 # Eric Jeschke (eric@naoj.org)
 #
 
-import itertools
 import datetime as dt
 
 # MODULE FUNCTIONS
@@ -21,14 +20,14 @@ def filter_ob_keys_by_props(ob_keys, propset):
     propset = set(propset)
     def has_proposal(key):
         return key[0] in propset
-    return itertools.ifilter(has_proposal, ob_keys)
+    return filter(has_proposal, ob_keys)
 
 def filter_obs_by_props(obs, propset):
     propset = set(propset)
     def has_proposal(ob):
         proposal = ob.program.proposal.upper()
         return proposal in propset
-    return itertools.ifilter(has_proposal, obs)
+    return filter(has_proposal, obs)
 
 
 # QUERIES
@@ -55,7 +54,7 @@ class QueueQuery(object):
         return tbl[ob_key]
 
     def ob_keys_to_obs(self, ob_keys):
-        return itertools.imap(self.get_ob, ob_keys)
+        return map(self.get_ob, ob_keys)
 
     def ex_ob_to_ob(self, ex_ob):
         """
@@ -64,11 +63,11 @@ class QueueQuery(object):
         return self.get_ob(ex_ob.ob_key)
 
     def map_ex_ob_to_ob(self, ex_obs):
-        return itertools.imap(self.ex_ob_to_ob, ex_obs)
+        return map(self.ex_ob_to_ob, ex_obs)
 
     def get_exposures(self, executed_ob_rec):
         tbl = self._qa.get_table('exposure')
-        return itertools.imap(lambda exp_key: tbl[exp_key],
+        return map(lambda exp_key: tbl[exp_key],
                               executed_ob_rec.exp_history)
 
     def get_program_by_semester(self, semester):
@@ -80,7 +79,7 @@ class QueueQuery(object):
         semester = [str.upper(s) for s in semester]
         def match_semester(rec):
             return rec.proposal[:4] in semester
-        return itertools.ifilter(match_semester, tbl.values())
+        return filter(match_semester, tbl.values())
 
     def get_program_by_propid(self, propid):
         """
@@ -113,7 +112,7 @@ class QueueQuery(object):
         def has_proposal(rec):
             ob = self.get_ob(rec.ob_key)
             return ob.program.proposal == proposal
-        return itertools.ifilter(has_proposal, tbl.values())
+        return filter(has_proposal, tbl.values())
 
     def get_exposure_by_date(self, fromdate, todate):
         """
@@ -123,7 +122,7 @@ class QueueQuery(object):
         def within_range(rec):
             if isinstance(rec.time_start, dt.datetime):
                 return todate > rec.time_start >= fromdate
-        return itertools.ifilter(within_range, tbl.values())
+        return filter(within_range, tbl.values())
 
     def get_executed_obs_by_date(self, fromdate, todate):
         """
@@ -132,14 +131,14 @@ class QueueQuery(object):
         tbl = self._qa.get_table('executed_ob')
         def within_range(rec):
             return todate > rec.time_start >= fromdate
-        return itertools.ifilter(within_range, tbl.values())
+        return filter(within_range, tbl.values())
 
     ## def get_exposures_from_executed_obs(self, ex_obs):
     ##     """
     ##     Given a sequence of executed OBs, return the exposures for them.
     ##     """
     ##     tbl = self._qa.get_table('exposure')
-    ##     return itertools.ifilter(within_range, tbl.values())
+    ##     return filter(within_range, tbl.values())
 
     def get_ob_count(self, ob_key):
         """
@@ -149,7 +148,7 @@ class QueueQuery(object):
         tbl = self._qa.get_table('executed_ob')
         def ob_match(rec):
             return rec.ob_key == ob_key
-        return len(list(itertools.ifilter(ob_match, tbl.values())))
+        return len(list(filter(ob_match, tbl.values())))
 
 
     def get_finalized_executed_obs(self, fqa_set):
@@ -162,7 +161,7 @@ class QueueQuery(object):
         tbl = self._qa.get_table('executed_ob')
         def ob_finished(rec):
             return rec.fqa in fqa_set
-        return itertools.ifilter(ob_finished, tbl.values())
+        return filter(ob_finished, tbl.values())
 
     def get_do_not_execute_ob_keys(self):
         """
@@ -175,9 +174,9 @@ class QueueQuery(object):
             return (rec.fqa == 'good') or (rec.fqa == '' and
                                            rec.iqa in ('good', 'marginal'))
 
-        #return self.map_ex_ob_to_ob(itertools.ifilter(ob_match, tbl.values()))
-        return itertools.imap(lambda rec: rec.ob_key,
-                              itertools.ifilter(ob_match, tbl.values()))
+        #return self.map_ex_ob_to_ob(filter(ob_match, tbl.values()))
+        return map(lambda rec: rec.ob_key,
+                              filter(ob_match, tbl.values()))
 
     def get_schedulable_ob_keys(self):
         """
@@ -188,7 +187,7 @@ class QueueQuery(object):
         tbl = self._qa.get_table('ob')
         def ob_match(ob):
             return ob not in do_not_execute
-        return itertools.ifilter(ob_match, tbl.values())
+        return filter(ob_match, tbl.values())
 
 
     def get_executed_obs_for_fqa(self):
@@ -200,7 +199,7 @@ class QueueQuery(object):
         tbl = self._qa.get_table('executed_ob')
         def ob_match(rec):
             return (rec.fqa != 'good') and (rec.iqa in ('good', 'marginal'))
-        return itertools.ifilter(ob_match, tbl.values())
+        return filter(ob_match, tbl.values())
 
     def divide_executed_obs_by_program(self, ex_obs):
         """

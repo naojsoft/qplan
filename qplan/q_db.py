@@ -30,22 +30,21 @@ class QueueDatabase(object):
         self.storage = ClientStorage.ClientStorage(addr)
         self.db = DB(self.storage)
 
-        self.conn = self.db.open()
+        self.transaction_manager = transaction.TransactionManager()
+        self.conn = self.db.open(self.transaction_manager)
         self.dbroot = self.conn.root()
 
-        # Check whether database is initialized
-        for name in ['program', 'ob', 'executed_ob', 'exposure',
-                     'saved_state']:
-            key = '%s_db' % name
-            if key not in self.dbroot:
-                tbl = OOBTree()
-                self.dbroot[key] = tbl
+        with self.transaction_manager:
+            # Check whether database is initialized
+            for name in ['program', 'ob', 'executed_ob', 'exposure',
+                         'saved_state']:
+                key = '%s_db' % name
+                if key not in self.dbroot:
+                    tbl = OOBTree()
+                    self.dbroot[key] = tbl
 
-                transaction.commit()
-
-        if 'queue_mgmt' not in self.dbroot:
-            self.dbroot['queue_mgmt'] = QueueMgmtRec()
-            transaction.commit()
+            if 'queue_mgmt' not in self.dbroot:
+                self.dbroot['queue_mgmt'] = QueueMgmtRec()
 
     def close(self):
         self.conn.close()
@@ -67,8 +66,8 @@ class QueueAdapter(object):
         self._qdb = qdb
         self.logger = qdb.logger
 
-        self.conn = self._qdb.db.open()
-        self.dbroot = self.conn.root()
+        self.conn = self._qdb.conn
+        self.dbroot = self._qdb.dbroot
 
     def get_table(self, name):
         key = '%s_db' % name

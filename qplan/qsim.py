@@ -63,6 +63,7 @@ def calibration_ob(ob, total_time):
                        telcfg=ob.telcfg, inscfg=ob.calib_inscfg,
                        envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
+                       #extra_params=ob.extra_params,
                        comment="Calibration for %s" % (ob))
     return new_ob
 
@@ -78,6 +79,7 @@ def calibration30_ob(ob, total_time):
                        telcfg=ob.telcfg, inscfg=calib_inscfg,
                        envcfg=ob.envcfg,
                        total_time=total_time, derived=True,
+                       #extra_params=ob.extra_params,
                        comment="30 sec calibration for %s" % (ob))
     return new_ob
 

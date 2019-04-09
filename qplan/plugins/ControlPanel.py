@@ -31,7 +31,6 @@ have_qdb = False
 try:
     from qplan import q_db, q_query
     from Gen2.db.db_config import qdb_addr
-    import transaction
     have_qdb = True
 
 except ImportError:
@@ -442,25 +441,24 @@ class ControlPanel(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
 
         # store programs into db
-        try:
-            programs = self.qa.get_table('program')
-            for key in sdlr.programs:
-                self.logger.info("adding record for program '%s'" % (str(key)))
-                programs[key] = sdlr.programs[key]
-            transaction.commit()
-        except Exception as e:
-            self.logger.error('Unexpected error while updating program table in database: %s' % str(e))
+        with self.qdb.transaction_manager:
+            try:
+                programs = self.qa.get_table('program')
+                for key in sdlr.programs:
+                    self.logger.info("adding record for program '%s'" % (str(key)))
+                    programs[key] = sdlr.programs[key]
+            except Exception as e:
+                self.logger.error('Unexpected error while updating program table in database: %s' % str(e))
 
-        # store OBs into db
-        try:
-            ob_db = self.qa.get_table('ob')
-            for ob in sdlr.oblist:
-                key = (ob.program.proposal, ob.name)
-                self.logger.info("adding record for OB '%s'" % (str(key)))
-                ob_db[key] = ob
-            transaction.commit()
-        except Exception as e:
-            self.logger.error('Unexpected error while updating ob table in database: %s' % str(e))
+            # store OBs into db
+            try:
+                ob_db = self.qa.get_table('ob')
+                for ob in sdlr.oblist:
+                    key = (ob.program.proposal, ob.name)
+                    self.logger.info("adding record for OB '%s'" % (str(key)))
+                    ob_db[key] = ob
+            except Exception as e:
+                self.logger.error('Unexpected error while updating ob table in database: %s' % str(e))
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))
