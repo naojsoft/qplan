@@ -49,68 +49,73 @@ class NightSumPlot(BaseSumPlot):
     # during the night
 
     def plot(self, schedules):
-        # Create a plot that shows the activities (e.g., slews, filter
-        # changes, etc.) for all the nights.
-        plt = self.fig.add_subplot(111)
-        plt.set_title('Nightly Activity')
-        plt.set_xlabel('Minutes from start of night')
 
-        # Iterate through all the dates in the schedules list. Note
-        # that we iterate in reverse order so that the oldest dates
-        # appear at the top of the plot, which is the same order as is
-        # shown in the "Schedule" section on the left-hand side of
-        # qplan/qexec.
-        date_list = []
-        for i, schedule in enumerate(list(reversed(schedules))):
-            date_list.append(schedule.start_time.strftime('%Y-%m-%d'))
-            y = [i]
-            previous_slot_right = np.array([0.0])
-            for slot in schedule.slots:
-                ob = slot.ob
-                dt = slot.stop_time - slot.start_time
-                dt_minutes = dt.total_seconds() / 60.0
-                width = np.array([dt_minutes])
-                if ob is None:
-                    ob_type = 'Unscheduled'
-                else:
-                    if ob.derived:
-                        if 'Long slew' in ob.comment:
-                            ob_type = 'Long slew'
-                        elif 'Filter change' in ob.comment:
-                            ob_type = 'Filter change'
-                        elif 'Delay' in ob.comment:
-                            ob_type = 'Delay'
+        if len(schedules) > 0:
+            # Create a plot that shows the activities (e.g., slews, filter
+            # changes, etc.) for all the nights.
+            plt = self.fig.add_subplot(111)
+            plt.set_title('Nightly Activity')
+            plt.set_xlabel('Minutes from start of night')
+
+            # Iterate through all the dates in the schedules list. Note
+            # that we iterate in reverse order so that the oldest dates
+            # appear at the top of the plot, which is the same order as is
+            # shown in the "Schedule" section on the left-hand side of
+            # qplan/qexec.
+            date_list = []
+            for i, schedule in enumerate(list(reversed(schedules))):
+                date_list.append(schedule.start_time.strftime('%Y-%m-%d'))
+                y = [i]
+                previous_slot_right = np.array([0.0])
+                for slot in schedule.slots:
+                    ob = slot.ob
+                    dt = slot.stop_time - slot.start_time
+                    dt_minutes = dt.total_seconds() / 60.0
+                    width = np.array([dt_minutes])
+                    if ob is None:
+                        ob_type = 'Unscheduled'
+                    else:
+                        if ob.derived:
+                            if 'Long slew' in ob.comment:
+                                ob_type = 'Long slew'
+                            elif 'Filter change' in ob.comment:
+                                ob_type = 'Filter change'
+                            elif 'Delay' in ob.comment:
+                                ob_type = 'Delay'
+                            else:
+                                ob_type = 'Science'
                         else:
                             ob_type = 'Science'
-                    else:
-                        ob_type = 'Science'
 
-                bar = plt.barh(y, width, self.barWidth, left=previous_slot_right, color=self.activity_colors[ob_type])
-                previous_slot_right += width
+                    bar = plt.barh(y, width, self.barWidth, left=previous_slot_right, color=self.activity_colors[ob_type])
+                    previous_slot_right += width
 
-        # Add the y-axis titles, which are the dates from the
-        # schedules list.
-        y = np.arange(len(schedules))
-        plt.set_yticks(y+self.barWidth/2.)
-        plt.set_yticklabels(date_list)
+            # Add the y-axis titles, which are the dates from the
+            # schedules list.
+            y = np.arange(len(schedules))
+            plt.set_yticks(y+self.barWidth/2.)
+            plt.set_yticklabels(date_list)
 
-        # Reduce the plot area by a little bit so that we have room
-        # for the legend outside the plot.
-        box = plt.get_position()
-        plt.set_position([box.x0, box.y0, box.width * 0.9, box.height])
+            # Reduce the plot area by a little bit so that we have room
+            # for the legend outside the plot.
+            box = plt.get_position()
+            plt.set_position([box.x0, box.y0, box.width * 0.9, box.height])
 
-        # Create some matplotlib "Patches" so that we can use them in
-        # the legend
-        legend_patches = []
-        legend_titles = []
-        for ob_type in self.ob_types:
-            legend_patches.append(mpatches.Patch(color=self.activity_colors[ob_type]))
-            legend_titles.append(ob_type)
+            # Create some matplotlib "Patches" so that we can use them in
+            # the legend
+            legend_patches = []
+            legend_titles = []
+            for ob_type in self.ob_types:
+                legend_patches.append(mpatches.Patch(color=self.activity_colors[ob_type]))
+                legend_titles.append(ob_type)
 
-        # Add a legend to the plot. We put the legend outside the plot
-        # area so that we don't obscure any of the bars.
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont,
-                   loc='upper right', bbox_to_anchor=(1, 1), handlelength=1)
+            # Add a legend to the plot. We put the legend outside the plot
+            # area so that we don't obscure any of the bars.
+            plt.legend(legend_patches, legend_titles, prop=self.legendFont,
+                       loc='upper right', bbox_to_anchor=(1, 1), handlelength=1)
+
+        else:
+            self.fig.text(0.5, 0.5, "There are no nights to schedule", horizontalalignment='center', bbox=dict(facecolor='red', alpha=0.5))
 
         self.draw()
 
@@ -118,52 +123,57 @@ class ProposalSumPlot(BaseSumPlot):
     # Make a bar chart to show the completed OB percentage for each
     # proposal.
     def plot(self, completed, uncompleted):
-        plt = self.fig.add_subplot(111)
-        plt.set_title('Proposal Completion Percentage')
-        plt.set_ylabel('OB Percent Complete')
-        ind = np.arange(len(completed)+len(uncompleted))
-        propID_comp_percent = {}
-        grades_dict = {}
-        for grade in self.grades:
-            grades_dict[grade] = []
-        for i, proposal in enumerate(completed+uncompleted):
-            #x = [i]
-            ex_time = proposal.sched_time
-            tot_time = proposal.total_time
-            propID = str(proposal.pgm)
+        if len(completed)+len(uncompleted) > 0:
+            plt = self.fig.add_subplot(111)
+            plt.set_title('Proposal Completion Percentage')
+            plt.set_ylabel('OB Percent Complete')
+            ind = np.arange(len(completed)+len(uncompleted))
+            propID_comp_percent = {}
+            grades_dict = {}
+            for grade in self.grades:
+                grades_dict[grade] = []
+            for i, proposal in enumerate(completed+uncompleted):
+                #x = [i]
+                ex_time = proposal.sched_time
+                tot_time = proposal.total_time
+                propID = str(proposal.pgm)
 
-            if tot_time > 0.0:
-                propID_comp_percent[propID] = ex_time/tot_time * 100.0
-            else:
-                propID_comp_percent[propID] = 0.0
-            if propID not in grades_dict[proposal.pgm.grade]:
-                grades_dict[proposal.pgm.grade].append(propID)
+                if tot_time > 0.0:
+                    propID_comp_percent[propID] = ex_time/tot_time * 100.0
+                else:
+                    propID_comp_percent[propID] = 0.0
+                if propID not in grades_dict[proposal.pgm.grade]:
+                    grades_dict[proposal.pgm.grade].append(propID)
 
-        # For the bar chart, we want all proposals grouped into their
-        # "grade" category and then, within that category, sort the
-        # proposals by their proposal ID.
-        propid_list = []
-        comp_percent = []
-        colors = []
-        for grade in self.grades:
-            for propID in sorted(grades_dict[grade]):
-                propid_list.append(propID)
-                comp_percent.append(propID_comp_percent[propID])
-                colors.append(self.grade_colors[grade])
+            # For the bar chart, we want all proposals grouped into their
+            # "grade" category and then, within that category, sort the
+            # proposals by their proposal ID.
+            propid_list = []
+            comp_percent = []
+            colors = []
+            for grade in self.grades:
+                for propID in sorted(grades_dict[grade]):
+                    propid_list.append(propID)
+                    comp_percent.append(propID_comp_percent[propID])
+                    colors.append(self.grade_colors[grade])
 
-        plt.bar(ind, comp_percent, self.barWidth, color=colors)
-        plt.set_xticks(ind+self.barWidth/2.)
-        plt.set_xticklabels(propid_list, rotation=45, ha='right')
+            plt.bar(ind, comp_percent, self.barWidth, color=colors)
+            plt.set_xticks(ind+self.barWidth/2.)
+            plt.set_xticklabels(propid_list, rotation=45, ha='right')
+            if len(comp_percent) == 0 or max(comp_percent) == 0.0:
+                plt.set_ylim(0, 100)
 
-        # Create some matplotlib "Patches" so that we can use them in
-        # the legend
-        legend_patches = []
-        legend_titles = []
-        for grade in self.grades:
-            legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
-            legend_titles.append(grade)
+            # Create some matplotlib "Patches" so that we can use them in
+            # the legend
+            legend_patches = []
+            legend_titles = []
+            for grade in self.grades:
+                legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
+                legend_titles.append(grade)
 
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='upper right', bbox_to_anchor=(1, 1), handlelength=1)
+            plt.legend(legend_patches, legend_titles, prop=self.legendFont, title='Grades', loc='upper right', bbox_to_anchor=(1, 1), handlelength=1)
+        else:
+            self.fig.text(0.5, 0.5, "There are no proposals to report on", horizontalalignment='center', bbox=dict(facecolor='red', alpha=0.5))
 
         self.draw()
 
@@ -171,29 +181,33 @@ class ScheduleSumPlot(BaseSumPlot):
     # Makes a bar chart to show scheduled/unscheduled minutes for each
     # night
     def plot(self, schedules):
-        plt = self.fig.add_subplot(111)
-        plt.set_title('Nightly Schedules')
-        plt.set_ylabel('Time (min)')
-        ind = np.arange(len(schedules))
-        date_list = []
-        sched_minutes = []
-        unsched_minutes = []
-        for schedule in schedules:
-            date_list.append(schedule.start_time.strftime('%Y-%m-%d'))
-            time_avail = schedule.stop_time - schedule.start_time
-            time_avail_minutes = time_avail.total_seconds() / 60.0
-            time_waste_minutes = qsim.eval_schedule(schedule).time_waste_sec / 60.0
-            sched_minutes.append(time_avail_minutes - time_waste_minutes)
-            unsched_minutes.append(time_waste_minutes)
-        self.logger.debug('ind %s' % ind)
-        self.logger.debug('date_list %s' % date_list)
-        self.logger.debug('sched_minutes %s' % sched_minutes)
-        self.logger.debug('unsched_minutes %s' % unsched_minutes)
-        sched_bar = plt.bar(ind, sched_minutes, self.barWidth, color='g')
-        unsched_bar = plt.bar(ind, unsched_minutes, self.barWidth, color='darkred', bottom=sched_minutes)
-        plt.set_xticks(ind+self.barWidth/2.)
-        plt.set_xticklabels(date_list, rotation=45, ha='right')
-        plt.legend((unsched_bar, sched_bar), ('Delay+Unscheduled', 'Scheduled'), prop=self.legendFont)
+        if len(schedules) > 0:
+            plt = self.fig.add_subplot(111)
+            plt.set_title('Nightly Schedules')
+            plt.set_ylabel('Time (min)')
+            ind = np.arange(len(schedules))
+            date_list = []
+            sched_minutes = []
+            unsched_minutes = []
+            for schedule in schedules:
+                date_list.append(schedule.start_time.strftime('%Y-%m-%d'))
+                time_avail = schedule.stop_time - schedule.start_time
+                time_avail_minutes = time_avail.total_seconds() / 60.0
+                time_waste_minutes = qsim.eval_schedule(schedule).time_waste_sec / 60.0
+                sched_minutes.append(time_avail_minutes - time_waste_minutes)
+                unsched_minutes.append(time_waste_minutes)
+            self.logger.debug('ind %s' % ind)
+            self.logger.debug('date_list %s' % date_list)
+            self.logger.debug('sched_minutes %s' % sched_minutes)
+            self.logger.debug('unsched_minutes %s' % unsched_minutes)
+            sched_bar = plt.bar(ind, sched_minutes, self.barWidth, color='g')
+            unsched_bar = plt.bar(ind, unsched_minutes, self.barWidth, color='darkred', bottom=sched_minutes)
+            plt.set_xticks(ind+self.barWidth/2.)
+            plt.set_xticklabels(date_list, rotation=45, ha='right')
+            plt.legend((unsched_bar, sched_bar), ('Delay+Unscheduled', 'Scheduled'), prop=self.legendFont)
+
+        else:
+            self.fig.text(0.5, 0.5, "There are no nights to schedule", horizontalalignment='center', bbox=dict(facecolor='red', alpha=0.5))
 
         self.draw()
 
@@ -201,66 +215,70 @@ class SemesterSumPlot(BaseSumPlot):
     # Makes a pie chart to show percentage of available time allocated
     # to each proposal and also the unscheduled time.
     def plot(self, sldr, completed, uncompleted, schedules):
-        plt = self.fig.add_subplot(111)
-        total_time_avail = 0.
-        total_time_waste = 0.
-        propID_alloc_minutes = {}
-        grades_dict = {}
-        for grade in self.grades:
-            grades_dict[grade] = []
-        for schedule in schedules:
-            time_avail = schedule.stop_time - schedule.start_time
-            time_avail_minutes = time_avail.total_seconds() / 60.0
+        if len(schedules) > 0:
+            plt = self.fig.add_subplot(111)
+            total_time_avail = 0.
+            total_time_waste = 0.
+            propID_alloc_minutes = {}
+            grades_dict = {}
+            for grade in self.grades:
+                grades_dict[grade] = []
+            for schedule in schedules:
+                time_avail = schedule.stop_time - schedule.start_time
+                time_avail_minutes = time_avail.total_seconds() / 60.0
 
-            sched_eval_res = qsim.eval_schedule(schedule)
-            time_waste_minutes = sched_eval_res.time_waste_sec / 60.0
-            total_time_avail += time_avail_minutes
-            total_time_waste += time_waste_minutes
-            for propID, seconds in six.iteritems(sched_eval_res.proposal_total_time_sec):
-                if propID not in grades_dict[sldr.programs[propID].grade]:
-                    grades_dict[sldr.programs[propID].grade].append(propID)
-                if propID in propID_alloc_minutes:
-                    propID_alloc_minutes[propID] += seconds / 60.0
-                else:
-                    propID_alloc_minutes[propID] = seconds / 60.0
+                sched_eval_res = qsim.eval_schedule(schedule)
+                time_waste_minutes = sched_eval_res.time_waste_sec / 60.0
+                total_time_avail += time_avail_minutes
+                total_time_waste += time_waste_minutes
+                for propID, seconds in six.iteritems(sched_eval_res.proposal_total_time_sec):
+                    if propID not in grades_dict[sldr.programs[propID].grade]:
+                        grades_dict[sldr.programs[propID].grade].append(propID)
+                    if propID in propID_alloc_minutes:
+                        propID_alloc_minutes[propID] += seconds / 60.0
+                    else:
+                        propID_alloc_minutes[propID] = seconds / 60.0
 
-        total_time_sched = total_time_avail - total_time_waste
-        self.logger.debug('propID_alloc_minutes %s' % propID_alloc_minutes)
-        self.logger.debug('total_time_avail %f min' % total_time_avail)
-        self.logger.debug('total_time_sched %f min' % total_time_sched)
-        self.logger.debug('total_time_waste %f min' % total_time_waste)
+            total_time_sched = total_time_avail - total_time_waste
+            self.logger.debug('propID_alloc_minutes %s' % propID_alloc_minutes)
+            self.logger.debug('total_time_avail %f min' % total_time_avail)
+            self.logger.debug('total_time_sched %f min' % total_time_sched)
+            self.logger.debug('total_time_waste %f min' % total_time_waste)
 
-        # For the pie chart, we want all proposals grouped into their
-        # "grade" category and then, within that category, sort the
-        # proposals by their proposal ID.
-        labels = []
-        sizes = []
-        colors = []
-        for grade in self.grades:
-            for propID in sorted(grades_dict[grade]):
-                labels.append(propID)
-                sizes.append(propID_alloc_minutes[propID])
-                colors.append(self.grade_colors[grade])
+            # For the pie chart, we want all proposals grouped into their
+            # "grade" category and then, within that category, sort the
+            # proposals by their proposal ID.
+            labels = []
+            sizes = []
+            colors = []
+            for grade in self.grades:
+                for propID in sorted(grades_dict[grade]):
+                    labels.append(propID)
+                    sizes.append(propID_alloc_minutes[propID])
+                    colors.append(self.grade_colors[grade])
 
-        labels.append('Unscheduled')
-        sizes.append(total_time_waste)
-        colors.append('darkred')
-        plt.pie(sizes, labels=labels, colors=colors, autopct='%2.0f%%', shadow=True)
-        if '-' in labels[0]:
-            # TODO: title if nothing can be scheduled
-            semester, _, ident = labels[0].partition('-')
-            plt.set_title('Total for Semester = %5.0f Hours' % (total_time_avail / 60.0))
+            labels.append('Unscheduled')
+            sizes.append(total_time_waste)
+            colors.append('darkred')
+            plt.pie(sizes, labels=labels, colors=colors, autopct='%2.0f%%', shadow=True)
+            if '-' in labels[0]:
+                # TODO: title if nothing can be scheduled
+                semester, _, ident = labels[0].partition('-')
+                plt.set_title('Total for Semester = %5.0f Hours' % (total_time_avail / 60.0))
 
-        # Create some matplotlib "Patches" so that we can use them in
-        # the legend
-        legend_patches = []
-        legend_titles = []
-        for grade in self.grades:
-            legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
-            legend_titles.append(grade)
+            # Create some matplotlib "Patches" so that we can use them in
+            # the legend
+            legend_patches = []
+            legend_titles = []
+            for grade in self.grades:
+                legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
+                legend_titles.append(grade)
 
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont,
-                   title='Grades', loc='upper right',
-                   bbox_to_anchor=(1, 1), handlelength=1)
+            plt.legend(legend_patches, legend_titles, prop=self.legendFont,
+                       title='Grades', loc='upper right',
+                       bbox_to_anchor=(1, 1), handlelength=1)
+
+        else:
+            self.fig.text(0.5, 0.5, "There are no nights to schedule", horizontalalignment='center', bbox=dict(facecolor='red', alpha=0.5))
 
         self.draw()
