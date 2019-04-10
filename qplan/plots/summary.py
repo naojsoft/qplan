@@ -8,10 +8,6 @@ from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
 
-<<<<<<< HEAD
-import six
-=======
->>>>>>> Remove Python 2 support
 from ginga.util import plots
 
 from qplan import qsim
@@ -218,7 +214,6 @@ class SemesterSumPlot(BaseSumPlot):
     # Makes a pie chart to show percentage of available time allocated
     # to each proposal and also the unscheduled time.
     def plot(self, sldr, completed, uncompleted, schedules):
-<<<<<<< HEAD
         if len(schedules) > 0:
             plt = self.fig.add_subplot(111)
             total_time_avail = 0.
@@ -235,7 +230,7 @@ class SemesterSumPlot(BaseSumPlot):
                 time_waste_minutes = sched_eval_res.time_waste_sec / 60.0
                 total_time_avail += time_avail_minutes
                 total_time_waste += time_waste_minutes
-                for propID, seconds in six.iteritems(sched_eval_res.proposal_total_time_sec):
+                for propID, seconds in sched_eval_res.proposal_total_time_sec.items():
                     if propID not in grades_dict[sldr.programs[propID].grade]:
                         grades_dict[sldr.programs[propID].grade].append(propID)
                     if propID in propID_alloc_minutes:
@@ -284,68 +279,5 @@ class SemesterSumPlot(BaseSumPlot):
 
         else:
             self.fig.text(0.5, 0.5, "There are no nights to schedule", horizontalalignment='center', bbox=dict(facecolor='red', alpha=0.5))
-=======
-        plt = self.fig.add_subplot(111)
-        total_time_avail = 0.
-        total_time_waste = 0.
-        propID_alloc_minutes = {}
-        grades_dict = {}
-        for grade in self.grades:
-            grades_dict[grade] = []
-        for schedule in schedules:
-            time_avail = schedule.stop_time - schedule.start_time
-            time_avail_minutes = time_avail.total_seconds() / 60.0
-
-            sched_eval_res = qsim.eval_schedule(schedule)
-            time_waste_minutes = sched_eval_res.time_waste_sec / 60.0
-            total_time_avail += time_avail_minutes
-            total_time_waste += time_waste_minutes
-            for propID, seconds in sched_eval_res.proposal_total_time_sec.items():
-                if propID not in grades_dict[sldr.programs[propID].grade]:
-                    grades_dict[sldr.programs[propID].grade].append(propID)
-                if propID in propID_alloc_minutes:
-                    propID_alloc_minutes[propID] += seconds / 60.0
-                else:
-                    propID_alloc_minutes[propID] = seconds / 60.0
-
-        total_time_sched = total_time_avail - total_time_waste
-        self.logger.debug('propID_alloc_minutes %s' % propID_alloc_minutes)
-        self.logger.debug('total_time_avail %f min' % total_time_avail)
-        self.logger.debug('total_time_sched %f min' % total_time_sched)
-        self.logger.debug('total_time_waste %f min' % total_time_waste)
-
-        # For the pie chart, we want all proposals grouped into their
-        # "grade" category and then, within that category, sort the
-        # proposals by their proposal ID.
-        labels = []
-        sizes = []
-        colors = []
-        for grade in self.grades:
-            for propID in sorted(grades_dict[grade]):
-                labels.append(propID)
-                sizes.append(propID_alloc_minutes[propID])
-                colors.append(self.grade_colors[grade])
-
-        labels.append('Unscheduled')
-        sizes.append(total_time_waste)
-        colors.append('darkred')
-        plt.pie(sizes, labels=labels, colors=colors, autopct='%2.0f%%', shadow=True)
-        if '-' in labels[0]:
-            # TODO: title if nothing can be scheduled
-            semester, ident = labels[0].split('-')
-            plt.set_title('Total for Semester = %5.0f Hours' % (total_time_avail / 60.0))
-
-        # Create some matplotlib "Patches" so that we can use them in
-        # the legend
-        legend_patches = []
-        legend_titles = []
-        for grade in self.grades:
-            legend_patches.append(mpatches.Patch(color=self.grade_colors[grade]))
-            legend_titles.append(grade)
-
-        plt.legend(legend_patches, legend_titles, prop=self.legendFont,
-                   title='Grades', loc='upper right',
-                   bbox_to_anchor=(1, 1), handlelength=1)
->>>>>>> Remove Python 2 support
 
         self.draw()
