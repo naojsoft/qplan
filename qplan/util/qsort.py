@@ -1,4 +1,4 @@
-from ginga.util.six.moves import filter
+from six.moves import filter
 import numpy
 
 def cmp_num(x, y):

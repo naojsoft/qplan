@@ -12,8 +12,8 @@ from io import BytesIO, StringIO
 import datetime
 import re
 
-from ginga.util import six
-from ginga.util.six.moves import map, zip
+import six
+from six.moves import map, zip
 
 from ginga.misc import Bunch
 

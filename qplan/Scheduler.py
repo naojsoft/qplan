@@ -13,8 +13,8 @@ from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
-from ginga.util import six
-from ginga.util.six.moves import filter, map
+import six
+from six.moves import filter, map
 
 # local imports
 from . import misc

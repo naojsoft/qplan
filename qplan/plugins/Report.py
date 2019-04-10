@@ -11,7 +11,7 @@ from datetime import timedelta
 
 from ginga.gw import Widgets
 from ginga.misc import Bunch
-from ginga.util import six
+import six
 
 from qplan import qsim
 from qplan.plugins import PlBase, HSC

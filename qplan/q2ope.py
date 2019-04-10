@@ -15,7 +15,7 @@ from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import log
-from ginga.util import six
+import six
 
 # Local imports
 from . import entity
