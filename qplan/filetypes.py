@@ -571,10 +571,6 @@ class ScheduleFile(QueueFile):
             if cur_el is not None:
                 cur_el = float(cur_el)
 
-            # TEMP: skip non-OPEN categories
-            if not 'open' in categories:
-                continue
-
             skip = False
             if rec.has_key('skip'):
                 skip = rec.skip.strip() != ''
