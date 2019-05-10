@@ -4,7 +4,7 @@
 # Eric Jeschke (eric@naoj.org)
 #
 from datetime import timedelta
-#import pytz
+#from dateutil import tz
 
 from ginga.gw import Widgets, Plot
 from ginga.misc import Bunch
@@ -22,7 +22,7 @@ class AirMassChart(PlBase.Plugin):
         self.initialized = False
 
         # Set preferred timezone for plot
-        #self.tz = pytz.utc
+        #self.tz = tz.UTC
 
         sdlr = self.model.get_scheduler()
         self.tz = sdlr.timezone

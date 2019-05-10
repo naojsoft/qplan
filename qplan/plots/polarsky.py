@@ -140,7 +140,6 @@ class AZELPlot(plots.Plot):
 if __name__ == '__main__':
     from qplan import entity, common
     from qplan.util.site import get_site
-    import pytz
 
     from ginga import toolkit
     toolkit.use('qt')
@@ -165,7 +164,7 @@ if __name__ == '__main__':
 
     start_time = datetime.strptime("2015-03-27 20:05:00",
                                    "%Y-%m-%d %H:%M:%S")
-    start_time = tz.localize(start_time)
+    start_time = start_time.replace(tzinfo=site.tz_local)
     plot.plot_targets(site, [common.moon, common.sun, tgt3],
                       start_time, ['white', 'yellow', 'green'])
 

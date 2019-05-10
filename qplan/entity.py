@@ -6,7 +6,7 @@
 from datetime import timedelta, datetime
 import math
 import dateutil.parser
-import pytz
+from dateutil import tz
 
 # 3rd party imports
 import numpy as np
@@ -571,7 +571,7 @@ class FOCASConfiguration(InstrumentConfiguration):
 class EnvironmentConfiguration(object):
 
     # Default time zone for lower_time_limit and upper_time_limit
-    default_timezone = pytz.utc
+    default_timezone = tz.UTC
 
     def __init__(self, seeing=None, airmass=None, moon='any',
                  transparency=None, moon_sep=None, lower_time_limit=None,
@@ -689,7 +689,7 @@ def parse_date_time(dt_str, default_timezone):
     if len(dt_str) > 0:
         dt = dateutil.parser.parse(dt_str)
         if dt.tzinfo is None:
-            dt = default_timezone.localize(dt)
+            dt = dt.replace(tzinfo=default_timezone)
     else:
         dt = None
     return dt

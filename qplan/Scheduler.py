@@ -7,7 +7,6 @@
 import os
 import time
 from datetime import timedelta
-import pytz
 import numpy
 from io import BytesIO, StringIO
 

@@ -7,7 +7,6 @@
 #   Copyright (c) 2008 UCO/Lick Observatory.
 #
 from datetime import datetime, timedelta
-import pytz
 import numpy
 
 import matplotlib.dates as mpl_dt
@@ -48,17 +47,10 @@ class AirMassPlot(plots.Plot):
         Plot into `figure` an airmass chart using target data from `info`
         with time plotted in timezone `tz` (a tzinfo instance).
         """
-        ## site = info.site
-        ## tgt_data = info.target_data
-        # Urk! This seems to be necessary even though we are plotting
-        # python datetime objects with timezone attached and setting
-        # date formatters with the timezone
-        tz_str = tz.tzname(None)
-        mpl.rcParams['timezone'] = tz_str
 
         # set major ticks to hours
         majorTick = mpl_dt.HourLocator(tz=tz)
-        majorFmt = mpl_dt.DateFormatter('%Hh')
+        majorFmt = mpl_dt.DateFormatter('%Hh', tz=tz)
         # set minor ticks to 15 min intervals
         minorTick = mpl_dt.MinuteLocator(list(range(0,59,15)), tz=tz)
 
@@ -145,17 +137,10 @@ class AirMassPlot(plots.Plot):
         Plot into `figure` an altitude chart using target data from `info`
         with time plotted in timezone `tz` (a tzinfo instance).
         """
-        ## site = info.site
-        ## tgt_data = info.target_data
-        # Urk! This seems to be necessary even though we are plotting
-        # python datetime objects with timezone attached and setting
-        # date formatters with the timezone
-        tz_str = tz.tzname(None)
-        mpl.rcParams['timezone'] = tz_str
 
         # set major ticks to hours
         majorTick = mpl_dt.HourLocator(tz=tz)
-        majorFmt = mpl_dt.DateFormatter('%Hh')
+        majorFmt = mpl_dt.DateFormatter('%Hh', tz=tz)
         # set minor ticks to 15 min intervals
         minorTick = mpl_dt.MinuteLocator(list(range(0, 59, 15)), tz=tz)
 
@@ -323,7 +308,7 @@ if __name__ == '__main__':
 
     start_time = datetime.strptime("2015-03-30 18:30:00",
                                    "%Y-%m-%d %H:%M:%S")
-    start_time = tz.localize(start_time)
+    start_time = start_time.replace(tzinfo=site.tz_local)
     t = start_time
     # if schedule starts after midnight, change start date to the
     # day before
