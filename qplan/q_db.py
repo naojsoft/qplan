@@ -3,15 +3,11 @@
 #
 
 # third-party imports
-from ZODB import FileStorage, DB
-from BTrees.OOBTree import OOBTree
-from ZEO import ClientStorage
-import transaction
-from persistent import Persistent
+from pymongo import MongoClient
 
 """
     Server:
-    $ runzeo -a host:port -f /path/to/db/file
+    $ mongod -a host:port -f /path/to/db/dir
 
 """
 
@@ -26,30 +22,20 @@ class QueueDatabase(object):
 
     def __init__(self, logger, addr):
         self.logger = logger
-        #storage = FileStorage.FileStorage(dbfile)
-        self.storage = ClientStorage.ClientStorage(addr)
-        self.db = DB(self.storage)
+        self.db_host, self.db_addr = addr
 
-        self.transaction_manager = transaction.TransactionManager()
-        self.conn = self.db.open(self.transaction_manager)
-        self.dbroot = self.conn.root()
+        self.mdb_client = None
+        self.mdb_db = None
 
-        with self.transaction_manager:
-            # Check whether database is initialized
-            for name in ['program', 'ob', 'executed_ob', 'exposure',
-                         'saved_state']:
-                key = '%s_db' % name
-                if key not in self.dbroot:
-                    tbl = OOBTree()
-                    self.dbroot[key] = tbl
-
-            if 'queue_mgmt' not in self.dbroot:
-                self.dbroot['queue_mgmt'] = QueueMgmtRec()
+        self.reconnect()
 
     def close(self):
-        self.conn.close()
-        self.db.close()
-        self.storage.close()
+        self.mdb_client.close()
+        self.mdb_db = None
+
+    def reconnect(self):
+        self.mdb_client = MongoClient(self.db_host, self.db_port)
+        self.mdb_db = mdb_client['queue_db']
 
     def get_adaptor(self):
         return QueueAdapter(self)
@@ -66,21 +52,19 @@ class QueueAdapter(object):
         self._qdb = qdb
         self.logger = qdb.logger
 
-        self.conn = self._qdb.conn
-        self.dbroot = self._qdb.dbroot
-
     def get_table(self, name):
-        key = '%s_db' % name
-        return self.dbroot[key]
+        key = name.lower().replace(' ', '_')
+        return self._qdb.mdb_db[key]
 
     def get_root_record(self, name):
-        return self.dbroot[name]
+        return self.get_table(name)
 
     def sync(self):
-        self._qdb.conn.sync()
+        # nop for mongodb
+        pass
 
     def close(self):
-        self.conn.close()
+        pass
 
 
 class QueueMgmtRec(Persistent):
