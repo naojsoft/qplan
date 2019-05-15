@@ -876,17 +876,29 @@ class EnvCfgFile(QueueFile):
             }
         self.columnInfo = {
             'code':         {'iname': 'Code',         'type': str,   'constraint': "len(value) > 0", 'prefilled': False, 'required': True},
-            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': "value > 0.0",    'prefilled': False, 'required': True},
+            'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': self.seeing_check, 'prefilled': False, 'required': True},
             'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0",   'prefilled': False, 'required': True},
             'moon':         {'iname': 'Moon',         'type': str,   'constraint': self.moon_check,  'prefilled': False, 'required': True},
             'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': self.moon_sep_check,  'prefilled': False, 'required': True},
-            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': "value >= 0.0",   'prefilled': False, 'required': True},
+            'transparency': {'iname': 'Transparency', 'type': float, 'constraint': self.transparency_check,   'prefilled': False, 'required': True},
             'lower_time_limit': {'iname': 'Lower Time Limit', 'type': str, 'constraint': self.lowerTimeLimitCheck, 'prefilled': False, 'required': False},
             'upper_time_limit': {'iname': 'Upper Time Limit', 'type': str, 'constraint': self.upperTimeLimitCheck, 'prefilled': False, 'required': False},
             }
         self.default_timezone = entity.EnvironmentConfiguration.default_timezone
-
+        self.seeing_choices = [0.8, 1.0, 1.3, 1.6, 100.0]
+        self.transparency_choices = [0.7, 0.4, 0.1, 0.0]
+        # Seeing and transparency values will be filled in by the
+        # update_constraints method
+        self.seeing_from_ph1 = None
+        self.transparency_from_ph1 = None
+        # semester value will be set by validate_data method
+        self.semester = None
         super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
+
+    def validate_data(self, progFile, propname):
+        prop_split = propname.split('-')
+        self.semester = prop_split[0]
+        return super(EnvCfgFile, self).validate_data(progFile)
 
     def dateTimeCheck(self, val, rec, row_num, col_name, progFile):
         iname = self.columnInfo[col_name]['iname']
@@ -993,8 +1005,70 @@ class EnvCfgFile(QueueFile):
                     lineNum, self.filepath, str(e)))
 
     def update_constraints(self, proposal_info):
-        self.columnInfo['seeing']['constraint'] = 'value >= %f' % float(proposal_info['ph1_seeing'])
-        self.columnInfo['transparency']['constraint'] += ' and value <= %f' % float(proposal_info['ph1_transparency'])
+        self.seeing_from_ph1 =  float(proposal_info['ph1_seeing'])
+        self.transparency_from_ph1 =  float(proposal_info['ph1_transparency'])
+
+    def seeing_check(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+        if self.semester < 'S19B':
+            if val >= self.seeing_from_ph1:
+                progFile.logger.info('Line %d, column %s of sheet %s: %s value %s is greater than or equal to %s and is ok' % (row_num, col_name, self.name, iname, val, self.seeing_from_ph1))
+            else:
+                msg = "Error while checking line %d, column %s of sheet %s: %s value %s must be greater than or equal to %s (Seeing from Phase 1)" % (row_num, iname, self.name, iname, val, self.seeing_from_ph1)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
+        else:
+            if val in self.seeing_choices and val >= self.seeing_from_ph1:
+                progFile.logger.info('Line %d, column %s of sheet %s: %s value %s is in %s and is greater than or equal to %s and is ok' % (row_num, col_name, self.name, iname, val, self.seeing_choices, self.seeing_from_ph1))
+            elif val not in self.seeing_choices and val >= self.seeing_from_ph1:
+                msg = "Warning while checking line %d, column %s of sheet %s: %s value %s should be one of %s. %s value %s is greater than or equal to %s and is ok" % (row_num, iname, self.name, iname, val, self.seeing_choices, iname, val, self.seeing_from_ph1)
+                progFile.logger.warning(msg)
+                progFile.warnings[self.name].append([row_num, [iname], msg])
+                progFile.warn_count += 1
+
+            elif val in self.seeing_choices and val < self.seeing_from_ph1:
+                msg = "Error while checking line %d, column %s of sheet %s: %s value %s is in %s. However, %s value %s must be greater than or equal to %s (Seeing from Phase 1)" % (row_num, iname, self.name, iname, val, self.seeing_choices, iname, val, self.seeing_from_ph1)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
+
+            elif val not in self.seeing_choices and val < self.seeing_from_ph1:
+                msg = "Error while checking line %d, column %s of sheet %s: %s value %s should be one of %s. Also, %s value %s must be greater than or equal to %s (Seeing from Phase 1)" % (row_num, iname, self.name, iname, val, self.seeing_choices, iname, val, self.seeing_from_ph1)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
+
+    def transparency_check(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+        if self.semester < 'S19B':
+            if val <= self.transparency_from_ph1:
+                progFile.logger.info('Line %d, column %s of sheet %s: %s value %s is less than or equal to %s and is ok' % (row_num, col_name, self.name, iname, val, self.transparency_from_ph1))
+            else:
+                msg = "Error while checking line %d, column %s of sheet %s: %s value %s must be less than or equal to %s (Transparency from Phase 1)" % (row_num, iname, self.name, iname, val, self.transparency_from_ph1)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
+        else:
+            if val in self.transparency_choices and val <= self.transparency_from_ph1:
+                progFile.logger.info('Line %d, column %s of sheet %s: %s value %s is in %s and is less than or equal to %s and is ok' % (row_num, col_name, self.name, iname, val, self.transparency_choices, self.transparency_from_ph1))
+            elif val not in self.transparency_choices and val <= self.transparency_from_ph1:
+                msg = "Warning while checking line %d, column %s of sheet %s: %s value %s should be one of %s. %s value %s is less than or equal to %s and is ok" % (row_num, iname, self.name, iname, val, self.transparency_choices, iname, val, self.transparency_from_ph1)
+                progFile.logger.warning(msg)
+                progFile.warnings[self.name].append([row_num, [iname], msg])
+                progFile.warn_count += 1
+
+            elif val in self.transparency_choices and val > self.transparency_from_ph1:
+                msg = "Error while checking line %d, column %s of sheet %s: %s value %s is in %s. However, %s value %s must be less than or equal to %s (Transparency from Phase 1)" % (row_num, iname, self.name, iname, val, self.transparency_choices, iname, val, self.transparency_from_ph1)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
+
+            elif val not in self.transparency_choices and val > self.transparency_from_ph1:
+                msg = "Error while checking line %d, column %s of sheet %s: %s value %s should be one of %s. Also, %s value %s must be less than or equal to %s (Transparency from Phase 1)" % (row_num, iname, self.name, iname, val, self.transparency_choices, iname, val, self.transparency_from_ph1)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
 
     def moon_check(self, val, rec, row_num, col_name, progFile):
         ph1MoonConstraint = progFile.cfg['proposal'].proposal_info['ph1_moon']
@@ -1422,14 +1496,28 @@ class InsCfgFile(QueueFile):
             progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname'], iname], msg])
             progFile.error_count += 1
 
-        onsource_time_mins = float(calc_time) / 60.0
-        if onsource_time_mins <= self.max_onsource_time_mins:
-            progFile.logger.debug('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than recommended maximum value of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins))
-        else:
-            msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins)
-            progFile.logger.error(msg)
-            progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
-            progFile.error_count += 1
+        if self.insname == 'HSC':
+            onsource_time_mins = float(calc_time) / 60.0
+            try:
+                max_onsource_time_mins = HSC_cfg.semester_max_onsource_time_mins[self.semester]
+            except KeyError:
+                max_onsource_time_mins =  self.max_onsource_time_mins
+            if onsource_time_mins <= max_onsource_time_mins:
+                progFile.logger.info('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than recommended maximum value of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, max_onsource_time_mins))
+            else:
+                # Prior to S19B, exceeding the max_onsource_time_mins
+                # value was an error. From S19B, that situation will
+                # be a warning.
+                if self.semester < 'S19B':
+                    msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, max_onsource_time_mins)
+                    progFile.logger.error(msg)
+                    progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
+                    progFile.error_count += 1
+                else:
+                    msg = 'Warning while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, max_onsource_time_mins)
+                    progFile.logger.warning(msg)
+                    progFile.warnings[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
+                    progFile.warn_count += 1
 
     def totalTimeCalcCheck(self, val, rec, row_num, col_name, progFile):
         num_exp = int(rec.num_exp)
