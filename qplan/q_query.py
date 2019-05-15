@@ -51,7 +51,7 @@ class QueueQuery(object):
 
     def get_ob(self, ob_key):
         tbl = self._qa.get_table('ob')
-        return tbl[ob_key]
+        return tbl.find_one(dict(program=ob_key[0], name=ob_key[1]))
 
     def ob_keys_to_obs(self, ob_keys):
         return map(self.get_ob, ob_keys)
@@ -67,18 +67,16 @@ class QueueQuery(object):
 
     def get_exposures(self, executed_ob_rec):
         tbl = self._qa.get_table('exposure')
-        return map(lambda exp_key: tbl[exp_key],
-                              executed_ob_rec.exp_history)
+        return tbl.find({'exp_id': {'$in': executed_ob_rec.exp_history}})
 
     def get_program_by_semester(self, semester):
         """
         Get a program in semester.
             args: semester is list.   e.g. ['S16A', 'S16B']
         """
+        semester = ["/^{}/".format(s.upper()[:4]) for s in semester]
         tbl = self._qa.get_table('program')
-        semester = [str.upper(s) for s in semester]
-        def match_semester(rec):
-            return rec.proposal[:4] in semester
+        return tbl.find({'exp_id': {'$in': executed_ob_rec.exp_history}})
         return filter(match_semester, tbl.values())
 
     def get_program_by_propid(self, propid):

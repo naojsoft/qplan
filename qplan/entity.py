@@ -14,29 +14,31 @@ from ginga.util import wcs
 
 entity_version = 20180129.0
 
-# ZOPE imports
-try:
-    import persistent
-
-    class PersistentEntity(persistent.Persistent):
-
-        def __init__(self):
-            super(PersistentEntity, self).__init__()
-            self._e_version = entity_version
-
-except ImportError:
-    # No ZOPE, so define as an ordinary base object
-    class PersistentEntity(object):
-
-        def __init__(self):
-            super(PersistentEntity, self).__init__()
-            self._e_version = entity_version
-            self._p_changed = False
-
 from ginga.misc import Bunch
 
 # local imports
 from qplan.util.calcpos import Body, Observer
+
+
+def explode(item):
+    if isinstance(item, PersistentEntity):
+        return {key: explode(val)
+                for key, val in item.__dict__.items()
+                if not key.startswith('_')}
+    return item
+
+
+class PersistentEntity(object):
+
+    def __init__(self, tblname):
+        super(PersistentEntity, self).__init__()
+        self._tblname = tblname
+
+    def to_rec(self):
+        return explode(self)
+
+    def from_rec(self, doc):
+        self.__dict__.update(doc)
 
 
 class Program(PersistentEntity):
@@ -48,7 +50,7 @@ class Program(PersistentEntity):
                  propid=None, grade=None, partner=None, hours=None,
                  category=None, instruments=[], description=None,
                  skip=False):
-        super(Program, self).__init__()
+        super(Program, self).__init__('program')
 
         self.proposal = proposal
         if propid is None:
