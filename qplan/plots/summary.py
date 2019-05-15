@@ -8,7 +8,6 @@ from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
 
-import six
 from ginga.util import plots
 
 from qplan import qsim
@@ -231,7 +230,7 @@ class SemesterSumPlot(BaseSumPlot):
                 time_waste_minutes = sched_eval_res.time_waste_sec / 60.0
                 total_time_avail += time_avail_minutes
                 total_time_waste += time_waste_minutes
-                for propID, seconds in six.iteritems(sched_eval_res.proposal_total_time_sec):
+                for propID, seconds in sched_eval_res.proposal_total_time_sec.items():
                     if propID not in grades_dict[sldr.programs[propID].grade]:
                         grades_dict[sldr.programs[propID].grade].append(propID)
                     if propID in propID_alloc_minutes:

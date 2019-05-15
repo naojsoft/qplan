@@ -13,8 +13,6 @@ from io import BytesIO, StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
-import six
-from six.moves import filter, map
 
 # local imports
 from . import misc
@@ -500,10 +498,7 @@ class Scheduler(Callback.Callbacks):
         self.logger.info("%.2f sec to schedule all" % (t_elapsed))
 
         # print a summary
-        if six.PY2:
-            out_f = BytesIO()
-        else:
-            out_f = StringIO()
+        out_f = StringIO()
         num_obs = len(oblist)
         pct = 0.0
         if num_obs > 0:

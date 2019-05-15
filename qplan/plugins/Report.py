@@ -11,7 +11,6 @@ from datetime import timedelta
 
 from ginga.gw import Widgets
 from ginga.misc import Bunch
-import six
 
 from qplan import qsim
 from qplan.plugins import PlBase, HSC
@@ -121,10 +120,7 @@ class Report(PlBase.Plugin):
             converter = HSC.Converter(self.logger)
 
             # buffer for OPE output
-            if six.PY2:
-                out_f = BytesIO()
-            else:
-                out_f = StringIO()
+            out_f = StringIO()
 
             # write preamble
             converter.write_ope_header(out_f, targets)
@@ -185,10 +181,7 @@ class Report(PlBase.Plugin):
         ndate = t.strftime("%Y-%m-%d")
         filters = ', '.join(schedule.data.filters)
 
-        if six.PY2:
-            out_f = BytesIO()
-        else:
-            out_f = StringIO()
+        out_f = StringIO()
 
         out_f.write("--- NIGHT OF %s --- filters: %s\n" % (
             ndate, filters))
@@ -280,8 +273,6 @@ class Report(PlBase.Plugin):
                         break
 
             selected = buf[start:end]
-            if six.PY2:
-                selected = selected.encode('ascii', 'replace')
 
             # get the selected OBs
             oblist = []

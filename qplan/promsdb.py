@@ -4,7 +4,7 @@
 # ID and ProMS ID/password.
 
 import os, sys
-import MySQLdb
+import mysql.connector
 import sqlalchemy
 import logging
 from sqlsoup import SQLSoup as SqlSoup
@@ -40,17 +40,17 @@ class ProMSdb(object):
             self.debug = False
         self.logger.info('debug is %s' % self.debug)
 
-        engine = sqlalchemy.create_engine('mysql://', creator=self.getconn_mysqldb)
+        engine = sqlalchemy.create_engine('mysql+mysqlconnector://', creator=self.getconn_mysqldb)
         self.db = SqlSoup(engine)
         try:
             self.auth = self.db.auth # "auth" table
-        except MySQLdb.OperationalError as e:
+        except Exception as e:
             msg = 'Unexpected error while connecting to PROMS_DB_SERVER: %s' % e[1]
             self.logger.error(msg)
             raise ProMSdbError(msg)
 
     def getconn_mysqldb(self):
-        c = MySQLdb.connect(self.server, self.user, self.passwd, self.dbname)
+        c = mysql.connector.connect(host=self.server, user=self.user, password=self.passwd, database=self.dbname)
         return c
 
     def user_in_proms(self, id):

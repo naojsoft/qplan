@@ -2,12 +2,11 @@
 
 import cgi, os, sys, site
 import cgitb; cgitb.enable()
-import StringIO
 import pandas as pd
 import magic
-import ldap
+import ldap3
 import datetime
-import Cookie
+import http.cookies
 import time
 import hashlib
 import pickle
@@ -15,7 +14,7 @@ import re
 import os
 import smtplib
 
-site.addsitedir('/gen2/share/arch/64/lib/python2.7/site-packages')
+site.addsitedir('/gen2/share/arch/64/lib/python3.7/site-packages')
 
 from qplan import filetypes, entity, promsdb
 from qplan.cfg import email_cfg
@@ -32,6 +31,7 @@ pd.set_option('max_colwidth', 80)
 
 log_file = os.path.join(QUEUE_FILE_TOP_DIR, 'qcheck.log')
 logger = log.get_logger(name='qcheck', level=20, log_file=log_file)
+
 
 # Set user_filetype depending on whether we were invoked from the
 # qcheck.cgi script or the qcheck_xls.cgi script.
@@ -85,7 +85,7 @@ def html_header(l, formatters=None):
         if formatters:
             try:
                 s += formatters[item](item)
-            except KeyError, e:
+            except KeyError as e:
                 s += item
         else:
             s += item
@@ -94,12 +94,12 @@ def html_header(l, formatters=None):
     return s
 
 def page_footer():
-    print """\
+    print("""\
     <hr>
     <p><a href="https://www.naoj.hawaii.edu/privacy/">Subaru Telescope Privacy and Logging Policy</a>
     </body>
     </html>
-    """
+    """)
 
 def upload_file(progFile, sessionValid, user_auth_type, user_auth_result, user_auth_success, user_auth_fullname, filename, file_buff, user_filetype, gsheetname):
     if progFile.error_count == 0 and (sessionValid or user_auth_success):
@@ -120,15 +120,15 @@ def upload_file(progFile, sessionValid, user_auth_type, user_auth_result, user_a
             out_filename = '_'.join([prop_id, out_filename])
         out_filename = '.'.join([out_filename, ext])
         out_pathname = os.path.join(prop_dir, out_filename)
-        with open(out_pathname, 'w') as f:
+        with open(out_pathname, 'wb') as f:
             f.write(file_buff)
         if user_filetype == 'Google_sheet':
             successful_upload_str = 'submitted Google Sheet %s' % (gsheetname.value)
         else:
             successful_upload_str = 'uploaded File %s' % filename
-        print  """\
+        print("""\
         <h3>Successfully %s</h3>
-        """ % (successful_upload_str)
+        """ % (successful_upload_str))
         # File was successfully uploaded. Send an e-mail message to
         # HSC Queue group.
         if email_cfg.send_email_flag:
@@ -145,66 +145,69 @@ def upload_file(progFile, sessionValid, user_auth_type, user_auth_result, user_a
             logger.info('email_cfg.send_email_flag is %s; will not send e-mail about proposal %s' % (email_cfg.send_email_flag, propname))
     else:
         if progFile.error_count > 0:
-            print """\
+            print("""\
             <h3><span class="%s">Error:</span> Unable to %s because error count is greater than 0</h3>
-            """ % ('error', upload_err_msg[user_filetype])
+            """ % ('error', upload_err_msg[user_filetype]))
         elif not sessionValid:
             if user_auth_success is not None and not user_auth_success:
-                print """\
+                print("""\
                 <h3><span class="%s">Error:</span> Unable to %s because %s</h3>
-                """ % ('error', upload_err_msg[user_filetype], user_auth_result)
+                """ % ('error', upload_err_msg[user_filetype], user_auth_result))
             else:
-                print """\
+                print("""\
                 <h3><span class="%s">Error:</span> Unable to %s because session has expired</h3>
-                """ % ('error', upload_err_msg[user_filetype])
+                """ % ('error', upload_err_msg[user_filetype]))
 
 def report_msgs(d, severity):
-    for name, l in d.iteritems():
+    for name, l in d.items():
         for row in l:
             row_num, col_name_list, msg = row
             msg = msg.replace('<', '&lt').replace('>', '&gt')
             if row_num is None:
-                print """\
+                print("""\
                 <p>%s</p>
-                """ % (msg)
+                """ % (msg))
             else:
                 fmt = {}
                 for col_name in col_name_list:
                     fmt[col_name] = lambda x: '<span class="%s">%s</span>' % (severity, ' ' if pd.isnull(x) else x)
                 if row_num == 0:
                     col_names = list(progFile.df[name])
-                    print  """\
+                    print("""\
                     <p>%s<br>%s</p>
-                    """ % (msg, html_header(col_names, formatters=fmt))
+                    """ % (msg, html_header(col_names, formatters=fmt)))
                 else:
-                    print """\
+                    print("""\
                     <p>%s<br>%s</p>
-                    """ % (msg, progFile.df[name][row_num-1:row_num].to_html(index=False, na_rep='', formatters=fmt, escape=False))
+                    """ % (msg, progFile.df[name][row_num-1:row_num].to_html(index=False, na_rep='', formatters=fmt, escape=False)))
 
 def stars_ldap_connect(username, password):
     logger.info('STARS_LDAP_SERVER %s' % STARS_LDAP_SERVER)
-    l=ldap.open(STARS_LDAP_SERVER, STARS_LDAP_PORT)
+    server = ldap3.Server(STARS_LDAP_SERVER, STARS_LDAP_PORT)
     loginline="uid="+username+",ou=People,dc=stars,dc=nao,dc=ac,dc=jp"
     try:
-        l.simple_bind_s(loginline, password)
-    except ldap.SERVER_DOWN as e:
+        conn = ldap3.Connection(server, loginline, password)
+        login_result = conn.bind()
+        if login_result:
+            result="STARS Login succeeded"
+            success = True
+        else:
+            # ldap bind fail
+            result = 'STARS Login/Password Failed or Account is Locked'
+            success = False
+
+    except ldap3.core.exceptions.LDAPSocketOpenError as e:
         # ldap server or daemon not responding
-        result = 'STARS LDAP server down or not responding: %s' % e[0]['desc']
-        success = False
-    except ldap.INVALID_CREDENTIALS as e:
-        # ldap bind fail
-        result = 'STARS Login/Password Failed or Account is Locked: %s' % e[0]['desc']
+        result = 'STARS LDAP server down or not responding: %s' % str(e)
         success = False
     except Exception as e:
-        result = 'Unexpected error while connecing/authenticating to STARS LDAP: %s' % str(e)
+        result = 'Unexpected error while connecting/authenticating to STARS LDAP: %s' % str(e)
         success = False
-    else:
-        result="STARS Login succeeded"
-        success = True
 
     if success:
-        record = l.search_s(loginline, ldap.SCOPE_BASE,attrlist=['gecos', 'mail'])
-        userfullname = '%s (%s)' % (record[0][1]['gecos'][0], record[0][1]['mail'][0])
+        conn.search(loginline, '(objectclass=person)', attributes=['gecos', 'mail'])
+        e = conn.entries[0]
+        userfullname = '%s (%s)' % (conn.entries[0].gecos, conn.entries[0].mail)
         logger.info('userfullname from STARS %s' % userfullname)
     else:
         userfullname = 'UNKNOWN USER'
@@ -244,9 +247,9 @@ def proms_auth(id, passwd):
     return result, success, userfullname
 
 def createServerCookie(user_auth_type, userfullname):
-    c = Cookie.SimpleCookie()
+    c = http.cookies.SimpleCookie()
     h = hashlib.sha1()
-    h.update( repr( time.time() ) )
+    h.update( repr( time.time() ).encode('utf-8') )
     sid = h.hexdigest()
     c['qcheck-session-id'] = sid
     c['qcheck-session-id']['max-age'] = COOKIE_MAX_AGE
@@ -274,7 +277,7 @@ def saveCookie(c):
 
 def getClientCookie():
     if 'HTTP_COOKIE' in os.environ:
-        c = Cookie.SimpleCookie()
+        c = http.cookies.SimpleCookie()
         c.load(os.environ['HTTP_COOKIE'])
         logger.info('HTTP_COOKIE is %s' % c)
         try:
@@ -327,7 +330,7 @@ def list_files(propid, user_filetype):
     if os.path.isdir(propid_dirpath):
         filename_list = os.listdir(propid_dirpath)
         if len(filename_list) > 0:
-            print '<hr>List of %s for Proposal ID %s:<p>' % (form_element[user_filetype]['list_caption'], propid)
+            print('<hr>List of %s for Proposal ID %s:<p>' % (form_element[user_filetype]['list_caption'], propid))
             filename_list = sorted(filename_list)
             mtimes=[datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(propid_dirpath, filename))).strftime('%c') for filename in filename_list]
             sizes = [os.path.getsize(os.path.join(propid_dirpath, filename)) for filename in filename_list]
@@ -335,11 +338,11 @@ def list_files(propid, user_filetype):
                 df = pd.DataFrame({'Filename': filename_list, 'Last Modified (HST)': mtimes, 'Size (bytes)': sizes})
             else:
                 df = pd.DataFrame({'Submitted (HST)': mtimes})
-            print df.to_html(index=False, justify='center')
+            print(df.to_html(index=False, justify='center'))
         else:
-            print 'No files found for Proposal ID', propid
+            print('No files found for Proposal ID', propid)
     else:
-        print 'No files found for Proposal ID', propid
+        print('No files found for Proposal ID', propid)
 
 logger.info('Received request from address %s' % os.environ['REMOTE_ADDR'])
 
@@ -363,6 +366,7 @@ try:
     upload = form['upload'].value
 except KeyError:
     upload = None
+
 
 # If upload was clicked and we weren't able to validate the session,
 # see if we can validate the username/password in STARS LDAP or, if
@@ -414,6 +418,7 @@ try:
 except KeyError:
     file_info_supplied = False
 
+
 # Check to see if the user clicked on the "List files" button
 try:
     list_files_val = form['list_files'].value
@@ -424,8 +429,8 @@ except KeyError:
 
 # HTML header and CSS information
 if sessionValid:
-    print sc
-print """\
+    print(sc)
+print("""\
 Content-Type: text/html\n
 <html>
 <head>
@@ -444,16 +449,16 @@ Content-Type: text/html\n
 </head>
 <body>
 <h1>Subaru Queue %(str1)s Checker/%(str2)s/Listing</h1>
-""" % title_str[user_filetype]
+""" % title_str[user_filetype])
 
 if user_filetype == 'Excel_file':
-    print """\
+    print("""\
     <p>%s</p>
     <hr>
-    """ % alternate_url[user_filetype]
+    """ % alternate_url[user_filetype])
 
 # The form element
-print """\
+print("""\
 <form enctype="multipart/form-data" action=%(action)s method="POST">
 <input type="hidden" name="logLevel" value="30">
 %(input_prompt)s
@@ -462,20 +467,20 @@ print """\
 <input type="submit" name="check"  value="Check">
 (Username/password not required for checking the file)
 <hr>
-""" % form_element[user_filetype]
+""" % form_element[user_filetype])
 
 if sessionValid:
-    print """\
+    print("""\
     %(instructions)s
     <br>
     and then press the %(button_label)s button.
     <p>
-    """ % form_element[user_filetype]
-    print """\
+    """ % form_element[user_filetype])
+    print("""\
     Session is valid until HST %s (Username/password not currently required)<br>
-    """ % getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c')
+    """ % getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c'))
 else:
-    print """\
+    print("""\
     <p>
     %(instructions)s,
     <br>
@@ -492,26 +497,26 @@ else:
     <td><input type="password" name="password" id="password" value=""></td>
     </tr>
     </table>
-    """ % form_element[user_filetype]
-print """\
+    """ % form_element[user_filetype])
+print("""\
 <p>
 <input type="submit" name="upload" value="%(button_label)s">
-""" % form_element[user_filetype]
-print """\
+""" % form_element[user_filetype])
+print("""\
 <hr>
 <p>
 Use the following entry field and button to list the %(list_instructions)s for a Proposal ID (username/password not required).
-""" % form_element[user_filetype]
-print """\
+""" % form_element[user_filetype])
+print("""\
 <p>
 <label for="name">Proposal ID</label>
 <input type="text" name="propid" id="propid" value="%s"> (e.g., S18B-QN001)
-""" % propid
-print """\
+""" % propid)
+print("""\
 <br>
 <input type="submit" name="list_files" value="%(list_button_label)s">
 </form>
-""" % form_element[user_filetype]
+""" % form_element[user_filetype])
 
 if not file_info_supplied:
     # If no file info, exit immediately
@@ -536,18 +541,18 @@ except TypeError:
 
 if upload and user_auth_success is not None:
     if user_auth_success:
-        print 'STARS LDAP or ProMS DB result: %s' % user_auth_result
+        print('STARS LDAP or ProMS DB result: %s' % user_auth_result)
     else:
-        print '<h3>STARS LDAP or ProMS DB result:<br> %s <br> %s</h3>' % (stars_ldap_result, promsdb_result)
+        print('<h3>STARS LDAP or ProMS DB result:<br> %s <br> %s</h3>' % (stars_ldap_result, promsdb_result))
 
 if list_files_val:
     if propid:
         if filetypes.ProposalFile.propID_re.match(propid):
             list_files(propid, user_filetype)
         else:
-            print 'Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S18B-QN001.' % propid
+            print('Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S18B-QN001.' % propid)
     else:
-        print 'Please enter a Proposal ID.'
+        print('Please enter a Proposal ID.')
     page_footer()
     sys.exit(1)
 
@@ -562,9 +567,9 @@ if user_filetype == 'Google_sheet':
     SCOPE = ['https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name(JSON_FILEPATH, SCOPE)
 
-    print """\
+    print("""\
     <hr><p>Connect to Google Sheet %s</p>
-    """ % (gsheetname.value)
+    """ % (gsheetname.value))
     logger.info('Authorizing with Google OAuth2')
     gc = gspread.authorize(creds)
     logger.info('Opening Google Sheet %s' % gsheetname.value)
@@ -572,7 +577,7 @@ if user_filetype == 'Google_sheet':
         gsheet = gc.open(gsheetname.value)
     except gspread.exceptions.SpreadsheetNotFound as e:
         logger.error('Error opening Google Sheet %s: %s' % (gsheetname.value, str(e)))
-        print '<span class="error">Error:</span> Google Sheet %s not found' % gsheetname.value
+        print('<span class="error">Error:</span> Google Sheet %s not found' % gsheetname.value)
         page_footer()
         sys.exit(1)
 
@@ -593,17 +598,14 @@ if user_filetype == 'Google_sheet':
 if len(fileList[0].filename) > 0:
 
     if user_filetype == 'Excel_file':
-        print '<hr>'
-
-    ms = magic.open(magic.MAGIC_ERROR)
-    ms.load()
+        print('<hr>')
 
     for item in fileList:
 
         if user_filetype == 'Excel_file':
-            print """\
+            print("""\
             <p>Reading file %s</p>
-            """ % (item.filename)
+            """ % (item.filename))
 
         progFile = None
         input_filename = os.path.basename(item.filename)
@@ -618,12 +620,13 @@ if len(fileList[0].filename) > 0:
         # we expect for a .xls or .xlsx file.
         file_buff = item.file.read()
         logger.info('type of item.filename is %s' % (item.filename))
-        magic_filetype = ms.buffer(file_buff)
-        if ms.error() is not None:
-            print """\
+        try:
+            magic_filetype = magic.from_buffer(file_buff)
+        except magic.MagicException as e:
+            print("""\
             <p>Error getting magic filetype from file %s: %s</p>
-            """ % (item.filename, ms.error())
-            logger.error(ms.error())
+            """ % (item.filename, str(e)))
+            logger.error('Error getting magic filetype from file %s: %s' % (item.filename, str(e)))
         try:
             magic_type_list = magic_types[ext]
             magic_filetype_ok = False
@@ -642,53 +645,52 @@ if len(fileList[0].filename) > 0:
             if not file_ext_ok:
                 msg = "File extension '%s' is not a valid file type. Must be one of %s." % (ext, filetypes.QueueFile.excel_ext)
                 logger.error(msg)
-                print """\
+                print("""\
                 <p>%s</p>
-                """ % (msg)
+                """ % (msg))
             if not magic_filetype_ok:
                 msg = "Unexpected magic file type '%s' detected. This does not seem to be an Excel file." % (magic_filetype)
                 logger.error(msg)
-                print """\
+                print("""\
                 <p>%s</p>
-                """ % (msg)
+                """ % (msg))
 
         if progFile:
             if user_filetype == 'Google_sheet':
                 file_check_results_str = 'Check Results from Google Sheet <a href="https://docs.google.com/spreadsheets/d/%s" target="_blank">%s</a>' % (gsheet.id, gsheetname.value)
             else:
                 file_check_results_str = 'File Check Results From File %s' % item.filename
-            print """\
+            print("""\
             <h3>%s:</h3>
-            """ % (file_check_results_str)
+            """ % (file_check_results_str))
             if upload:
                 upload_file(progFile, sessionValid, user_auth_type, user_auth_result, user_auth_success, user_auth_fullname, item.filename, file_buff, user_filetype, gsheetname)
             if progFile.warn_count == 0 and progFile.error_count == 0:
-                print """\
+                print("""\
                 <p><span class="ok">Error</span> count is %d</p>
                 <p><span class="ok">Warning</span> count is %d</p>
-                """ % (progFile.error_count, progFile.warn_count)
-                print """\
+                """ % (progFile.error_count, progFile.warn_count))
+                print("""\
                 File %s is <span class="ok">ok</span>.
-                """ % (item.filename)
+                """ % (item.filename))
                 if upload:
                     list_files(progFile.cfg['proposal'].proposal_info.prop_id, user_filetype)
             else:
-                print """\
+                print("""\
                 <p><span class="%s">Error</span> count is %d</p>
-                """ % ('error' if progFile.error_count >0 else 'ok', progFile.error_count)
+                """ % ('error' if progFile.error_count >0 else 'ok', progFile.error_count))
                 report_msgs(progFile.errors, 'error')
-                print """\
+                print("""\
                 <p><span class="%s">Warning</span> count is %d</p>
-                """ % ('warning' if progFile.warn_count >0 else 'ok', progFile.warn_count)
+                """ % ('warning' if progFile.warn_count >0 else 'ok', progFile.warn_count))
                 report_msgs(progFile.warnings, 'warning')
                 if upload and progFile.error_count == 0:
                     list_files(progFile.cfg['proposal'].proposal_info.prop_id, user_filetype)
 
-    ms.close()
 else:
-    print """\
+    print("""\
     <hr><p>Unable to read file - filename is empty</p>
-    """
+    """)
 
 if user_filetype == 'Google_sheet':
     if fileList[0].file:
