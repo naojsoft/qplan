@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/gen2/share/miniconda3/envs/py37/bin/python
 
 import cgi, os, sys, site
 import cgitb; cgitb.enable()
@@ -13,8 +13,6 @@ import pickle
 import re
 import os
 import smtplib
-
-site.addsitedir('/gen2/share/arch/64/lib/python3.7/site-packages')
 
 from qplan import filetypes, entity, promsdb
 from qplan.cfg import email_cfg
