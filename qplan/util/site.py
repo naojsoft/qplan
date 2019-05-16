@@ -2,7 +2,7 @@
 # site.py -- module containing different preconfigured observing sites
 #
 
-import pytz
+from dateutil import tz
 from qplan.util.calcpos import Observer
 
 # Subaru Telescope
@@ -12,7 +12,7 @@ site_subaru = Observer('subaru',
                        elevation=4163,
                        pressure=615,
                        temperature=0,
-                       timezone=pytz.timezone('HST'))
+                       timezone=tz.gettz('US/Hawaii'))
 
 # ---------------------------------
 # Add your site above here...

@@ -1,7 +1,7 @@
 import unittest
 from datetime import timedelta
 import math
-import pytz
+from dateutil import tz
 
 import ephem
 
@@ -16,8 +16,8 @@ altair = ("19:51:29.74", "8:54:23.5", "2000")
 class TestEntity01(unittest.TestCase):
 
     def setUp(self):
-        self.hst = pytz.timezone('US/Hawaii')
-        self.utc = pytz.utc
+        self.hst = tz.gettz('US/Hawaii')
+        self.utc = tz.UTC
         self.obs = entity.Observer('subaru',
                                    longitude='-155:28:48.900',
                                    latitude='+19:49:42.600',
@@ -118,7 +118,7 @@ class TestEntity01(unittest.TestCase):
                                     '00:22:13.44', '-00:36:25.20')
         am = observer.tools.Airmass(obs.almanac_data, tgt)
         time1 = self.obs.get_date("2010-10-18 22:00")
-        time1_ut = time1.astimezone(pytz.utc)
+        time1_ut = time1.astimezone(tz.UTC)
         tup = am.compute_one(tgt.target, time1_ut)
         amass = tup[4]
 

@@ -6,7 +6,7 @@ import math
 # third-party imports
 import numpy as np
 from datetime import datetime, timedelta
-import pytz
+from dateutil import tz
 
 # right now we just have pyephem...
 import ephem
@@ -57,9 +57,9 @@ class Observer(object):
         self.horizon = -1 * np.sqrt(2 * elevation / ephem.earth_radius)
         if timezone is None:
             # default to UTC
-            timezone = pytz.timezone('UTC')
+            timezone = tz.UTC
         self.tz_local = timezone
-        self.tz_utc = pytz.timezone('UTC')
+        self.tz_utc = tz.UTC
         self.site = self.get_site(date=date)
 
         # used for sunset, sunrise calculations
@@ -84,7 +84,7 @@ class Observer(object):
             site.horizon = self.horizon
         site.epoch = 2000.0
         if date is None:
-            date = self.tz_utc.localize(datetime.utcnow())
+            date = datetime.utcnow().replace(tzinfo=self.tz_utc)
         site.date = ephem.Date(self.date_to_utc(date))
         return site
 
@@ -99,7 +99,7 @@ class Observer(object):
 
         else:
             # date is a naive date: assume expressed in local time
-            date = self.tz_local.localize(date)
+            date = date.replace(tzinfo=self.tz_local)
             # and converted to UTC
             date = date.astimezone(self.tz_utc)
         return date
@@ -115,7 +115,7 @@ class Observer(object):
 
         else:
             # date is a naive date: assume expressed in UTC
-            date = self.tz_utc.localize(date)
+            date = date.replace(tzinfo=self.tz_utc)
             # and converted to local time
             date = date.astimezone(self.tz_local)
 
@@ -160,7 +160,7 @@ class Observer(object):
             try:
                 date = datetime.strptime(date_str, fmt)
                 # Localize to the requested timezone
-                date = timezone.localize(date)
+                date = date.replace(tzinfo=timezone)
                 return date
 
             except ValueError as e:
@@ -446,7 +446,7 @@ class Observer(object):
             # ugh
             tup = ephem.Date(ut).tuple()
             args = tup[:-1] + (int(tup[-1]),)
-            ut_with_tz = self.tz_utc.localize(datetime(*args))
+            ut_with_tz = datetime(*args).replace(tzinfo=self.tz_utc)
             info = target.calc(self, ut_with_tz)
             history.append(info)
         #print(('computed airmass history', self.history))
@@ -552,7 +552,7 @@ class CalculationResult(object):
     @property
     def ut(self):
         if self._ut is None:
-            self._ut = self.lt.astimezone(pytz.utc)
+            self._ut = self.lt.astimezone(tz.UTC)
         return self._ut
 
     @property

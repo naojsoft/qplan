@@ -1,6 +1,3 @@
-import pytz
-from datetime import timedelta, tzinfo
-
 from . import entity
 from .util import calcpos
 
