@@ -203,11 +203,15 @@ class QueuePlanner(object):
         model = QueueModel(logger, scheduler)
 
         if options.completed is not None:
-            # specify a list of completed OB keys
+            import json
+            logger.info("reading executed OBs from '{}' ...".format(options.completed))
+            # user specified a set of completed OB keys
             with open(options.completed, 'r') as in_f:
                 buf = in_f.read()
-            import ast
-            model.completed_obs = ast.literal_eval(buf)
+            d = json.loads(buf)
+            model.completed_obs = {(propid, obcode): d[propid][obcode]
+                                   for propid in d
+                                   for obcode in d[propid]}
 
         # Start up the control/display engine
         qplanner = QueuePlanner(logger, thread_pool, mm,
