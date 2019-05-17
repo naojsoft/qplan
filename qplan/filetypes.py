@@ -736,6 +736,7 @@ class ProposalFile(QueueFile):
             'ph1_transparency': 'ph1_transparency',
             'allocated_time': 'allocated_time',
             'ph1_moon': 'ph1_moon',
+            'maximum_ob_length': 'maximum_ob_length',
             }
         self.columnInfo = {
             'prop_id':          {'iname': 'Prop ID',          'type': str,   'constraint': self.checkPropID,                       'prefilled': False, 'required': True},
@@ -743,6 +744,7 @@ class ProposalFile(QueueFile):
             'ph1_transparency': {'iname': 'Ph1 Transparency', 'type': float, 'constraint': "value >= 0.0 and value <= 1.0",        'prefilled': False, 'required': True},
             'ph1_moon':         {'iname': 'Ph1 Moon',         'type': str,   'constraint': "value in %s" % str(moon_states_upper), 'prefilled': False, 'required': True},
             'allocated_time':   {'iname': 'Allocated Time',   'type': float, 'constraint': "value >= 0.0",                         'prefilled': False, 'required': True},
+            'maximum_ob_length': {'iname': 'Maximum OB Length', 'type': float, 'constraint': "value >= 0.0",                       'prefilled': False, 'required': False},
             }
         super(ProposalFile, self).__init__(input_dir, 'proposal', logger, file_ext)
 
@@ -1353,6 +1355,9 @@ class InsCfgFile(QueueFile):
             'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None},
             },
             }
+        # If "proposal" sheet supplies a "Maximum OB Length" value,
+        # max_onsource_time_mins will get overwritten by that value in
+        # the update_constraints method
         self.max_onsource_time_mins = 100.0 # minutes
         super(InsCfgFile, self).__init__(input_dir, 'inscfg', logger, file_ext)
         self.excel_converters = {
@@ -1415,6 +1420,16 @@ class InsCfgFile(QueueFile):
             except Exception as e:
                 raise ValueError("Error reading line %d of instrument configuration from file %s: %s" % (
                     lineNum, self.filepath, str(e)))
+
+    def update_constraints(self, proposal_info):
+        try:
+            self.max_onsource_time_mins =  float(proposal_info['maximum_ob_length']) / 60.0
+        except KeyError:
+            # If "proposal" sheet did not have "Maximum OB Length"
+            # column, ignore the error and leave
+            # max_onsource_time_mins as the default value.
+            pass
+        self.logger.debug('max_onsource_time_mins is %s' % self.max_onsource_time_mins)
 
     def get_insname(self):
         # Access the inscfg information to determine the instrument
@@ -1496,28 +1511,14 @@ class InsCfgFile(QueueFile):
             progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname'], iname], msg])
             progFile.error_count += 1
 
-        if self.insname == 'HSC':
-            onsource_time_mins = float(calc_time) / 60.0
-            try:
-                max_onsource_time_mins = HSC_cfg.semester_max_onsource_time_mins[self.semester]
-            except KeyError:
-                max_onsource_time_mins =  self.max_onsource_time_mins
-            if onsource_time_mins <= max_onsource_time_mins:
-                progFile.logger.info('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than recommended maximum value of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, max_onsource_time_mins))
-            else:
-                # Prior to S19B, exceeding the max_onsource_time_mins
-                # value was an error. From S19B, that situation will
-                # be a warning.
-                if self.semester < 'S19B':
-                    msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, max_onsource_time_mins)
-                    progFile.logger.error(msg)
-                    progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
-                    progFile.error_count += 1
-                else:
-                    msg = 'Warning while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, max_onsource_time_mins)
-                    progFile.logger.warning(msg)
-                    progFile.warnings[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
-                    progFile.warn_count += 1
+        onsource_time_mins = float(calc_time) / 60.0
+        if onsource_time_mins <= self.max_onsource_time_mins:
+            progFile.logger.info('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than recommended maximum value of %.1f minutes and is ok' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins))
+        else:
+            msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins)
+            progFile.logger.error(msg)
+            progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
+            progFile.error_count += 1
 
     def totalTimeCalcCheck(self, val, rec, row_num, col_name, progFile):
         num_exp = int(rec.num_exp)
@@ -1941,6 +1942,10 @@ class ProgramFile(QueueFile):
         # Process the "proposal" sheet so that we can use the values
         # to check the other sheets.
         self.cfg['proposal'].process_input()
+
+        # Update the inscfg columnInfo constraints with the
+        # constraints from the "proposal" sheet.
+        self.cfg['inscfg'].update_constraints(self.cfg['proposal'].proposal_info)
 
         # Update the envcfg columnInfo constraints with the
         # constraints from the "proposal" sheet.

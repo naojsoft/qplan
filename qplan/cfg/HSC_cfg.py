@@ -18,15 +18,3 @@ semester_filters = {
     'S19A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'IB945', 'NB387', 'NB527', 'NB816', 'NB921')],
     'S19B': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB400', 'NB468', 'NB515', 'NB816', 'NB926')],
     }
-
-# Maximum on-source time (minutes) for each semester
-semester_max_onsource_time_mins = {
-    'S16A': 100,
-    'S16B': 100,
-    'S17A': 100,
-    'S17B': 100,
-    'S18A': 100,
-    'S18B': 100,
-    'S19A': 100,
-    'S19B': 30,
-    }
