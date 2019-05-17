@@ -1513,9 +1513,9 @@ class InsCfgFile(QueueFile):
 
         onsource_time_mins = float(calc_time) / 60.0
         if onsource_time_mins <= self.max_onsource_time_mins:
-            progFile.logger.info('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than recommended maximum value of %.1f minutes and is ok' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins))
+            progFile.logger.info('Line %d, column %s of sheet %s: onsource time of %.1f minutes is less than maximum allowed duration of %.1f minutes and is ok' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins))
         else:
-            msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds recommended maximum of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins)
+            msg = 'Error while checking line %d, column %s of sheet %s: onsource time of %.1f minutes exceeds maximum allowed duration of %.1f minutes' % (row_num, iname, self.name, onsource_time_mins, self.max_onsource_time_mins)
             progFile.logger.error(msg)
             progFile.errors[self.name].append([row_num, [self.columnInfo['exp_time']['iname'], self.columnInfo['num_exp']['iname'], self.columnInfo['stop']['iname'], self.columnInfo['skip']['iname']], msg])
             progFile.error_count += 1
