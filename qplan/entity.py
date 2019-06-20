@@ -9,23 +9,27 @@ import dateutil.parser
 from dateutil import tz
 
 # 3rd party imports
-import numpy as np
 from ginga.util import wcs
 
-entity_version = 20180129.0
+entity_version = 20180618.0
 
 from ginga.misc import Bunch
 
 # local imports
 from qplan.util.calcpos import Body, Observer
 
+"""
+NOTES
+[1] MongoDB stores times in UTC (as epoch values actually).  Need to
+    reattach time zone for datetime objects that are round-tripped from
+    there.
+
+"""
 
 def explode(item):
-    if isinstance(item, PersistentEntity):
-        return {key: explode(val)
-                for key, val in item.__dict__.items()
-                if not key.startswith('_')}
-    return item
+    return {key: val
+            for key, val in item.__dict__.items()
+            if not key.startswith('_')}
 
 
 class PersistentEntity(object):
@@ -40,6 +44,9 @@ class PersistentEntity(object):
     def from_rec(self, doc):
         self.__dict__.update(doc)
 
+    def save(self, qa):
+        qa.store_table(self._tblname, self)
+
 
 class Program(PersistentEntity):
     """
@@ -47,8 +54,8 @@ class Program(PersistentEntity):
     Defines a program that has been accepted for observation.
     """
     def __init__(self, proposal, pi='', observers='', rank=1.0,
-                 propid=None, grade=None, partner=None, hours=None,
-                 category=None, instruments=[], description=None,
+                 propid=None, grade=None, partner=None, hours=0.0,
+                 category='', instruments=[], description=None,
                  skip=False):
         super(Program, self).__init__('program')
 
@@ -69,6 +76,10 @@ class Program(PersistentEntity):
         # TODO: eventually this will contain all the relevant info
         # pertaining to a proposal
         self.skip = skip
+
+    @property
+    def key(self):
+        return dict(proposal=self.proposal)
 
     def __repr__(self):
         return self.proposal
@@ -291,17 +302,19 @@ class OB(PersistentEntity):
                  calib_inscfg=None, total_time=None, acct_time=None,
                  priority=1.0, name=None, derived=None, comment='',
                  extra_params=''):
-        super(OB, self).__init__()
+        super(OB, self).__init__('ob')
         if id is None:
             id = "ob%d" % (OB.count)
             OB.count += 1
         self.id = id
 
+        # these two items make up the primary key of an OB
         self.program = program
-        self.priority = priority
         if name is None:
             name = self.id
         self.name = name
+
+        self.priority = priority
 
         # constraints
         self.target = target
@@ -344,6 +357,33 @@ class OB(PersistentEntity):
         self.acct_time = acct_time
         self.extra_params = extra_params
 
+    @property
+    def key(self):
+        return dict(program=self.program, name=self.name)
+
+    def to_rec(self):
+        doc = super(OB, self).to_rec()
+
+        _d = explode(doc['target'])
+        # body object not serializable to MongoDB
+        del _d['body']
+        doc['target'] = _d
+        doc['inscfg'] = explode(doc['inscfg'])
+        doc['telcfg'] = explode(doc['telcfg'])
+        doc['envcfg'] = explode(doc['envcfg'])
+
+        if ('calib_tgtcfg' in doc and doc['calib_tgtcfg'] is not None and
+            not isinstance(doc['calib_tgtcfg'], str)):
+            _d = explode(doc['calib_tgtcfg'])
+            del _d['body']
+            doc['calib_tgtcfg'] = _d
+
+        if ('calib_inscfg' in doc and doc['calib_inscfg'] is not None and
+            not isinstance(doc['calib_inscfg'], str)):
+            doc['calib_inscfg'] = explode(doc['calib_inscfg'])
+
+        return doc
+
     def __repr__(self):
         return self.id
 
@@ -369,38 +409,30 @@ class StaticTarget(BaseTarget):
         self.body = Body(self.name, self.ra, self.dec, self.equinox)
 
     def import_record(self, rec):
-        code = rec.code.strip()
-        self.name = rec.name
-        self.ra, self.dec = normalize_radec_str(rec.ra, rec.dec)
+        code = rec.get('code', '').strip()
+        self.name = rec['name']
+        self.ra, self.dec = normalize_radec_str(rec['ra'], rec['dec'])
 
-        # transform equinox, e.g. "J2000" -> 2000
-        eq = rec.eq
-        if isinstance(eq, str):
-            eq = eq.upper()
-            if eq[0] in ('B', 'J'):
-                eq = eq[1:]
-                eq = float(eq)
-        eq = int(eq)
-        self.equinox = eq
-        self.comment = rec.comment.strip()
+        if 'equinox' in rec:
+            self.equinox = int(rec['equinox'])
+        else:
+            # transform equinox, e.g. "J2000" -> 2000
+            eq = rec['eq']
+            if isinstance(eq, str):
+                eq = eq.upper()
+                if eq[0] in ('B', 'J'):
+                    eq = eq[1:]
+                    eq = float(eq)
+            eq = int(eq)
+            self.equinox = eq
+
+        self.comment = rec['comment'].strip()
 
         self._recalc_body()
         return code
 
     def calc(self, observer, time_start):
         return self.body.calc(observer, time_start)
-
-    # for pickling
-
-    def __getstate__(self):
-        d = self.__dict__.copy()
-        # calcpos objects can't be pickled
-        d['body'] = None
-        return d
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._recalc_body()
 
 
 class HSCTarget(StaticTarget):
@@ -426,10 +458,10 @@ class TelescopeConfiguration(object):
         return (self.min_el, self.max_el)
 
     def import_record(self, rec):
-        code = rec.code.strip()
-        self.focus = rec.focus.upper()
-        self.dome = rec.dome.lower()
-        self.comment = rec.comment.strip()
+        code = rec.get('code', '').strip()
+        self.focus = rec['focus'].upper()
+        self.dome = rec['dome'].lower()
+        self.comment = rec['comment'].strip()
         return code
 
 class InstrumentConfiguration(object):
@@ -507,22 +539,25 @@ class HSCConfiguration(InstrumentConfiguration):
         return filter_change_time_sec
 
     def import_record(self, rec):
-        code = rec.code.strip()
+        code = rec.get('code', '').strip()
         self.insname = 'HSC'
-        self.filter = rec.filter.lower()
-        self.mode = rec.mode
-        self.dither = rec.dither
-        self.guiding = rec.guiding in ('y', 'Y', 'yes', 'YES')
-        self.num_exp = int(rec.num_exp)
-        self.exp_time = float(rec.exp_time)
-        self.pa = float(rec.pa)
-        self.offset_ra = float(rec.offset_ra)
-        self.offset_dec = float(rec.offset_dec)
-        self.dith1 = float(rec.dith1)
-        self.dith2 = float(rec.dith2)
-        self.skip = int(rec.skip)
-        self.stop = int(rec.stop)
-        self.comment = rec.comment.strip()
+        self.filter = rec['filter'].lower()
+        self.mode = rec['mode']
+        self.dither = rec['dither']
+        if isinstance(rec['guiding'], bool):
+            self.guiding = rec['guiding']
+        else:
+            self.guiding = rec['guiding'] in ('y', 'Y', 'yes', 'YES')
+        self.num_exp = int(rec['num_exp'])
+        self.exp_time = float(rec['exp_time'])
+        self.pa = float(rec['pa'])
+        self.offset_ra = float(rec['offset_ra'])
+        self.offset_dec = float(rec['offset_dec'])
+        self.dith1 = float(rec['dith1'])
+        self.dith2 = float(rec['dith2'])
+        self.skip = int(rec['skip'])
+        self.stop = int(rec['stop'])
+        self.comment = rec['comment'].strip()
         return code
 
 class FOCASConfiguration(InstrumentConfiguration):
@@ -554,20 +589,23 @@ class FOCASConfiguration(InstrumentConfiguration):
         return filter_change_time_sec
 
     def import_record(self, rec):
-        code = rec.code.strip()
+        code = rec.get('code', '').strip()
         self.insname = 'FOCAS'
-        self.mode = rec.mode
-        self.filter = rec.filter.lower()
-        self.guiding = rec.guiding in ('y', 'Y', 'yes', 'YES')
-        self.num_exp = int(rec.num_exp)
-        self.exp_time = float(rec.exp_time)
-        self.pa = float(rec.pa)
-        self.offset_ra = float(rec.offset_ra)
-        self.offset_dec = float(rec.offset_dec)
-        self.dither_ra = float(rec.dither_ra)
-        self.dither_dec = float(rec.dither_dec)
-        self.dither_theta = float(rec.dither_theta)
-        self.binning = rec.binning
+        self.mode = rec['mode']
+        self.filter = rec['filter'].lower()
+        if isinstance(rec['guiding'], bool):
+            self.guiding = rec['guiding']
+        else:
+            self.guiding = rec['guiding'] in ('y', 'Y', 'yes', 'YES')
+        self.num_exp = int(rec['num_exp'])
+        self.exp_time = float(rec['exp_time'])
+        self.pa = float(rec['pa'])
+        self.offset_ra = float(rec['offset_ra'])
+        self.offset_dec = float(rec['offset_dec'])
+        self.dither_ra = float(rec['dither_ra'])
+        self.dither_dec = float(rec['dither_dec'])
+        self.dither_theta = float(rec['dither_theta'])
+        self.binning = rec['binning']
         return code
 
 class EnvironmentConfiguration(object):
@@ -591,34 +629,56 @@ class EnvironmentConfiguration(object):
         self.comment = comment
 
     def import_record(self, rec):
-        code = rec.code.strip()
+        code = rec.get('code', '').strip()
 
-        seeing = rec.seeing.strip()
-        if len(seeing) != 0:
-            self.seeing = float(seeing)
+        if isinstance(rec['seeing'], float):
+            self.seeing = rec['seeing']
         else:
-            self.seeing = None
+            seeing = rec['seeing'].strip()
+            if len(seeing) != 0:
+                self.seeing = float(seeing)
+            else:
+                self.seeing = None
 
-        airmass = rec.airmass.strip()
-        if len(airmass) != 0:
-            self.airmass = float(airmass)
+        if isinstance(rec['airmass'], float):
+            self.airmass = rec['airmass']
         else:
-            self.airmass = None
+            airmass = rec['airmass'].strip()
+            if len(airmass) != 0:
+                self.airmass = float(airmass)
+            else:
+                self.airmass = None
 
-        self.moon = rec.moon
-        self.moon_sep = float(rec.moon_sep)
-        self.transparency = float(rec.transparency)
-        try:
-            self.lower_time_limit = parse_date_time(rec.lower_time_limit,
-                                                    self.default_timezone)
-        except KeyError as e:
+        self.moon = rec['moon']
+        self.moon_sep = float(rec['moon_sep'])
+        self.transparency = float(rec['transparency'])
+        if rec['lower_time_limit'] is None:
             self.lower_time_limit = None
-        try:
-            self.upper_time_limit = parse_date_time(rec.upper_time_limit,
-                                                    self.default_timezone)
-        except KeyError as e:
+        elif isinstance(rec['lower_time_limit'], datetime):
+            # See NOTE [1]
+            t = rec['lower_time_limit']
+            self.lower_time_limit = t.replace(tzinfo=tz.UTC)
+        else:
+            try:
+                self.lower_time_limit = parse_date_time(rec['lower_time_limit'],
+                                                        self.default_timezone)
+            except KeyError as e:
+                self.lower_time_limit = None
+
+        if rec['upper_time_limit'] is None:
             self.upper_time_limit = None
-        self.comment = rec.comment.strip()
+        elif isinstance(rec['upper_time_limit'], datetime):
+            # See NOTE [1]
+            t = rec['upper_time_limit']
+            self.upper_time_limit = t.replace(tzinfo=tz.UTC)
+        else:
+            try:
+                self.upper_time_limit = parse_date_time(rec['upper_time_limit'],
+                                                        self.default_timezone)
+            except KeyError as e:
+                self.upper_time_limit = None
+
+        self.comment = rec['comment'].strip()
         return code
 
 
@@ -627,7 +687,7 @@ class Executed_OB(PersistentEntity):
     Describes the result of executing an OB.
     """
     def __init__(self, ob_key=None):
-        super(Executed_OB, self).__init__()
+        super(Executed_OB, self).__init__('executed_ob')
 
         self.ob_key = ob_key
         # time this OB started and stopped
@@ -640,10 +700,24 @@ class Executed_OB(PersistentEntity):
         # overall per OB-execution comment
         self.comment = ''
 
+    @property
+    def key(self):
+        return dict(ob_key=self.ob_key, time_start=self.time_start)
+
     def add_exposure(self, exp_key):
         self.exp_history.append(exp_key)
-        self._p_changed = True
 
+    def from_rec(self, dct):
+        super(Executed_OB, self).from_rec(dct)
+
+        # comes in as a list from MongoDB, but we want a tuple
+        self.ob_key = tuple(self.ob_key)
+
+        # See NOTE [1]
+        if self.time_start is not None:
+            self.time_start = self.time_start.replace(tzinfo=tz.UTC)
+        if self.time_stop is not None:
+            self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
 
 class HSC_Exposure(PersistentEntity):
     """
@@ -651,9 +725,8 @@ class HSC_Exposure(PersistentEntity):
     from an OB.
     """
     def __init__(self, ob_key=None, dithpos=None):
-        super(HSC_Exposure, self).__init__()
+        super(HSC_Exposure, self).__init__('exposure')
 
-        self.ob_key = ob_key
         # time this exposure started and stopped
         self.time_start = None
         self.time_stop = None
@@ -683,8 +756,42 @@ class HSC_Exposure(PersistentEntity):
         self.purpose = None
         self.obsmthd = None
 
+    @property
+    def key(self):
+        return dict(exp_id=self.exp_id)
+
+    def from_rec(self, dct):
+        super(HSC_Exposure, self).from_rec(dct)
+
+        # comes in as a list from MongoDB, but we want a tuple
+        if self.ob_key is not None:
+            # non-queue frames will have a null ob_key
+            self.ob_key = tuple(self.ob_key)
+
+        # See NOTE [1]
+        if self.time_start is not None:
+            self.time_start = self.time_start.replace(tzinfo=tz.UTC)
+        if self.time_stop is not None:
+            self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
+
     def __str__(self):
         return self.exp_id
+
+
+class QueueMgmtRec(PersistentEntity):
+
+    def __init__(self):
+        super(QueueMgmtRec, self).__init__('queue_mgmt')
+
+        self.current_executed = None
+        self.time_update = None
+
+    def from_rec(self, dct):
+        super(QueueMgmtRec, self).from_rec(dct)
+
+        # See NOTE [1]
+        if self.time_update is not None:
+            self.time_update = self.time_update.replace(tzinfo=tz.UTC)
 
 
 def parse_date_time(dt_str, default_timezone):
@@ -706,5 +813,67 @@ def normalize_radec_str(ra_str, dec_str):
     else:
         dec = wcs.decDegToString(wcs.dmsStrToDeg(dec_str))
     return (ra, dec)
+
+#
+### Functions for going from database record to Python object
+###   (see q_query.py)
+#
+def make_program(dct):
+    pgm = Program(dct['proposal'])
+    pgm.from_rec(dct)
+    return pgm
+
+def make_executed_ob(dct):
+    ex_ob = Executed_OB()
+    ex_ob.from_rec(dct)
+    return ex_ob
+
+def make_exposure(dct):
+    exp = HSC_Exposure()
+    exp.from_rec(dct)
+    return exp
+
+def make_ob(dct, program):
+
+    telcfg = TelescopeConfiguration()
+    telcfg.import_record(dct['telcfg'])
+
+    target = HSCTarget()
+    target.import_record(dct['target'])
+
+    inscfg = HSCConfiguration()
+    inscfg.import_record(dct['inscfg'])
+
+    envcfg = EnvironmentConfiguration()
+    envcfg.import_record(dct['envcfg'])
+
+    if dct['calib_tgtcfg'] is None:
+        # older programs didn't have this
+        calib_tgtcfg = None
+    else:
+        calib_tgtcfg = HSCTarget()
+        calib_tgtcfg.import_record(dct['calib_tgtcfg'])
+
+    if dct['calib_inscfg'] is None:
+        # older programs didn't have this
+        calib_inscfg = None
+    else:
+        calib_inscfg = HSCConfiguration()
+        calib_inscfg.import_record(dct['calib_inscfg'])
+
+    # older programs didn't have this
+    extra_params = dct.get('extra_params', '')
+
+    ob = OB(id=dct['id'], program=program, target=target, telcfg=telcfg,
+            inscfg=inscfg, envcfg=envcfg, calib_tgtcfg=calib_tgtcfg,
+            calib_inscfg=calib_inscfg, total_time=dct['total_time'],
+            acct_time=dct['acct_time'], priority=dct['priority'],
+            name=dct['name'], comment=dct['comment'],
+            extra_params=extra_params)
+    ob._id = dct['_id']
+    ob._save_tstamp = dct.get('_save_tstamp', None)
+
+    return ob
+
 
 #END
