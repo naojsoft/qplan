@@ -6,7 +6,7 @@
 
 # stdlib imports
 import sys, traceback
-import os.path
+import os
 import datetime
 
 # ginga imports
@@ -16,8 +16,8 @@ from ginga.gw import Widgets
 # Gen2 imports
 have_gen2 = False
 try:
-    from g2base.remoteObjects import remoteObjects as ro
-    from SOSS.status.common import STATNONE, STATERROR
+    from g2cam.status.client import StatusClient
+    from g2cam.status.common import STATNONE, STATERROR
     have_gen2 = True
 
 except ImportError:
@@ -27,14 +27,26 @@ except ImportError:
 from qplan.plugins import PlBase
 from qplan import filetypes, misc
 
+# Determine queue database address
+# this can be overridden from the environment
+_a = os.environ.get('GEN2_QDB_ADDR', 'localhost')
+_a = _a.split(':')
+if len(_a) < 2:
+    _a.append(29019)
+qdb_addr = (_a[0].strip(), int(_a[1]))
+
 have_qdb = False
 try:
     from qplan import q_db, q_query
-    from Gen2.db.db_config import qdb_addr
     have_qdb = True
 
 except ImportError:
     pass
+
+# credentials to access Gen2 status via g2cam StatusClient
+gen2_host = os.environ.get('GEN2_STATUS_HOST', 'localhost')
+gen2_user = os.environ.get('GEN2_STATUS_USER', 'none')
+gen2_pass = os.environ.get('GEN2_STATUS_PASS', 'none')
 
 
 class ControlPanel(PlBase.Plugin):
@@ -314,28 +326,31 @@ class ControlPanel(PlBase.Plugin):
             if use_db:
                 self.connect_qdb()
 
+                self.logger.info("getting do not execute OB keys")
                 do_not_execute = set(self.qq.get_do_not_execute_ob_keys())
 
+                ob_keys -= do_not_execute
+
+                self.logger.info("reconstructing executed time for executed OBs")
                 # Painful reconstruction of time already accumulated
-                # running the programs for executed OBS.  Inform scheduler
-                # so that it can correcly calculate when to stop
+                # running the programs for executed OBs.  Inform scheduler
+                # so that it can correctly calculate when to stop
                 # allocating OBs for a program that has reached its
                 # time limit.
                 props = {}
-                for ob_key in do_not_execute:
-                    (propid, obcode) = ob_key[:2]
-                    ob = self.qq.get_ob(ob_key)
-                    bnch = props.setdefault(propid, Bunch(obcount=0,
-                                                          sched_time=0.0))
+                for ob in self.qq.ob_keys_to_obs(do_not_execute):
+                    proposal = ob.program
+                    bnch = props.setdefault(proposal, Bunch(obcount=0,
+                                                            sched_time=0.0))
                     bnch.sched_time += ob.acct_time
                     bnch.obcount += 1
 
                 sdlr.set_apriori_program_info(props)
 
-                ob_keys -= do_not_execute
-
             elif self.model.completed_obs is not None:
                 do_not_execute = set(self.model.completed_obs.keys())
+
+                ob_keys -= do_not_execute
 
                 # See comment above.
                 props = {}
@@ -348,8 +363,6 @@ class ControlPanel(PlBase.Plugin):
                     bnch.obcount += 1
 
                 sdlr.set_apriori_program_info(props)
-
-                ob_keys -= do_not_execute
 
             self.logger.info("%s OBs after removing executed OBs." % (
                 len(ob_keys)))
@@ -378,10 +391,13 @@ class ControlPanel(PlBase.Plugin):
         # update first row in schedule sheet. Also, update start time.
         self.logger.debug('update_current_conditions_cb')
         try:
-            ro.init()
-            stobj = ro.remoteObjectProxy('status')
-            result = stobj.fetch({'FITS.HSC.FILTER': 0, 'TSCS.AZ': 0, 'TSCS.EL': 0})
-        except ro.remoteObjectError as e:
+            stobj = StatusClient(gen2_host,
+                                 username=gen2_user, password=gen2_pass)
+            stobj.reconnect()
+
+            result = {'FITS.HSC.FILTER': 0, 'TSCS.AZ': 0, 'TSCS.EL': 0}
+            stobj.fetch(result)
+        except Exception as e:
             self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
             return
 
@@ -441,24 +457,20 @@ class ControlPanel(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
 
         # store programs into db
-        with self.qdb.transaction_manager:
-            try:
-                programs = self.qa.get_table('program')
-                for key in sdlr.programs:
-                    self.logger.info("adding record for program '%s'" % (str(key)))
-                    programs[key] = sdlr.programs[key]
-            except Exception as e:
-                self.logger.error('Unexpected error while updating program table in database: %s' % str(e))
+        try:
+            for key in sdlr.programs:
+                self.logger.info("adding record for program '%s'" % (str(key)))
+                sdlr.programs[key].save(self.qa)
+        except Exception as e:
+            self.logger.error('Unexpected error while updating program table in database: %s' % str(e))
 
-            # store OBs into db
-            try:
-                ob_db = self.qa.get_table('ob')
-                for ob in sdlr.oblist:
-                    key = (ob.program.proposal, ob.name)
-                    self.logger.info("adding record for OB '%s'" % (str(key)))
-                    ob_db[key] = ob
-            except Exception as e:
-                self.logger.error('Unexpected error while updating ob table in database: %s' % str(e))
+        # store OBs into db
+        try:
+            for ob in sdlr.oblist:
+                self.logger.info("adding record for OB '%s'" % (str(ob)))
+                ob.save(self.qa)
+        except Exception as e:
+            self.logger.error('Unexpected error while updating ob table in database: %s' % str(e))
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))

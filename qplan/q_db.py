@@ -2,6 +2,8 @@
 # Eric Jeschke (eric@naoj.org)
 #
 
+from datetime import datetime
+
 # third-party imports
 from pymongo import MongoClient
 
@@ -22,7 +24,7 @@ class QueueDatabase(object):
 
     def __init__(self, logger, addr):
         self.logger = logger
-        self.db_host, self.db_addr = addr
+        self.db_host, self.db_port = addr
 
         self.mdb_client = None
         self.mdb_db = None
@@ -35,7 +37,7 @@ class QueueDatabase(object):
 
     def reconnect(self):
         self.mdb_client = MongoClient(self.db_host, self.db_port)
-        self.mdb_db = mdb_client['queue_db']
+        self.mdb_db = self.mdb_client['queue_db']
 
     def get_adaptor(self):
         return QueueAdapter(self)
@@ -59,21 +61,19 @@ class QueueAdapter(object):
     def get_root_record(self, name):
         return self.get_table(name)
 
+    def store_table(self, name, pyobj):
+        tbl = self.get_table(name)
+        doc = pyobj.to_rec()
+        # record time of last update for this entity
+        doc['_save_tstamp'] = datetime.utcnow()
+        tbl.update_one(pyobj.key, {'$set': doc}, upsert=True)
+
     def sync(self):
         # nop for mongodb
         pass
 
     def close(self):
         pass
-
-
-class QueueMgmtRec(Persistent):
-
-    def __init__(self):
-        super(QueueMgmtRec, self).__init__()
-
-        self.current_executed = None
-        self.time_update = None
 
 
 #END
