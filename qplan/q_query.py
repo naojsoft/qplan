@@ -1,6 +1,7 @@
 #
 # Eric Jeschke (eric@naoj.org)
 #
+from ginga.misc.Bunch import Bunch
 
 from qplan import entity
 
@@ -68,13 +69,12 @@ class QueueQuery(object):
         return ob
 
     def _make_ob(self, ob_rec):
-        obs = self._make_obs([ob_rec])
-        return obs[0]
+        pgm = self.get_program(ob_rec['program'])
+        ob = entity.make_ob(ob_rec, pgm)
+        return ob
 
     def _make_obs(self, ob_recs):
-        return self.get_or_make('ob', ob_recs,
-                                lambda rec: (rec['program'], rec['name']),
-                                entity.make_ob)
+        return map(self._make_ob, ob_recs)
 
     def get_program(self, proposal):
         proposal = proposal.upper()
@@ -228,6 +228,41 @@ class QueueQuery(object):
                                             }]}
                                  ]}, {'ob_key': 1})
         return [tuple(rec['ob_key']) for rec in recs]
+
+    def get_do_not_execute_ob_info(self, proplst):
+        """
+        Get the keys for OBs that should not be executed because they are
+        either FQA==good or have an IQA==good/marginal.  `proplst` gives
+        a set of proposals for which we want info.
+        """
+        # Locate the executed_ob table
+        tbl = self._qa.get_table('executed_ob')
+        recs = tbl.find({'$and':[ {'ob_key.0': {'$in': proplst}},
+                                  {'$or':[ {'fqa': 'good'},
+                                           {'$and': [{'fqa':''},
+                                                     {'iqa':{'$in':['good', 'marginal']}
+                                                      }]}
+                                           ]}
+                                  ]}, {'ob_key': 1})
+
+        # Painful reconstruction of time already accumulated running the
+        # programs for executed OBs.  Needed to inform scheduler so that
+        # it can correctly calculate when to stop allocating OBs for a
+        # program that has reached its time limit.
+        dne_obs = []
+        props = {}
+        for rec in recs:
+            ob_key = tuple(rec['ob_key'])
+            dne_obs.append(ob_key)
+            proposal = ob_key[0]
+
+            ob = self.get_ob(ob_key)
+            bnch = props.setdefault(proposal, Bunch(obcount=0,
+                                                    sched_time=0.0))
+            bnch.sched_time += ob.acct_time
+            bnch.obcount += 1
+
+        return dne_obs, props
 
     def get_schedulable_ob_keys(self):
         """
