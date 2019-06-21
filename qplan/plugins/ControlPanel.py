@@ -326,33 +326,20 @@ class ControlPanel(PlBase.Plugin):
             if use_db:
                 self.connect_qdb()
 
-                self.logger.info("getting do not execute OB keys")
-                do_not_execute = set(self.qq.get_do_not_execute_ob_keys())
+                self.logger.info("getting do not execute OB info")
+                dne_obs, props = self.qq.get_do_not_execute_ob_info(okprops)
 
-                ob_keys -= do_not_execute
-
-                self.logger.info("reconstructing executed time for executed OBs")
-                # Painful reconstruction of time already accumulated
-                # running the programs for executed OBs.  Inform scheduler
-                # so that it can correctly calculate when to stop
-                # allocating OBs for a program that has reached its
-                # time limit.
-                props = {}
-                for ob in self.qq.ob_keys_to_obs(do_not_execute):
-                    proposal = ob.program
-                    bnch = props.setdefault(proposal, Bunch(obcount=0,
-                                                            sched_time=0.0))
-                    bnch.sched_time += ob.acct_time
-                    bnch.obcount += 1
+                do_not_execute = set(dne_obs)
 
                 sdlr.set_apriori_program_info(props)
 
             elif self.model.completed_obs is not None:
-                do_not_execute = set(self.model.completed_obs.keys())
+                do_not_execute = set(list(self.model.completed_obs.keys()))
 
-                ob_keys -= do_not_execute
-
-                # See comment above.
+                # Painful reconstruction of time already accumulated running the
+                # programs for executed OBs.  Needed to inform scheduler so that
+                # it can correctly calculate when to stop allocating OBs for a
+                # program that has reached its time limit.
                 props = {}
                 for ob_key in do_not_execute:
                     (propid, obcode) = ob_key[:2]
@@ -364,6 +351,7 @@ class ControlPanel(PlBase.Plugin):
 
                 sdlr.set_apriori_program_info(props)
 
+            ob_keys -= do_not_execute
             self.logger.info("%s OBs after removing executed OBs." % (
                 len(ob_keys)))
 
