@@ -78,19 +78,8 @@ class QueueQuery(object):
 
     def get_program(self, proposal):
         proposal = proposal.upper()
-        if self.use_cache:
-            try:
-                return self.get_cache('program', proposal)
-            except KeyError:
-                pass
-
-        tbl = self._qa.get_table('program')
-        rec = tbl.find_one(dict(proposal=proposal))
-        pgm = entity.make_program(rec)
-        if self.use_cache:
-            self.add_cache('program', proposal, pgm)
-
-        return pgm
+        return self.cmake1('program', proposal, {'proposal': proposal},
+                           entity.make_program)
 
     def ob_keys_to_obs(self, ob_keys):
         # TODO: can this be made more efficient with a Mongo query?
@@ -98,19 +87,31 @@ class QueueQuery(object):
 
     def ex_ob_to_ob(self, ex_ob):
         """
-        Return an OB, given a record for an executed OB.
+        Return an OB object, given an executed OB object.
         """
         return self.get_ob(ex_ob.ob_key)
 
     def map_ex_ob_to_ob(self, ex_obs):
         return map(self.ex_ob_to_ob, ex_obs)
 
+    def get_exposure(self, exp_id):
+        """
+        Get a single exposure from an exposure id string.
+        e.g. get_exposure('HSCA17876000')
+        """
+        exp_id = exp_id.upper()
+        return self.cmake1('exposure', exp_id, {'exp_id': exp_id},
+                           entity.make_exposure)
+
     def get_exposures(self, executed_ob):
+        """
+        Get exposures from an executed OB object.
+        """
         tbl = self._qa.get_table('exposure')
         recs = tbl.find({'exp_id': {'$in': executed_ob.exp_history}})
-        return self.get_or_make('exposure', recs,
-                                lambda rec: rec['exp_id'],
-                                entity.make_exposure)
+        return self.cmake_iter('exposure', recs,
+                               lambda rec: rec['exp_id'],
+                               entity.make_exposure)
 
     def get_program_by_semester(self, semester):
         """
@@ -122,9 +123,9 @@ class QueueQuery(object):
         all_recs = []
         for sem in semester:
             all_recs.extend(list(tbl.find({'proposal': {'$regex': sem}})))
-        return self.get_or_make('program', all_recs,
-                                lambda rec: rec['proposal'],
-                                entity.make_program)
+        return self.cmake_iter('program', all_recs,
+                               lambda rec: rec['proposal'],
+                               entity.make_program)
 
     def get_program_by_propid(self, propid):
         """
@@ -158,9 +159,9 @@ class QueueQuery(object):
         tbl = self._qa.get_table('executed_ob')
         recs = tbl.find({'ob_key.0': proposal})
 
-        return self.get_or_make('executed_ob', recs,
-                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
-                                entity.make_executed_ob)
+        return self.cmake_iter('executed_ob', recs,
+                               lambda rec: (tuple(rec['ob_key']), rec['time_start']),
+                               entity.make_executed_ob)
 
     def get_exposures_by_date(self, fromdate, todate):
         """
@@ -169,9 +170,9 @@ class QueueQuery(object):
         tbl = self._qa.get_table('exposure')
         recs = tbl.find({'$and': [{'time_start': {'$gte': fromdate}},
                                   {'time_stop': {'$lte': todate}}]})
-        return self.get_or_make('exposure', recs,
-                                lambda rec: rec['exp_id'],
-                                entity.make_exposure)
+        return self.cmake_iter('exposure', recs,
+                               lambda rec: rec['exp_id'],
+                               entity.make_exposure)
 
     def get_executed_obs_by_date(self, fromdate, todate):
         """
@@ -181,9 +182,9 @@ class QueueQuery(object):
         recs = tbl.find({'$and': [{'time_start': {'$gte': fromdate}},
                                   {'time_stop': {'$lte': todate}}
                                   ]})
-        return self.get_or_make('executed_ob', recs,
-                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
-                                entity.make_executed_ob)
+        return self.cmake_iter('executed_ob', recs,
+                               lambda rec: (tuple(rec['ob_key']), rec['time_start']),
+                               entity.make_executed_ob)
 
     def get_exposures_from_executed_obs(self, ex_obs):
         """
@@ -211,9 +212,9 @@ class QueueQuery(object):
         # Locate the executed_ob table
         tbl = self._qa.get_table('executed_ob')
         recs = tbl.find(dict(fqa={'$in': fqa_set}))
-        return self.get_or_make('executed_ob', recs,
-                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
-                                entity.make_executed_ob)
+        return self.cmake_iter('executed_ob', recs,
+                               lambda rec: (tuple(rec['ob_key']), rec['time_start']),
+                               entity.make_executed_ob)
 
     def get_do_not_execute_ob_keys(self):
         """
@@ -285,9 +286,9 @@ class QueueQuery(object):
         recs = tbl.find({'$and':[ {'fqa': {'$eq': ''}},
                                   {'iqa': {'$in':['good', 'marginal']}}
                                   ]})
-        return self.get_or_make('executed_ob', recs,
-                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
-                                entity.make_executed_ob)
+        return self.cmake_iter('executed_ob', recs,
+                               lambda rec: (tuple(rec['ob_key']), rec['time_start']),
+                               entity.make_executed_ob)
 
     def divide_executed_obs_by_program(self, ex_obs):
         """
@@ -319,7 +320,14 @@ class QueueQuery(object):
     def clear_cache(self):
         self.cache = {}
 
-    def get_or_make(self, tblname, recs, key_fn, make_fn):
+    def cmake_iter(self, tblname, recs, key_fn, make_fn):
+        """Look up objects corresponding to records (`recs`) in the cache
+        with the subcache named `tblname`.
+        `key_fn` is a function to apply to each record to get the keys for
+        the objects.  If an object is found in the cache, use it; otherwise
+        run `make_fn` on the record to create the object and cache it for
+        future use.  A list of the objects is returned.
+        """
         res = []
         for rec in recs:
             key = key_fn(rec)
@@ -336,5 +344,27 @@ class QueueQuery(object):
             if self.use_cache:
                 self.add_cache(tblname, key, pyobj)
         return res
+
+    def cmake1(self, tblname, key, query, make_fn):
+        """Look up object under `key` in the subcache corresponding to
+        `tblname`.  If found, return it, otherwise perform a singleton
+        query (`query`) to locate a record in the db for the object and
+        run `make_fn` on it to create the object.
+        Object is cached for future use, then returned.
+        """
+        if self.use_cache:
+            try:
+                return self.get_cache(tblname, key)
+            except KeyError:
+                pass
+
+        tbl = self._qa.get_table(tblname)
+        rec = tbl.find_one(query)
+        if rec is None:
+            raise KeyError(key)
+        pyobj = make_fn(rec)
+        if self.use_cache:
+            self.add_cache(tblname, key, pyobj)
+        return pyobj
 
 #END
