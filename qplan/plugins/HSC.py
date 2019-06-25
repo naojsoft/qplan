@@ -382,7 +382,9 @@ QUEUE_MODE $DEF_CMNTOOL OBSERVER=
         if filter_name in ag_exp_info:
             return ag_exp_info[filter_name]
 
-        return ag_exp_info['g']
+        # [Terai 2019-06-24] GOODMAG=12.5 and AG_EXP=0.5 should be
+        # used for all the NB/IB filters except for NB387
+        return dict(goodmag=12.5, ag_exp=0.5)
 
 '''
 ########################################################################
