@@ -96,12 +96,14 @@ class QueueQuery(object):
         """
         Get entire list of OBs from a proposal name.
         """
+        res = []
         tbl = self._qa.get_table('ob')
         proposal = proposal.upper()
         for obkey in tbl:
             (_proposal, obname) = obkey
             if proposal == _proposal:
-                yield tbl[obkey]
+                res.append(tbl[obkey])
+        return res
 
     def get_executed_obs_by_proposal(self, proposal):
         """
