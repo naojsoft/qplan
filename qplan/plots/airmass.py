@@ -72,9 +72,8 @@ class AirMassPlot(plots.Plot):
         lt_data = [info.ut.astimezone(tz) for info in tgt_data[0].history]
 
         # we don't know what date "site" is currently initialized to,
-        # so set it to the date of the first target
+        # so find out the date of the first target
         localdate = lt_data[0].astimezone(tz)
-        site.set_date(localdate)
 
         min_interval = 12  # hour/5min
         mt = lt_data[0:-1:min_interval]
@@ -128,7 +127,8 @@ class AirMassPlot(plots.Plot):
         labels = ax1.get_xticklabels()
         ax1.grid(True, color='#999999')
 
-        self._plot_twilight(ax1, site, tz, show_legend=show_target_legend)
+        self._plot_twilight(ax1, site, localdate, tz,
+                            show_legend=show_target_legend)
 
         # plot current hour
         lo = datetime.now(tz)
@@ -137,8 +137,7 @@ class AirMassPlot(plots.Plot):
             self._plot_current_time(ax1, lo, hi)
 
         # label axes
-        localdate = lt_data[0].astimezone(tz).strftime("%Y-%m-%d")
-        title = 'Airmass for the night of %s' % (localdate)
+        title = 'Airmass for the night of {}'.format(localdate.strftime("%Y-%m-%d"))
         ax1.set_title(title)
         ax1.set_xlabel(tz.tzname(None))
         ax1.set_ylabel('Airmass')
@@ -159,7 +158,7 @@ class AirMassPlot(plots.Plot):
         ax2.yaxis.tick_right()
 
         # drawing the line of middle of the night
-        self._middle_night(ax1, site)
+        self._middle_night(ax1, site, localdate)
 
         canvas = self.fig.canvas
         if canvas is not None:
@@ -197,9 +196,8 @@ class AirMassPlot(plots.Plot):
         lt_data = [t.ut.astimezone(tz) for t in tgt_data[0].history]
 
         # we don't know what date "site" is currently initialized to,
-        # so set it to the date of the first target
+        # so get the date of the first target
         localdate = lt_data[0].astimezone(tz)
-        site.set_date(localdate)
 
         min_interval = 12  # hour/5min
         mt = lt_data[0:-1:min_interval]
@@ -298,7 +296,8 @@ class AirMassPlot(plots.Plot):
         min_alt, max_alt = 30.0, 75.0
         self._plot_limits(ax1, min_alt, max_alt)
 
-        self._plot_twilight(ax1, site, tz, show_legend=show_target_legend)
+        self._plot_twilight(ax1, site, localdate, tz,
+                            show_legend=show_target_legend)
 
         # plot current hour
         lo = datetime.now(tz)
@@ -307,7 +306,7 @@ class AirMassPlot(plots.Plot):
             self._plot_current_time(ax1, lo, hi)
 
         # drawing the line of middle of the night
-        self._middle_night(ax1, site)
+        self._middle_night(ax1, site, localdate)
 
         # plot moon's position at midnight
         #self._moon_position(ax1, site)
@@ -316,18 +315,18 @@ class AirMassPlot(plots.Plot):
         if canvas is not None:
             canvas.draw()
 
-    def _middle_night(self, ax, site):
+    def _middle_night(self, ax, site, localdate):
         # night center
-        middle_night = site.night_center()
+        middle_night = site.night_center(date=localdate)
 
         ymin, ymax = ax.get_ylim()
 
         ax.vlines(middle_night, ymin, ymax, colors='blue',
                   linestyles='dashed', label='Night center')
 
-    def _plot_twilight(self, ax, site, tz, show_legend=False):
+    def _plot_twilight(self, ax, site, localdate, tz, show_legend=False):
         # plot sunset
-        t = site.sunset().astimezone(tz)
+        t = site.sunset(date=localdate).astimezone(tz)
 
         # plot evening twilight 6/12/18 degrees
         et6 = site.evening_twilight_6(t).astimezone(tz)
@@ -358,7 +357,7 @@ class AirMassPlot(plots.Plot):
         # plot morning twilight 6/12/18 degrees
         mt6 = site.morning_twilight_6(et6).astimezone(tz)
         mt12 = site.morning_twilight_12(et12).astimezone(tz)
-        mt18= site.morning_twilight_18(et18).astimezone(tz)
+        mt18 = site.morning_twilight_18(et18).astimezone(tz)
 
         # plot sunrise
         t2 = site.sunrise(mt18).astimezone(tz)
