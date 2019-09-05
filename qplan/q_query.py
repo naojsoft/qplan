@@ -116,7 +116,7 @@ class QueueQuery(object):
             return ob.program.proposal == proposal
         return filter(has_proposal, tbl.values())
 
-    def get_exposure_by_date(self, fromdate, todate):
+    def get_exposures_by_date(self, fromdate, todate):
         """
         Get exposure by date.
         """
