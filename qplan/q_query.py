@@ -58,7 +58,7 @@ class QueueQuery(object):
             except KeyError:
                 pass
 
-        tbl = self._qa.get_table('ob')
+        tbl = self._qa.get_db_native_table('ob')
         rec = tbl.find_one(dict(program=ob_key[0], name=ob_key[1]))
         pgm = self.get_program(ob_key[0])
         ob = entity.make_ob(rec, pgm)
@@ -107,7 +107,7 @@ class QueueQuery(object):
         """
         Get exposures from an executed OB object.
         """
-        tbl = self._qa.get_table('exposure')
+        tbl = self._qa.get_db_native_table('exposure')
         recs = tbl.find({'exp_id': {'$in': executed_ob.exp_history}})
         return self.cmake_iter('exposure', recs,
                                lambda rec: rec['exp_id'],
@@ -119,7 +119,7 @@ class QueueQuery(object):
             args: semester is list.   e.g. ['S16A', 'S16B']
         """
         semester = ["^{}".format(s.upper()[:4]) for s in semester]
-        tbl = self._qa.get_table('program')
+        tbl = self._qa.get_db_native_table('program')
         all_recs = []
         for sem in semester:
             all_recs.extend(list(tbl.find({'proposal': {'$regex': sem}})))
@@ -133,7 +133,7 @@ class QueueQuery(object):
 
         WARNING: aren't some old propid's reused for new programs?!!
         """
-        tbl = self._qa.get_table('program')
+        tbl = self._qa.get_db_native_table('program')
         propid = propid.lower()
         try:
             rec = tbl.find_one(dict(propid=propid))
@@ -147,7 +147,7 @@ class QueueQuery(object):
         Get entire list of OBs from a proposal name.
         """
         proposal = proposal.upper()
-        tbl = self._qa.get_table('ob')
+        tbl = self._qa.get_db_native_table('ob')
         recs = tbl.find(dict(program=proposal))
         return self._make_obs(recs)
 
@@ -156,7 +156,7 @@ class QueueQuery(object):
         Get executed OBs from a proposal name.
         """
         proposal = proposal.upper()
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         recs = tbl.find({'ob_key.0': proposal})
 
         return self.cmake_iter('executed_ob', recs,
@@ -167,7 +167,7 @@ class QueueQuery(object):
         """
         Get exposure by date.
         """
-        tbl = self._qa.get_table('exposure')
+        tbl = self._qa.get_db_native_table('exposure')
         recs = tbl.find({'$and': [{'time_start': {'$gte': fromdate}},
                                   {'time_stop': {'$lte': todate}}]})
         return self.cmake_iter('exposure', recs,
@@ -178,10 +178,21 @@ class QueueQuery(object):
         """
         Get executed OBs by date.
         """
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         recs = tbl.find({'$and': [{'time_start': {'$gte': fromdate}},
                                   {'time_stop': {'$lte': todate}}
                                   ]})
+        return self.cmake_iter('executed_ob', recs,
+                               lambda rec: (tuple(rec['ob_key']), rec['time_start']),
+                               entity.make_executed_ob)
+
+    def get_executed_obs_by_ob_key(self, ob_key):
+        """
+        Get executed OBs by OB key.
+        """
+        tbl = self._qa.get_db_native_table('executed_ob')
+        recs = tbl.find({'ob_key': ob_key})
+
         return self.cmake_iter('executed_ob', recs,
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
                                entity.make_executed_ob)
@@ -200,7 +211,7 @@ class QueueQuery(object):
         Get the count of how many times an OB has been executed.
         """
         # Locate the executed_ob table
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         return tbl.count_documents(dict(ob_key=ob_key))
 
     def get_finalized_executed_obs(self, fqa_set):
@@ -210,7 +221,7 @@ class QueueQuery(object):
         'bad'.
         """
         # Locate the executed_ob table
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         recs = tbl.find(dict(fqa={'$in': fqa_set}))
         return self.cmake_iter('executed_ob', recs,
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
@@ -222,7 +233,7 @@ class QueueQuery(object):
         either FQA==good or have an IQA==good/marginal.
         """
         # Locate the executed_ob table
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         recs = tbl.find({'$or':[ {'fqa': 'good'},
                                  {'$and': [{'fqa':''},
                                            {'iqa':{'$in':['good', 'marginal']}
@@ -237,7 +248,7 @@ class QueueQuery(object):
         a set of proposals for which we want info.
         """
         # Locate the executed_ob table
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         recs = tbl.find({'$and':[ {'ob_key.0': {'$in': proplst}},
                                   {'$or':[ {'fqa': 'good'},
                                            {'$and': [{'fqa':''},
@@ -271,7 +282,7 @@ class QueueQuery(object):
         enables that.
         """
         do_not_execute = set(self.get_do_not_execute_ob_keys())
-        tbl = self._qa.get_table('ob')
+        tbl = self._qa.get_db_native_table('ob')
         recs = tbl.find({}, {'program': 1, 'name': 1})
         all_obs = set([(rec['program'], rec['name']) for rec in recs])
         return all_obs - do_not_execute
@@ -282,7 +293,7 @@ class QueueQuery(object):
         blank FQA
         """
         # Locate the executed_ob table
-        tbl = self._qa.get_table('executed_ob')
+        tbl = self._qa.get_db_native_table('executed_ob')
         recs = tbl.find({'$and':[ {'fqa': {'$eq': ''}},
                                   {'iqa': {'$in':['good', 'marginal']}}
                                   ]})
@@ -358,7 +369,7 @@ class QueueQuery(object):
             except KeyError:
                 pass
 
-        tbl = self._qa.get_table(tblname)
+        tbl = self._qa.get_db_native_table(tblname)
         rec = tbl.find_one(query)
         if rec is None:
             raise KeyError(key)

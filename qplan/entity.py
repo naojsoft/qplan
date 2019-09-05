@@ -44,8 +44,8 @@ class PersistentEntity(object):
     def from_rec(self, doc):
         self.__dict__.update(doc)
 
-    def save(self, qa):
-        qa.store_table(self._tblname, self)
+    def save(self, qt):
+        qt.put(self)
 
 
 class Program(PersistentEntity):
@@ -734,6 +734,7 @@ class HSC_Exposure(PersistentEntity):
         self.comment = ''
         # exposure id that links a data frame with this OB
         self.exp_id = ''
+        self.ob_key = ob_key
 
         # environment data at the time of exposure
         # TODO: should this end up being a list of tuples of measurements
@@ -778,20 +779,25 @@ class HSC_Exposure(PersistentEntity):
         return self.exp_id
 
 
-class QueueMgmtRec(PersistentEntity):
+class SavedStateRec(PersistentEntity):
 
     def __init__(self):
-        super(QueueMgmtRec, self).__init__('queue_mgmt')
+        super(SavedStateRec, self).__init__('saved_state')
 
-        self.current_executed = None
+        self.name = 'current'
+        self.info = {}
         self.time_update = None
 
     def from_rec(self, dct):
-        super(QueueMgmtRec, self).from_rec(dct)
+        super(SavedStateRec, self).from_rec(dct)
 
         # See NOTE [1]
         if self.time_update is not None:
             self.time_update = self.time_update.replace(tzinfo=tz.UTC)
+
+    @property
+    def key(self):
+        return dict(name='current')
 
 
 def parse_date_time(dt_str, default_timezone):
