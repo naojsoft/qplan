@@ -359,7 +359,7 @@ class OB(PersistentEntity):
 
     @property
     def key(self):
-        return dict(program=self.program, name=self.name)
+        return dict(program=self.program.proposal, name=self.name)
 
     def to_rec(self):
         doc = super(OB, self).to_rec()
@@ -371,6 +371,7 @@ class OB(PersistentEntity):
         doc['inscfg'] = explode(doc['inscfg'])
         doc['telcfg'] = explode(doc['telcfg'])
         doc['envcfg'] = explode(doc['envcfg'])
+        doc['program'] = self.program.proposal
 
         if ('calib_tgtcfg' in doc and doc['calib_tgtcfg'] is not None and
             not isinstance(doc['calib_tgtcfg'], str)):

@@ -28,12 +28,15 @@ from qplan.plugins import PlBase
 from qplan import filetypes, misc
 
 # Determine queue database address
-# this can be overridden from the environment
-_a = os.environ.get('GEN2_QDB_ADDR', 'localhost')
-_a = _a.split(':')
-if len(_a) < 2:
-    _a.append(29019)
-qdb_addr = (_a[0].strip(), int(_a[1]))
+try:
+    from Gen2.db.db_config import qdb_addr
+except ImportError:
+    # this can be overridden from the environment
+    _a = os.environ.get('GEN2_QDB_ADDR', 'localhost')
+    _a = _a.split(':')
+    if len(_a) < 2:
+        _a.append(29019)
+    qdb_addr = (_a[0].strip(), int(_a[1]))
 
 have_qdb = False
 try:
@@ -446,19 +449,21 @@ class ControlPanel(PlBase.Plugin):
 
         # store programs into db
         try:
+            qt = self.qa.get_table('program')
             for key in sdlr.programs:
                 self.logger.info("adding record for program '%s'" % (str(key)))
-                sdlr.programs[key].save(self.qa)
+                qt.put(sdlr.programs[key])
         except Exception as e:
-            self.logger.error('Unexpected error while updating program table in database: %s' % str(e))
+            self.logger.error('Unexpected error while updating program table in database: %s' % str(e), exc_info=True)
 
         # store OBs into db
         try:
+            qt = self.qa.get_table('ob')
             for ob in sdlr.oblist:
                 self.logger.info("adding record for OB '%s'" % (str(ob)))
-                ob.save(self.qa)
+                qt.put(ob)
         except Exception as e:
-            self.logger.error('Unexpected error while updating ob table in database: %s' % str(e))
+            self.logger.error('Unexpected error while updating ob table in database: %s' % str(e), exc_info=True)
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))

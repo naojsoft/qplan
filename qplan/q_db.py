@@ -94,6 +94,8 @@ class QueueTable(object):
         if self.make_fn is None:
             raise ValueError("Table '{}': no deserialization function to Python object".format(self._tblname))
         pyobj = self.make_fn(rec)
+        if pyobj is None:
+            raise ValueError("Use q_query functions to get '{}' objects".format(self._tblname))
         return pyobj
 
     def put(self, pyobj):
@@ -114,6 +116,7 @@ mdb2py_tbl_map = {
     'exposure': entity.make_exposure,
     'executed_ob': entity.make_executed_ob,
     'program': entity.make_program,
+    'ob': lambda dct: None,
     }
 
 #END
