@@ -39,14 +39,18 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         row, col = index.row(), index.column()
         if self.columnNames[col].lower() == 'proposal':
             proposal = self.dataForTableModel[row][col]
-            if proposal in self.model.ob_qf_dict:
-                # Set the QueueModel.proposalForPropTab attribute so
-                # that the ProposalTab object can get that value and
-                # know which proposal it should display.
-                self.model.setProposalForPropTab(proposal)
-                self.view.gui_do(self.createTab)
-            else:
-             self.logger.info('No info loaded for proposal %s' % proposal)
+            if proposal not in self.model.ob_qf_dict:
+                # We haven't read in this program file. Get the
+                # ControlPanel plugin so that we can call the
+                # load_program method to read in the program file.
+                control_panel_plugin = self.view.get_plugin('cp')
+                control_panel_plugin.load_program(proposal)
+
+            # Set the QueueModel.proposalForPropTab attribute so
+            # that the ProposalTab object can get that value and
+            # know which proposal it should display.
+            self.model.setProposalForPropTab(proposal)
+            self.view.gui_do(self.createTab)
 
     def createTab(self):
         # If we have already created (and possibly closed) this

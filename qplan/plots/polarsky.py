@@ -31,6 +31,7 @@ class AZELPlot(plots.Plot):
             kwargs['axisbg'] = '#d5de9c'
         ax = self.fig.add_axes([0.1, 0.1, 0.8, 0.8], **kwargs)
         self.ax = ax
+
         # don't clear plot when we call plot()
         # TODO: remove--this is supposedly the default and call is deprecated
         #ax.hold(True)
@@ -48,6 +49,7 @@ class AZELPlot(plots.Plot):
         self.redraw()
 
     def map_azalt(self, az, alt):
+        az = az % 360.0
         return (math.radians(az - 180.0), 90.0 - alt)
 
     def orient_plot(self):
@@ -92,6 +94,14 @@ class AZELPlot(plots.Plot):
         canvas = self.fig.canvas
         if canvas is not None:
             canvas.draw()
+
+    def plot_azalt(self, az, alt, name, color, marker='o'):
+        az, alt = self.map_azalt(az, alt)
+        ax = self.ax
+        ax.plot([az], [alt], color=color, marker=marker)
+        ax.annotate(name, (az, alt))
+
+        self.redraw()
 
     def plot_coords(self, coords):
 
@@ -156,7 +166,7 @@ if __name__ == '__main__':
     topw.add_callback('close', lambda w: w.delete())
     topw.show()
 
-    plot.plot_azel([(-210.0, 60.43, "telescope"),])
+    plot.plot_coords([(-210.0, 60.43, "telescope"),])
     tgt3 = entity.StaticTarget(name="Bootes", ra="14:31:45.40",
                                dec="+32:28:38.50")
     site = get_site('subaru')

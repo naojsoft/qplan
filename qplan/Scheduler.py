@@ -162,9 +162,29 @@ class Scheduler(Callback.Callbacks):
 
         return good, bad
 
-    def fill_night_schedule(self, schedule, site, oblist, props):
-        """Fill the schedule `schedule` for observations from site `site` using
+    def fill_schedule(self, schedule, site, oblist, props):
+        """Fill a schedule for observations.
+
+        Fill the schedule `schedule` for observations from site `site` using
         observation blocks from `oblist` with OB<->proposal index `props`.
+
+        Parameters
+        ----------
+        schedule : `~qplan.entity.Schedule` object
+            The schedule to be filled
+
+        site : `~qplan.util.calcpos.Observer` object
+            The object representing the observing site
+
+        oblist : list of `~qplan.entity.OB` objects
+            A list of observation block obejcts that *may* be observable
+
+        props : dict
+            A dict of information about proposals
+
+        Returns
+        -------
+        unused : list of OBs from `oblist` that were NOT scheduled
         """
         # check all available OBs against this slot and remove those
         # that cannot be used in this schedule a priori (e.g. wrong instrument, etc.)
@@ -257,84 +277,9 @@ class Scheduler(Callback.Callbacks):
 
             # account this scheduled time to the program
             props[str(ob.program)].sched_time += acct_time
-            dur = ob.total_time / 60.0
 
-            # a derived ob to setup the overall OB
-            ob_change_sec = 1.0
-            _xx, s_slot, slot = slot.split(slot.start_time, ob_change_sec)
-            new_ob = qsim.setup_ob(ob, ob_change_sec)
-            s_slot.set_ob(new_ob)
-            schedule.insert_slot(s_slot)
-
-            # if a filter change is required, insert a separate OB for that
-            if res.filterchange:
-                _xx, f_slot, slot = slot.split(slot.start_time,
-                                               res.filterchange_sec)
-                new_ob = qsim.filterchange_ob(ob, res.filterchange_sec)
-                f_slot.set_ob(new_ob)
-                schedule.insert_slot(f_slot)
-
-            # if a delay is required, insert a separate OB for that
-            if res.delay_sec > 0.0:
-                _xx, d_slot, slot = slot.split(slot.start_time,
-                                               res.delay_sec)
-                new_ob = qsim.delay_ob(ob, res.delay_sec)
-                d_slot.set_ob(new_ob)
-                schedule.insert_slot(d_slot)
-
-            # is there a calibration target?
-            if ob.calib_tgtcfg is not None:
-                # TODO: add overhead?
-                time_add_sec = res.calibration_sec + res.slew_sec
-                _xx, c_slot, slot = slot.split(slot.start_time,
-                                               time_add_sec)
-                new_ob = qsim.calibration_ob(ob, time_add_sec)
-                c_slot.set_ob(new_ob)
-                schedule.insert_slot(c_slot)
-
-                slew_sec = res.slew2_sec
-
-                # if calibration target is not the same as the science target
-                # then insert a 30 sec additional calibration on the science tgt
-                tgt_cal = ob.calib_tgtcfg
-                obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
-                obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
-                if obj2 != obj1:
-                    time_add_sec = 30.0 + slew_sec
-                    _xx, c_slot, slot = slot.split(slot.start_time,
-                                                   time_add_sec)
-                    new_ob = qsim.calibration30_ob(ob, time_add_sec)
-                    c_slot.set_ob(new_ob)
-                    schedule.insert_slot(c_slot)
-
-                    # we're already at the target
-                    slew_sec = 0.0
-            else:
-                slew_sec = res.slew_sec
-
-            ## # if a long slew is required, insert a separate OB for that
-            ## self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
-            ##     res.slew_sec, res.delta_az, res.delta_alt))
-            ## if res.slew_sec > slew_breakout_limit:
-            ##     _xx, s_slot, slot = slot.split(slot.start_time,
-            ##                                    res.slew_sec)
-            ##     new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
-            ##     s_slot.set_ob(new_ob)
-            ##     schedule.insert_slot(s_slot)
-
-            # this is the actual science target ob
-            self.logger.debug("assigning %s(%.2fm) to %s" % (
-                self._ob_code(ob), dur, slot))
-            _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)
-            a_slot.set_ob(ob)
-            schedule.insert_slot(a_slot)
-
-            # a derived ob to shutdown the overall OB
-            ob_stop_sec = 1.0
-            _xx, q_slot, slot = slot.split(slot.start_time, ob_stop_sec)
-            new_ob = qsim.teardown_ob(ob, ob_stop_sec)
-            q_slot.set_ob(new_ob)
-            schedule.insert_slot(q_slot)
+            # expand slot and OB into schedule
+            self.ob_slot_into_schedule(schedule, slot, res)
 
             # finally, remove this OB from the list
             oblist.remove(ob)
@@ -343,6 +288,87 @@ class Scheduler(Callback.Callbacks):
         oblist.extend(cantuse)
         return oblist
 
+    def ob_slot_into_schedule(self, schedule, slot, res):
+
+        ob = res.ob
+        dur = ob.total_time / 60.0
+
+        # a derived ob to setup the overall OB
+        ob_change_sec = 1.0
+        _xx, s_slot, slot = slot.split(slot.start_time, ob_change_sec)
+        new_ob = qsim.setup_ob(ob, ob_change_sec)
+        s_slot.set_ob(new_ob)
+        schedule.insert_slot(s_slot)
+
+        # if a filter change is required, insert a separate OB for that
+        if res.filterchange:
+            _xx, f_slot, slot = slot.split(slot.start_time,
+                                           res.filterchange_sec)
+            new_ob = qsim.filterchange_ob(ob, res.filterchange_sec)
+            f_slot.set_ob(new_ob)
+            schedule.insert_slot(f_slot)
+
+        # if a delay is required, insert a separate OB for that
+        if res.delay_sec > 0.0:
+            _xx, d_slot, slot = slot.split(slot.start_time,
+                                           res.delay_sec)
+            new_ob = qsim.delay_ob(ob, res.delay_sec)
+            d_slot.set_ob(new_ob)
+            schedule.insert_slot(d_slot)
+
+        # is there a calibration target?
+        if ob.calib_tgtcfg is not None:
+            # TODO: add overhead?
+            time_add_sec = res.calibration_sec + res.slew_sec
+            _xx, c_slot, slot = slot.split(slot.start_time,
+                                           time_add_sec)
+            new_ob = qsim.calibration_ob(ob, time_add_sec)
+            c_slot.set_ob(new_ob)
+            schedule.insert_slot(c_slot)
+
+            slew_sec = res.slew2_sec
+
+            # if calibration target is not the same as the science target
+            # then insert a 30 sec additional calibration on the science tgt
+            tgt_cal = ob.calib_tgtcfg
+            obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
+            obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
+            if obj2 != obj1:
+                time_add_sec = 30.0 + slew_sec
+                _xx, c_slot, slot = slot.split(slot.start_time,
+                                               time_add_sec)
+                new_ob = qsim.calibration30_ob(ob, time_add_sec)
+                c_slot.set_ob(new_ob)
+                schedule.insert_slot(c_slot)
+
+                # we're already at the target
+                slew_sec = 0.0
+        else:
+            slew_sec = res.slew_sec
+
+        ## # if a long slew is required, insert a separate OB for that
+        ## self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
+        ##     res.slew_sec, res.delta_az, res.delta_alt))
+        ## if res.slew_sec > slew_breakout_limit:
+        ##     _xx, s_slot, slot = slot.split(slot.start_time,
+        ##                                    res.slew_sec)
+        ##     new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
+        ##     s_slot.set_ob(new_ob)
+        ##     schedule.insert_slot(s_slot)
+
+        # this is the actual science target ob
+        self.logger.debug("assigning %s(%.2fm) to %s" % (
+            self._ob_code(ob), dur, slot))
+        _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)
+        a_slot.set_ob(ob)
+        schedule.insert_slot(a_slot)
+
+        # a derived ob to shutdown the overall OB
+        ob_stop_sec = 1.0
+        _xx, q_slot, slot = slot.split(slot.start_time, ob_stop_sec)
+        new_ob = qsim.teardown_ob(ob, ob_stop_sec)
+        q_slot.set_ob(new_ob)
+        schedule.insert_slot(q_slot)
 
     def schedule_all(self):
 
@@ -450,9 +476,6 @@ class Scheduler(Callback.Callbacks):
             delta = (stop_time - start_time).total_seconds()
             total_avail += delta / 60.0
 
-            nslot = entity.Slot(start_time, delta, data=schedule.data)
-            slots = [ nslot ]
-
             t = start_time.astimezone(self.timezone)
             ndate = t.strftime("%Y-%m-%d")
             #outfile = os.path.join(output_dir, ndate + '.txt')
@@ -465,7 +488,7 @@ class Scheduler(Callback.Callbacks):
             this_nights_obs = sorted(unscheduled_obs, key=str)
 
             # optomize and rank schedules
-            self.fill_night_schedule(schedule, site, this_nights_obs, props)
+            self.fill_schedule(schedule, site, this_nights_obs, props)
 
             res = qsim.eval_schedule(schedule)
 
@@ -562,9 +585,100 @@ class Scheduler(Callback.Callbacks):
         self.logger.info(self.summary_report)
 
 
-    def select_schedule(self, schedule):
-        self.selected_schedule = schedule
-        self.make_callback('schedule-selected', schedule)
+    def find_executable_obs(self, slot):
 
+        t1 = time.time()
+
+        # check whether there are some OBs that cannot be scheduled
+        self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
+        obmap = qsim.obs_to_slots(self.logger, [slot], self.site,
+                                  self.oblist)
+
+        self.logger.debug('OB MAP')
+        for key in obmap:
+            self.logger.debug("-- %s --" % key)
+            self.logger.debug(str(obmap[key]))
+            self.logger.debug("--------")
+
+        schedulable = set([])
+        for obs in obmap.values():
+            schedulable = schedulable.union(set(obs))
+        unschedulable = set(self.oblist) - schedulable
+        unschedulable = list(unschedulable)
+        self.logger.info("there are %d unschedulable OBs" % (len(unschedulable)))
+
+        oblist = list(schedulable)
+
+        #length = (slot.stop_time - slot.start_time).total_seconds()
+        schedule = entity.Schedule(slot.start_time, slot.stop_time,
+                                   data=slot.data)
+        schedule.insert_slot(slot)
+        # check all available OBs against this slot and remove those
+        # that cannot be used in this schedule a priori (e.g. wrong instrument, etc.)
+        self.logger.info("checking invariants in slot")
+        usable, cantuse, results = qsim.check_schedule_invariant(self.site,
+                                                                 schedule, oblist)
+        self.logger.info("{} OBs excluded by invariants".format(len(cantuse)))
+
+        # Don't think we need this step because we already checked for
+        # visibility in the obs_to_slots() above!
+        ## self.logger.info("checking visibility of targets in slot")
+        ## usable, notvisible, obmap = qsim.check_night_visibility(self.site,
+        ##                                                         schedule, usable)
+        ## self.logger.info("{} OBs not visible in this slot".format(len(notvisible)))
+
+        self.logger.info("evaluating slot for {} viable OBs".format(len(usable)))
+        good, bad = self.eval_slot(None, slot, self.site, usable)
+
+        self.logger.info("total time: %.4f sec" % (time.time() - t1))
+        return good, bad
+
+
+    ## def select_schedule(self, schedule):
+    ##     self.selected_schedule = schedule
+    ##     self.make_callback('schedule-selected', schedule)
+
+    def clear_schedules(self):
+        self.schedules = []
+        self.make_callback('schedule-cleared')
+
+    def make_ob_schedule(self, schedule, oblist):
+        self.clear_schedules()
+
+        start_time = schedule.start_time
+        t = start_time.astimezone(self.timezone)
+        ndate = t.strftime("%Y-%m-%d")
+
+        self.logger.info("preparing schedule from OBs")
+
+        ## this_nights_obs = unscheduled_obs
+        # sort to force deterministic scheduling if the same
+        # files are reloaded
+        this_nights_obs = sorted(oblist, key=str)
+
+        # optomize and rank schedules
+        self.fill_schedule(schedule, self.site, this_nights_obs, props)
+
+        self.schedules.append(schedule)
+        self.make_callback('schedule-added', schedule)
+
+    def slot_to_schedule(self, slot, info):
+        self.schedules = []
+        self.make_callback('schedule-cleared')
+
+        schedule = entity.Schedule(slot.start_time, slot.stop_time,
+                                   data=slot.data)
+
+        try:
+            self.ob_slot_into_schedule(schedule, slot, info)
+
+        except Exception as e:
+            self.logger.error("Error filling slot: {}".format(e), exc_info=True)
+            return
+
+        self.schedules.append(schedule)
+        self.make_callback('schedule-added', schedule)
+
+        return schedule
 
 # END

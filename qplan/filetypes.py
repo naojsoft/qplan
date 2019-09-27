@@ -5,12 +5,14 @@
 # Eric Jeschke (eric@naoj.org)
 #
 import os
-import pandas as pd
-import numpy as np
 import csv
 from io import BytesIO, StringIO
 import datetime
 import re
+
+import pandas as pd
+import numpy as np
+from pandas.plotting import register_matplotlib_converters
 
 from ginga.misc import Bunch
 
@@ -2044,5 +2046,8 @@ class ProgramFile(QueueFile):
                 self.error_count += 1
 
         return self.error_count - begin_error_count
+
+
+register_matplotlib_converters()
 
 #END

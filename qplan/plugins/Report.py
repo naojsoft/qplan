@@ -29,8 +29,7 @@ class Report(PlBase.Plugin):
 
         self.model.add_callback('schedule-selected', self.show_schedule_cb)
 
-        self.captions = (('Make OPE', 'button'),
-                    )
+        self.w = Bunch.Bunch()
         self.gui_up = False
 
     def build_gui(self, container):
@@ -45,19 +44,27 @@ class Report(PlBase.Plugin):
         tw.set_font(self.font)
         self.tw = tw
 
-        vbox.add_widget(self.tw, stretch=1)
-
-        container.add_widget(vbox, stretch=1)
+        vbox.add_widget(self.tw, stretch=4)
 
         hbox = Widgets.HBox()
         btn = Widgets.Button('Make OPE')
-        hbox.add_widget(btn)
-        hbox.add_widget(Widgets.Label(''), stretch=1)
-
         btn.add_callback('activated', self.make_ope_cb)
+        btn.set_tooltip("Make and examine an OPE file for this schedule")
+        btn.set_enabled(False)
+        self.w.btn_make_ope = btn
+        hbox.add_widget(btn)
+        btn = Widgets.Button('Exec integgui2')
+        btn.add_callback('activated', self.exec_integgui2_cb)
+        btn.set_tooltip("Make an OPE file and send/open in integgui2")
+        btn.set_enabled(False)
+        self.w.btn_exec_integgui2 = btn
+        hbox.add_widget(btn)
 
-        self.vbox.add_widget(hbox, stretch=0)
+        hbox.add_widget(Widgets.Label(''), stretch=1)
+        vbox.add_widget(Widgets.Label(''), stretch=1)
+        vbox.add_widget(hbox, stretch=0)
 
+        container.add_widget(vbox, stretch=1)
         self.gui_up = True
 
     def make_ope_cb(self, w):
@@ -113,7 +120,7 @@ class Report(PlBase.Plugin):
 
     def make_ope(self):
 
-        oblist = self._get_selected_obs()
+        oblist = self._get_obs(use_selection=False)
         targets = self._get_targets(oblist)
 
         try:
@@ -155,11 +162,35 @@ class Report(PlBase.Plugin):
         return True
 
 
+    def exec_integgui2_cb(self, w):
+        try:
+            ope_buf = self.make_ope()
+
+            ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
+                                                time.localtime()) + ".ope"
+
+            output_dir = self.controller.output_dir
+            if output_dir is None:
+                output_dir = os.path.join(os.environ['HOME'], "Procedure",
+                                          "Queue")
+            filepath = os.path.join(output_dir, ope_name)
+
+            with open(filepath, 'w') as out_f:
+                out_f.write(ope_buf)
+
+            # Notify integgui2
+            # TODO
+
+        except Exception as e:
+            self.logger.error("Error creating OPE file: %s" % (str(e)))
+
     def set_text(self, text):
         # TODO: figure out why we have to keep setting the font
         # after the text is cleared
         self.tw.set_font(self.font)
         self.tw.set_text(str(text))
+        self.w.btn_make_ope.set_enabled(True)
+        self.w.btn_exec_integgui2.set_enabled(True)
 
     def show_schedule_cb(self, qmodel, schedule):
         try:
@@ -231,9 +262,13 @@ class Report(PlBase.Plugin):
 
     def clear_schedule_cb(self, sdlr):
         self.cur_schedule = None
+        def _no_schedule():
+            self.tw.set_text('')
+            self.w.btn_make_ope.set_enabled(False)
+            self.w.btn_exec_integgui2.set_enabled(False)
         if self.gui_up:
             # NOTE: this needs to be a gui_call!
-            self.view.gui_call(self.tw.set_text, '')
+            self.view.gui_call(_no_schedule)
         return True
 
     def get_ob(self, obkey):
@@ -244,35 +279,38 @@ class Report(PlBase.Plugin):
         print(("%s not found!" % obkey))
         raise KeyError(obkey)
 
-    def _get_selected_obs(self):
+    def _get_obs(self, use_selection=False):
 
         buf = self.tw.get_text()
-        w = self.tw.get_widget()
         try:
-            cursor = w.textCursor()
-            start, end = cursor.selectionStart(), cursor.selectionEnd()
-
-            # back up to beginning of line if selection doesn't
-            # start from a line
-            if (start > 0) and (buf[start-1] != '\n'):
-                while buf[start-1] != '\n':
-                    start -= 1
-                    if start == 0:
-                        break
-
-            # find the end of line if selection doesn't
-            # end on a line
-            length, end = len(buf), end - 1
-            if end >= length:
-                end = length
+            if not use_selection:
+                selected = buf
             else:
-                while buf[end] != '\n':
-                    end += 1
-                    if end >= length:
-                        end = length
-                        break
+                w = self.tw.get_widget()
+                cursor = w.textCursor()
+                start, end = cursor.selectionStart(), cursor.selectionEnd()
 
-            selected = buf[start:end]
+                # back up to beginning of line if selection doesn't
+                # start from a line
+                if (start > 0) and (buf[start-1] != '\n'):
+                    while buf[start-1] != '\n':
+                        start -= 1
+                        if start == 0:
+                            break
+
+                # find the end of line if selection doesn't
+                # end on a line
+                length, end = len(buf), end - 1
+                if end >= length:
+                    end = length
+                else:
+                    while buf[end] != '\n':
+                        end += 1
+                        if end >= length:
+                            end = length
+                            break
+
+                selected = buf[start:end]
 
             # get the selected OBs
             oblist = []

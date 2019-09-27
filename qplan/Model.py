@@ -97,7 +97,7 @@ class QueueModel(Callback.Callbacks):
         # method. That method loads a ProposalTab widget for the
         # proposal on which the user double-clicked. This method sets
         # the proposalForTab attribute so that the PropsalTab can
-        # figure out which proposal it is suposed to display.
+        # figure out which proposal it is supposed to display.
         self.proposalForPropTab = proposal
 
     def set_schedule_qf(self, schedule_qf):
@@ -116,14 +116,6 @@ class QueueModel(Callback.Callbacks):
         self.schedule_qf.update(row, colHeader, value, parse_flag)
         #self.set_schedule_info(self.schedule.schedule_info)
         self.make_callback('schedule-updated')
-
-    ## def schedule_all(self):
-
-    ##     #self.make_callback('schedule-cleared')
-
-    ##     self.sdlr.schedule_all()
-
-    ##     #self.make_callback('schedule-completed', completed, uncompleted, self.schedules)
 
     def select_schedule(self, schedule):
         self.selected_schedule = schedule

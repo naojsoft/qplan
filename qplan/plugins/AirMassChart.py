@@ -125,8 +125,8 @@ class AirMassChart(PlBase.Plugin):
         self.add_schedule(schedule)
 
     def clear_schedule_cb(self, qscheduler):
-        #self.view.gui_call(self.plot.clear)
-        #self.logger.info("cleared plot")
+        self.view.gui_call(self.plot.clear)
+        self.logger.info("cleared plot")
         return True
 
 

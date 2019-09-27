@@ -511,7 +511,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
     if ob.envcfg.lower_time_limit is not None:
         t_start = max(t_start, ob.envcfg.lower_time_limit)
 
-    delay_sec = (t_start - start_time).total_seconds()
+    delay_sec = max(0.0, (t_start - start_time).total_seconds())
 
     stop_time = t_start + timedelta(0, ob.total_time)
 

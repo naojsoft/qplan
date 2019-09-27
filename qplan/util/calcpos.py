@@ -166,7 +166,7 @@ class Observer(object):
             except ValueError as e:
                 continue
 
-        raise e
+        raise ValueError("Format must be one of: {}".str(formats))
 
     ## def _observable(self, target, time_start, time_stop,
     ##                el_min_deg, el_max_deg,

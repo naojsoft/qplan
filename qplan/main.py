@@ -56,12 +56,14 @@ default_layout = ['seq', {},
 plugins = [
     Bunch(name='slewchart', module='SlewChart', klass='SlewChart',
           ptype='global', tab='Slew Chart', ws='sub2', start=True),
+    Bunch(name='report', module='Report', klass='Report',
+          ptype='global', tab='Report', ws='sub1', start=True),
     Bunch(name='airmasschart', module='AirMassChart', klass='AirMassChart',
           ptype='global', tab='Airmass Chart', ws='sub1', start=True),
     Bunch(name='schedule', module='Schedule', klass='Schedule',
           ptype='global', tab='Schedule', ws='left', start=True),
-    Bunch(name='report', module='Report', klass='Report',
-          ptype='global', tab='Report', ws='report', start=True),
+    Bunch(name='builder', module='Builder', klass='Builder',
+          ptype='global', tab='Builder', ws='report', start=True),
     Bunch(name='logger', module='Logger', klass='Logger',
           ptype='global', tab='Log', ws='report', start=False),
     Bunch(name='cp', module='ControlPanel', klass='ControlPanel',
@@ -174,7 +176,7 @@ class QueuePlanner(object):
                                     preferences, ev_quit, model)
 
         # Get settings folder
-        ## if os.environ.has_key('CONFHOME'):
+        ## if 'CONFHOME' in os.environ:
         ##     basedir = os.path.join(os.environ['CONFHOME'], svcname)
         ## else:
         basedir = os.path.join(os.environ['HOME'], '.' + svcname)

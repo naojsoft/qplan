@@ -39,6 +39,7 @@ class AirMassPlot(plots.Plot):
     def clear(self):
         #self.ax.cla()
         self.fig.clf()
+        self.redraw()
 
     def plot_airmass(self, site, tgt_data, tz, plot_moon_distance=False,
                       show_target_legend=False):
@@ -93,7 +94,8 @@ class AirMassPlot(plots.Plot):
             #ax1.fill(xs, ys, facecolor=self.colors[i], alpha=0.2)
             legend.extend(lg)
 
-            targets.append("{0} {1} {2}".format(info.target.name, info.target.ra,
+            targets.append("{0} {1} {2}".format(info.target.name,
+                                                info.target.ra,
                                                 info.target.dec))
 
             if plot_moon_distance:
@@ -160,10 +162,12 @@ class AirMassPlot(plots.Plot):
         # drawing the line of middle of the night
         self._middle_night(ax1, site, localdate)
 
+        self.redraw()
+
+    def redraw(self):
         canvas = self.fig.canvas
         if canvas is not None:
             canvas.draw()
-
 
     def plot_altitude(self, site, tgt_data, tz, plot_moon_distance=False,
                       show_target_legend=False):

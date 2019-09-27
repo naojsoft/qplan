@@ -8,6 +8,7 @@
 import sys, traceback
 import os
 import datetime
+import dateutil
 
 # ginga imports
 from ginga.misc.Bunch import Bunch
@@ -25,18 +26,7 @@ except ImportError:
 
 # local imports
 from qplan.plugins import PlBase
-from qplan import filetypes, misc
-
-# Determine queue database address
-try:
-    from Gen2.db.db_config import qdb_addr
-except ImportError:
-    # this can be overridden from the environment
-    _a = os.environ.get('GEN2_QDB_ADDR', 'localhost')
-    _a = _a.split(':')
-    if len(_a) < 2:
-        _a.append(29019)
-    qdb_addr = (_a[0].strip(), int(_a[1]))
+from qplan import filetypes, misc, entity
 
 have_qdb = False
 try:
@@ -45,11 +35,6 @@ try:
 
 except ImportError:
     pass
-
-# credentials to access Gen2 status via g2cam StatusClient
-gen2_host = os.environ.get('GEN2_STATUS_HOST', 'localhost')
-gen2_user = os.environ.get('GEN2_STATUS_USER', 'none')
-gen2_pass = os.environ.get('GEN2_STATUS_PASS', 'none')
 
 
 class ControlPanel(PlBase.Plugin):
@@ -68,9 +53,19 @@ class ControlPanel(PlBase.Plugin):
         self.inscfg_qf_dict = None
         self.telcfg_qf_dict = None
 
+        self.ob_info = {}
+        self.ob_list = []
+
         self.qdb = None
         self.qa = None
         self.qq = None
+
+
+        prefs = self.controller.get_preferences()
+        self.settings = prefs.create_category('plugin_ControlPanel')
+        self.settings.add_defaults(qdb_host='localhost',
+                                   qdb_port=None)
+        self.settings.load(onError='silent')
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
                                   klass='WeightsTab', ptype='global',
@@ -87,6 +82,12 @@ class ControlPanel(PlBase.Plugin):
 
 
     def connect_qdb(self):
+        qdb_host = self.settings.get('qdb_host')
+        qdb_port = self.settings.get('qdb_port')
+        if qdb_port is None:
+            raise ValueError("No value for `qdb_port` in settings")
+        qdb_addr = (qdb_host, qdb_port)
+
         # Set up Queue database access
         self.qdb = q_db.QueueDatabase(self.logger, qdb_addr)
         self.qa = q_db.QueueAdapter(self.qdb)
@@ -105,7 +106,6 @@ class ControlPanel(PlBase.Plugin):
 
         captions = (('Inputs:', 'label', 'Input dir', 'entry'),
                     ('Load Info', 'button'),
-                    ('Update Current Conditions', 'button'),
                     ('Update Database from Files', 'button'),
                     ('Build Schedule', 'button', 'Use QDB', 'checkbutton'),
                     ("Remove scheduled OBs", 'checkbutton'))
@@ -117,7 +117,6 @@ class ControlPanel(PlBase.Plugin):
         b.input_dir.set_text(self.controller.input_dir)
         b.load_info.set_tooltip("Load data from phase 2 files")
         b.load_info.add_callback('activated', self.initialize_model_cb)
-        b.update_current_conditions.set_tooltip("Update time, current pointing, env conditions and active filter")
         b.update_database_from_files.set_tooltip("Update Gen2 database from changes to phase 2 files")
         b.remove_scheduled_obs.set_state(sdlr.remove_scheduled_obs)
         def toggle_sdled_obs(w, tf):
@@ -126,12 +125,9 @@ class ControlPanel(PlBase.Plugin):
         b.remove_scheduled_obs.add_callback('activated', toggle_sdled_obs)
 
         if have_gen2:
-            b.update_current_conditions.add_callback('activated',
-                                                 self.update_current_conditions_cb)
             b.update_database_from_files.add_callback('activated',
                                                       self.update_db_cb)
         else:
-            b.update_current_conditions.set_enabled(False)
             b.update_database_from_files.set_enabled(False)
 
         b.build_schedule.set_tooltip("Schedule all periods defined in schedule tab")
@@ -140,6 +136,10 @@ class ControlPanel(PlBase.Plugin):
         b.use_qdb.set_tooltip("Use Gen2 queue database when scheduling")
         if not have_qdb:
             b.use_qdb.set_enabled(False)
+        else:
+            qdb_port = self.settings.get('qdb_port')
+            if qdb_port is not None:
+                b.use_qdb.set_state(True)
 
         fr.set_widget(w)
         vbox.add_widget(fr, stretch=0)
@@ -219,21 +219,10 @@ class ControlPanel(PlBase.Plugin):
         self.envcfg_qf_dict = {}
         self.inscfg_qf_dict = {}
         self.telcfg_qf_dict = {}
-        self.oblist_info = []
 
-        propnames = list(self.programs_qf.programs_info.keys())
-        propnames.sort()
+        self.ob_info = {}
+        self.ob_list = []
 
-        for propname in propnames:
-            pgm_info = self.programs_qf.programs_info[propname]
-
-            if pgm_info.skip:
-                self.logger.info('skip flag for program %s is set--not loading this program' % (
-                    propname))
-                continue
-
-            # Just auto-load programs on-demand
-            #self.load_program(propname)
 
     def load_program(self, propname):
         self.logger.info("attempting to read phase 2 info for '%s'" % (
@@ -266,7 +255,6 @@ class ControlPanel(PlBase.Plugin):
 
             # Finally, set OBs
             self.ob_qf_dict[propname] = pf.cfg['ob']
-            #self.oblist_info.extend(self.oblist[propname].obs_info)
             self.model.set_ob_qf_dict(self.ob_qf_dict)
 
             return True
@@ -289,6 +277,10 @@ class ControlPanel(PlBase.Plugin):
     def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):
         sdlr = self.model.get_scheduler()
         try:
+            if use_db:
+                if self.qdb is None:
+                    self.connect_qdb()
+
             sdlr.set_weights(self.weights_qf.weights)
             sdlr.set_schedule_info(self.schedule_qf.schedule_info)
             pgms = self.programs_qf.programs_info
@@ -297,9 +289,9 @@ class ControlPanel(PlBase.Plugin):
 
             # TODO: this maybe should be done in the Model
             ob_keys = set([])
+            ob_dict = {}
             propnames = list(self.programs_qf.programs_info.keys())
             okprops = []
-            ob_dict = {}
             # Note: if the ignore_pgm_skip_flag is set to True, then
             # we don't pay attention to the "skip" flag in the
             # Programs sheet and thus consider all OB's in all
@@ -310,31 +302,44 @@ class ControlPanel(PlBase.Plugin):
                     self.logger.info('skip flag for program %s is set - skipping all OB in this program' % propname)
                     continue
 
-                if not propname in self.ob_qf_dict:
-                    if not self.load_program(propname):
-                        continue
+                if propname not in self.ob_info:
+                    # If we haven't read these OBs in already, read them now
+                    if use_db:
+                        oblist = list(self.qq.get_obs_by_proposal(propname))
+
+                    else:
+                        if propname not in self.ob_qf_dict:
+                            if not self.load_program(propname):
+                                continue
+                        oblist = self.ob_qf_dict[propname].obs_info
+
+                    # cache the information about the OBs so we don't have
+                    # to reconstruct it over and over
+                    _key_lst = [(propname, ob.name) for ob in oblist]
+                    _key_dct = dict(zip(_key_lst, oblist))
+
+                    info = Bunch(oblist=oblist, obkeys=_key_lst, obdict=_key_dct)
+                    self.ob_info[propname] = info
+
+                info = self.ob_info[propname]
 
                 okprops.append(propname)
 
-                # get all OB keys for this program
-                for ob in self.ob_qf_dict[propname].obs_info:
-                    key = (propname, ob.name)
-                    ob_keys.add(key)
-                    ob_dict[key] = ob
+                ob_keys = ob_keys.union(set(info.obkeys))
+                ob_dict.update(info.obdict)
 
             self.logger.info("%s OBs after excluding skipped programs." % (
                 len(ob_keys)))
 
+            do_not_execute = set([])
+            props = {}
+
             # Remove keys for OBs that are already executed
             if use_db:
-                self.connect_qdb()
-
                 self.logger.info("getting do not execute OB info")
                 dne_obs, props = self.qq.get_do_not_execute_ob_info(okprops)
 
                 do_not_execute = set(dne_obs)
-
-                sdlr.set_apriori_program_info(props)
 
             elif self.model.completed_obs is not None:
                 do_not_execute = set(list(self.model.completed_obs.keys()))
@@ -352,7 +357,7 @@ class ControlPanel(PlBase.Plugin):
                     bnch.sched_time += info['acct_time']
                     bnch.obcount += 1
 
-                sdlr.set_apriori_program_info(props)
+            sdlr.set_apriori_program_info(props)
 
             ob_keys -= do_not_execute
             self.logger.info("%s OBs after removing executed OBs." % (
@@ -363,75 +368,15 @@ class ControlPanel(PlBase.Plugin):
             ob_keys.sort()
 
             # Now turn the keys back into actual OB list
-            oblist_info = []
-            for key in ob_keys:
-                oblist_info.append(ob_dict[key])
-
-            self.oblist_info = oblist_info
+            sdlr_oblist = [ob_dict[key] for key in ob_keys]
 
             # TODO: only needed if we ADD or REMOVE programs
-            sdlr.set_oblist_info(self.oblist_info)
+            sdlr.set_oblist_info(sdlr_oblist)
 
         except Exception as e:
             self.logger.error("Error storing into scheduler: %s" % (str(e)))
 
         self.logger.info("scheduler initialized")
-
-    def update_current_conditions_cb(self, widget):
-        # Fetch current filter, Az, El from Gen2 status service and
-        # update first row in schedule sheet. Also, update start time.
-        self.logger.debug('update_current_conditions_cb')
-        try:
-            stobj = StatusClient(gen2_host,
-                                 username=gen2_user, password=gen2_pass)
-            stobj.reconnect()
-
-            result = {'FITS.HSC.FILTER': 0, 'TSCS.AZ': 0, 'TSCS.EL': 0}
-            stobj.fetch(result)
-        except Exception as e:
-            self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
-            return
-
-        self.logger.info('From Gen2 current HSC filter %s Az %f El %f' % (result['FITS.HSC.FILTER'], result['TSCS.AZ'], result['TSCS.EL']))
-        if self.schedule_qf is None:
-            self.logger.error('Unexpected error in update_current_conditions_cb: schedule_qf is None')
-            return
-
-        self.logger.debug('Before update, schedule_qf.rows:%s' % self.schedule_qf.rows)
-        rownum = 0 # Update only the first row
-
-        cur_filter = result['FITS.HSC.FILTER']
-        if cur_filter not in (STATNONE, STATERROR, '0'):
-            # Filter name special cases
-            if 'HSC-' in cur_filter:
-                cur_filter = cur_filter.replace('HSC-', '')
-            if cur_filter == 'Y':
-                cur_filter = 'y'
-            if 'NB0' in cur_filter:
-                cur_filter = cur_filter.replace('NB0', 'NB')
-            if 'IB0' in cur_filter:
-                cur_filter = cur_filter.replace('IB0', 'IB')
-            # Set all 'NB' and 'IB' filters to lower-case
-            if ('NB' in cur_filter) or ('IB' in cur_filter):
-                cur_filter = cur_filter.lower()
-            self.logger.info('Current filter %s' % (cur_filter))
-            self.schedule_qf.update(rownum, 'Cur Filter', cur_filter, False)
-
-        if result['TSCS.AZ'] not in (STATNONE, STATERROR):
-            cur_az = '%8.2f' % result['TSCS.AZ']
-            cur_az = cur_az.strip()
-            self.schedule_qf.update(rownum, 'Cur Az', cur_az, False)
-
-        if result['TSCS.EL'] not in (STATNONE, STATERROR):
-            cur_el = '%8.2f' % result['TSCS.EL']
-            cur_el = cur_el.strip()
-            self.schedule_qf.update(rownum, 'Cur El', cur_el, False)
-
-        now = datetime.datetime.now().strftime('%H:%M:%S')
-        self.schedule_qf.update(rownum, 'start time', now, True)
-
-        self.logger.debug('After update, schedule_qf.rows: %s' % self.schedule_qf.rows)
-        self.model.set_schedule_qf(self.schedule_qf)
 
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI

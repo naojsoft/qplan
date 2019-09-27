@@ -52,6 +52,9 @@ class Controller(Callback.Callbacks):
     def get_model(self):
         return self.model
 
+    def get_preferences(self):
+        return self.prefs
+
     def set_loglevel(self, level):
         handlers = self.logger.handlers
         for hdlr in handlers:
