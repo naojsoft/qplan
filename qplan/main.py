@@ -176,10 +176,10 @@ class QueuePlanner(object):
                                     preferences, ev_quit, model)
 
         # Get settings folder
-        ## if 'CONFHOME' in os.environ:
-        ##     basedir = os.path.join(os.environ['CONFHOME'], svcname)
-        ## else:
-        basedir = os.path.join(os.environ['HOME'], '.' + svcname)
+        if 'CONFHOME' in os.environ:
+            basedir = os.path.join(os.environ['CONFHOME'], svcname)
+        else:
+            basedir = os.path.join(os.environ['HOME'], '.' + svcname)
         if not os.path.exists(basedir):
             os.mkdir(basedir)
         prefs = Settings.Preferences(basefolder=basedir, logger=logger)

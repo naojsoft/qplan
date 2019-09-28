@@ -15,6 +15,15 @@ from ginga.misc import Bunch
 from qplan import qsim
 from qplan.plugins import PlBase, HSC
 
+# Gen2 import
+have_gen2 = False
+try:
+    from g2base.remoteObjects import remoteObjects as ro
+    have_gen2 = True
+
+except ImportError:
+    pass
+
 class Report(PlBase.Plugin):
 
     def __init__(self, controller):
@@ -30,6 +39,8 @@ class Report(PlBase.Plugin):
         self.model.add_callback('schedule-selected', self.show_schedule_cb)
 
         self.w = Bunch.Bunch()
+        self.svcname = 'integgui0'
+        self.ig = None
         self.gui_up = False
 
     def build_gui(self, container):
@@ -67,6 +78,11 @@ class Report(PlBase.Plugin):
         container.add_widget(vbox, stretch=1)
         self.gui_up = True
 
+    def start(self):
+        if have_gen2:
+            ro.init()
+            self.ig = ro.remoteObjectProxy(self.svcname)
+
     def make_ope_cb(self, w):
 
         try:
@@ -85,9 +101,8 @@ class Report(PlBase.Plugin):
             hbox.add_widget(btn, stretch=0)
             save_as = Widgets.Button('Save As')
             hbox.add_widget(save_as, stretch=0)
-            ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
-                                                time.localtime()) + ".ope"
 
+            ope_name = self.get_ope_name()
             output_dir = self.controller.output_dir
             if output_dir is None:
                 output_dir = os.path.join(os.environ['HOME'], "Procedure",
@@ -117,6 +132,14 @@ class Report(PlBase.Plugin):
 
         return True
 
+    def get_ope_name(self):
+        ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
+                                            time.localtime()) + ".ope"
+        name = self.cur_schedule.data.get('ope_name', None)
+        if name is not None:
+            ope_name = name + ".ope"
+
+        return ope_name
 
     def make_ope(self):
 
@@ -166,9 +189,7 @@ class Report(PlBase.Plugin):
         try:
             ope_buf = self.make_ope()
 
-            ope_name = "Queue-" + time.strftime("%Y%m%d-%H%M%S",
-                                                time.localtime()) + ".ope"
-
+            ope_name = self.get_ope_name()
             output_dir = self.controller.output_dir
             if output_dir is None:
                 output_dir = os.path.join(os.environ['HOME'], "Procedure",
@@ -178,8 +199,13 @@ class Report(PlBase.Plugin):
             with open(filepath, 'w') as out_f:
                 out_f.write(ope_buf)
 
+            self.logger.info('Report wrote OPE file to {}'.format(filepath))
+
             # Notify integgui2
-            # TODO
+            if self.ig is not None:
+                self.ig.load_page(filepath)
+            else:
+                self.logger.info('Gen2 not loaded - cannot send OPE file to integgui')
 
         except Exception as e:
             self.logger.error("Error creating OPE file: %s" % (str(e)))
@@ -190,7 +216,8 @@ class Report(PlBase.Plugin):
         self.tw.set_font(self.font)
         self.tw.set_text(str(text))
         self.w.btn_make_ope.set_enabled(True)
-        self.w.btn_exec_integgui2.set_enabled(True)
+        if have_gen2:
+            self.w.btn_exec_integgui2.set_enabled(True)
 
     def show_schedule_cb(self, qmodel, schedule):
         try:

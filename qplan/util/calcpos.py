@@ -7,6 +7,7 @@ import math
 import numpy as np
 from datetime import datetime, timedelta
 from dateutil import tz
+import dateutil.parser
 
 # right now we just have pyephem...
 import ephem
@@ -154,19 +155,9 @@ class Observer(object):
         if timezone is None:
             timezone = self.tz_local
 
-        formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d %H',
-                   '%Y-%m-%d']
-        for fmt in formats:
-            try:
-                date = datetime.strptime(date_str, fmt)
-                # Localize to the requested timezone
-                date = date.replace(tzinfo=timezone)
-                return date
-
-            except ValueError as e:
-                continue
-
-        raise ValueError("Format must be one of: {}".str(formats))
+        dt = dateutil.parser.parse(date_str)
+        date = dt.replace(tzinfo=timezone)
+        return date
 
     ## def _observable(self, target, time_start, time_stop,
     ##                el_min_deg, el_max_deg,

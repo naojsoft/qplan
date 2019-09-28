@@ -90,6 +90,8 @@ class QueueTable(object):
             rec = self.tbl.find_one(kwargs)
         except Exception as e:
             raise KeyError(str(kwargs))
+        if rec is None:
+            raise KeyError(str(kwargs))
 
         if self.make_fn is None:
             raise ValueError("Table '{}': no deserialization function to Python object".format(self._tblname))
@@ -116,6 +118,7 @@ mdb2py_tbl_map = {
     'exposure': entity.make_exposure,
     'executed_ob': entity.make_executed_ob,
     'program': entity.make_program,
+    'saved_state': entity.make_saved_state,
     'ob': lambda dct: None,
     }
 

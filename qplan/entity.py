@@ -840,6 +840,11 @@ def make_exposure(dct):
     exp.from_rec(dct)
     return exp
 
+def make_saved_state(dct):
+    rec = SavedStateRec()
+    rec.from_rec(dct)
+    return rec
+
 def make_ob(dct, program):
 
     telcfg = TelescopeConfiguration()

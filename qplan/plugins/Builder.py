@@ -52,66 +52,84 @@ class Builder(PlBase.Plugin):
         gr = Widgets.GridBox()
         gr.set_column_spacing(4)
 
+        i = 0
+        ## self.w.observer = Widgets.TextEntry()
+        ## self.w.observer.set_length(12)
+        ## gr.add_widget(Widgets.Label('Observer'), 0, i)
+        ## gr.add_widget(self.w.observer, 1, i)
+        ## self.w.observer.set_tooltip("Name of observer doing this observation")
+        ## self.w.observer.set_text("Nobody")
+
+        ## i += 1
         self.w.date = Widgets.TextEntry()
         self.w.date.set_length(12)
-        gr.add_widget(Widgets.Label('Local date'), 0, 0)
-        gr.add_widget(self.w.date, 1, 0)
+        gr.add_widget(Widgets.Label('Local date'), 0, i)
+        gr.add_widget(self.w.date, 1, i)
         self.w.date.set_tooltip("Local date at beginning of interval")
 
+        i += 1
         self.w.start_time = Widgets.TextEntry()
         self.w.start_time.set_length(8)
-        gr.add_widget(Widgets.Label('Start Time'), 0, 1)
-        gr.add_widget(self.w.start_time, 1, 1)
+        gr.add_widget(Widgets.Label('Start Time'), 0, i)
+        gr.add_widget(self.w.start_time, 1, i)
         self.w.start_time.set_tooltip("Local time for interval")
 
+        i += 1
         self.w.len_time = Widgets.TextEntry()
         self.w.len_time.set_length(8)
-        gr.add_widget(Widgets.Label('Length (min)'), 0, 2)
-        gr.add_widget(self.w.len_time, 1, 2)
+        gr.add_widget(Widgets.Label('Length (min)'), 0, i)
+        gr.add_widget(self.w.len_time, 1, i)
         self.w.len_time.set_text('70')
         self.w.len_time.set_tooltip("Length of interval in MINUTES")
 
+        i += 1
         self.w.az = Widgets.TextEntry()
         self.w.az.set_length(8)
-        gr.add_widget(Widgets.Label('Az'), 0, 3)
-        gr.add_widget(self.w.az, 1, 3)
+        gr.add_widget(Widgets.Label('Az'), 0, i)
+        gr.add_widget(self.w.az, 1, i)
         self.w.az.set_text('-90.0')
         self.w.az.set_tooltip("Current azimuth of telescope")
 
+        i += 1
         self.w.el = Widgets.TextEntry()
         self.w.el.set_length(8)
-        gr.add_widget(Widgets.Label('El'), 0, 4)
-        gr.add_widget(self.w.el, 1, 4)
+        gr.add_widget(Widgets.Label('El'), 0, i)
+        gr.add_widget(self.w.el, 1, i)
         self.w.el.set_text('89.9')
         self.w.el.set_tooltip("Current elevation of telescope")
 
+        i += 1
         self.w.filter = Widgets.TextEntry()
         self.w.filter.set_length(5)
-        gr.add_widget(Widgets.Label('Filter'), 0, 5)
-        gr.add_widget(self.w.filter, 1, 5)
+        gr.add_widget(Widgets.Label('Filter'), 0, i)
+        gr.add_widget(self.w.filter, 1, i)
         self.w.filter.set_text('g')
         self.w.filter.set_tooltip("Currently installed filter for HSC")
 
+        i += 1
         self.w.seeing = Widgets.TextEntry()
         self.w.seeing.set_length(5)
-        gr.add_widget(Widgets.Label('Seeing'), 0, 6)
-        gr.add_widget(self.w.seeing, 1, 6)
+        gr.add_widget(Widgets.Label('Seeing'), 0, i)
+        gr.add_widget(self.w.seeing, 1, i)
         self.w.seeing.set_text('1.0')
         self.w.seeing.set_tooltip("Current best estimate of seeing")
 
+        i += 1
         self.w.trans = Widgets.TextEntry()
         self.w.trans.set_length(5)
-        gr.add_widget(Widgets.Label('Transparency'), 0, 7)
-        gr.add_widget(self.w.trans, 1, 7)
+        gr.add_widget(Widgets.Label('Transparency'), 0, i)
+        gr.add_widget(self.w.trans, 1, i)
         self.w.trans.set_text('0.85')
         self.w.trans.set_tooltip("Current best estimate of sky transparency")
 
+        i += 1
         btn = Widgets.Button('Update')
         btn.add_callback('activated', self.update_cb)
         btn.set_tooltip("Update time, current pointing and active filter")
-        gr.add_widget(btn, 1, 8)
+        gr.add_widget(btn, 1, i)
 
-        gr.add_widget(Widgets.Label(''), 1, 9, stretch=4)
+        i += 1
+        gr.add_widget(Widgets.Label(''), 1, i, stretch=4)
 
         vbox.add_widget(gr)
 
@@ -179,7 +197,15 @@ class Builder(PlBase.Plugin):
 
         time_b = self.w.start_time.get_text().strip()
         len_s = self.w.len_time.get_text().strip()
-        time_start = sdlr.site.get_date("%s %s" % (date_s, time_b))
+        try:
+            time_start = sdlr.site.get_date("%s %s" % (date_s, time_b))
+        except Exception as e:
+            errmsg = 'Error parsing start date/time:: {}\n'.format(str(e))
+            errmsg += "\n".join([e.__class__.__name__, str(e)])
+            self.logger.error(errmsg)
+            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            return
+
         slot_length = max(0.0, float(len_s) * 60.0)
 
         data = Bunch(rec.data)
@@ -269,6 +295,10 @@ class Builder(PlBase.Plugin):
         #print(info)
 
         schedule = sdlr.slot_to_schedule(self.slot, info)
+
+        # set a name into the schedule to be retrieved in Report plugin
+        name = "{}.{}".format(info.ob.program.proposal, info.ob.name)
+        schedule.data.ope_name = name
 
         self.model.select_schedule(schedule)
 

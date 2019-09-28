@@ -374,7 +374,12 @@ class ControlPanel(PlBase.Plugin):
             sdlr.set_oblist_info(sdlr_oblist)
 
         except Exception as e:
-            self.logger.error("Error storing into scheduler: %s" % (str(e)))
+            errmsg = 'Error storing into scheduler: {}\n'.format(str(e))
+            #self.logger.error("Error storing into scheduler: %s" % (str(e)))
+            errmsg += "\n".join([e.__class__.__name__, str(e)])
+            self.logger.error(errmsg)
+            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            raise e
 
         self.logger.info("scheduler initialized")
 

@@ -136,7 +136,7 @@ Z=7.00
 
 # *** PLEASE USE DOUBLE QUOTES("") FOR THE OBSERVER PARAMETER ***
 #
-QUEUE_MODE $DEF_CMNTOOL OBSERVER=
+#QUEUE_MODE $DEF_CMNTOOL OBSERVER=
 
 # These are here to copy in case you need to manually do a filterchange
 # or focusing
