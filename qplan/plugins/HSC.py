@@ -157,7 +157,7 @@ Z=7.00
     def write_ope_trailer(self, out_f):
         out = self._mk_out(out_f)
         out("\n#######################################")
-        out("\nCLASSICAL_MODE $DEF_CMNTOOL\n")
+        out("\n#CLASSICAL_MODE $DEF_CMNTOOL\n")
 
     def out_setup_ob(self, ob, out_f):
         out = self._mk_out(out_f)
