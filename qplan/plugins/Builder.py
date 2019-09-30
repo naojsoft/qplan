@@ -181,22 +181,9 @@ class Builder(PlBase.Plugin):
         use_db = cp.w.use_qdb.get_state()
         cp.update_scheduler(use_db=use_db)
 
-        date_s = self.w.date.get_text().strip()
-
         sdlr = self.model.get_scheduler()
-        # TODO: this won't work! Once it is past midnight local date
-        # won't match correct record
-        rec = None
-        for _rec in sdlr.schedule_recs:
-            if _rec.date == date_s:
-                rec = _rec
-                break
-        if rec is None:
-            # probably should be an error message here instead!
-            rec = sdlr.schedule_recs[0]
-
+        date_s = self.w.date.get_text().strip()
         time_b = self.w.start_time.get_text().strip()
-        len_s = self.w.len_time.get_text().strip()
         try:
             time_start = sdlr.site.get_date("%s %s" % (date_s, time_b))
         except Exception as e:
@@ -206,6 +193,28 @@ class Builder(PlBase.Plugin):
             self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
             return
 
+        # get the string for the date of observation in HST, which is what
+        # is used in the Schedule table
+        if time_start.hour < 9:
+            date_obs_local = (time_start - timedelta(hours=10)).strftime("%Y-%m-%d")
+        else:
+            date_obs_local = time_start.strftime("%Y-%m-%d")
+        self.logger.info("observation date (local) is '{}'".format(date_obs_local))
+
+        # find the record in the schedule table that matches our date;
+        # we need to get the list of filters and so on from it
+        rec = None
+        for _rec in sdlr.schedule_recs:
+            if _rec.date == date_obs_local:
+                rec = _rec
+                break
+        if rec is None:
+            errmsg = "Can't find a record in the Schedule table matching '{}'".format(date_obs_local)
+            self.logger.error(errmsg)
+            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            return
+
+        len_s = self.w.len_time.get_text().strip()
         slot_length = max(0.0, float(len_s) * 60.0)
 
         data = Bunch(rec.data)

@@ -1,9 +1,9 @@
 import os
 import time
-from io import BytesIO
+from io import StringIO
 
 major = 0
-minor = 4
+minor = 5
 
 rlfile = 'version.py'
 backup = 'version.py.bak'
@@ -18,7 +18,7 @@ def make_release():
     if os.path.exists(rlfile):
         os.rename(rlfile, backup)
 
-    buf = BytesIO()
+    buf = StringIO()
 
     buf.write("# this file was automatically generated\n")
     buf.write("major = %d\n" % major)
