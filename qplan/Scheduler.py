@@ -630,6 +630,30 @@ class Scheduler(Callback.Callbacks):
         self.logger.info("evaluating slot for {} viable OBs".format(len(usable)))
         good, bad = self.eval_slot(None, slot, self.site, usable)
 
+        # Remove any OBs that would make us run over the program's granted
+        # time
+        props = self.apriori_info
+        #print(props)
+        for idx, res in enumerate(list(good)):
+            ob = res.ob
+            ob_id = self._ob_code(ob)
+            # check whether this proposal has exceeded its allotted time
+            # if we schedule this OB
+            # NOTE: charge them for any delay time, filter exch time, etc?
+            # currently: no
+            #obtime = (ob.time_stop - ob.time_start).total_seconds()
+            obtime = ob.total_time
+            acct_time = ob.acct_time
+            key = str(ob.program)
+            if key in props:
+                prop_total = props[str(ob.program)].sched_time + acct_time
+                if prop_total > props[str(ob.program)].total_time:
+                    errmsg = "rejected {} ({}) because it would exceed program allotted time".format(str(ob), ob_id)
+                    res.obs_ok = False
+                    res.reason = errmsg
+                    bad.append(res)
+                    good.remove(res)
+
         self.logger.info("total time: %.4f sec" % (time.time() - t1))
         return good, bad
 
@@ -641,26 +665,6 @@ class Scheduler(Callback.Callbacks):
     def clear_schedules(self):
         self.schedules = []
         self.make_callback('schedule-cleared')
-
-    def make_ob_schedule(self, schedule, oblist):
-        self.clear_schedules()
-
-        start_time = schedule.start_time
-        t = start_time.astimezone(self.timezone)
-        ndate = t.strftime("%Y-%m-%d")
-
-        self.logger.info("preparing schedule from OBs")
-
-        ## this_nights_obs = unscheduled_obs
-        # sort to force deterministic scheduling if the same
-        # files are reloaded
-        this_nights_obs = sorted(oblist, key=str)
-
-        # optomize and rank schedules
-        self.fill_schedule(schedule, self.site, this_nights_obs, props)
-
-        self.schedules.append(schedule)
-        self.make_callback('schedule-added', schedule)
 
     def slot_to_schedule(self, slot, info):
         self.schedules = []
