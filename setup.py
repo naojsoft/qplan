@@ -34,7 +34,7 @@ setup(
     package_data = { 'qplan.doc': ['manual/*.rst'],
                      },
     scripts = ['scripts/qplan', 'scripts/qexec.py'],
-    install_requires = ['pandas>=0.13.1', 'ginga>=2.5',
+    install_requires = ['pandas>=0.13.1', 'ginga>=3.0',
                         'matplotlib>=1.1', 'ephem>=3.7.5.3'],
     #test_suite = "",
     classifiers=[
@@ -45,7 +45,7 @@ setup(
           'Operating System :: POSIX',
           'Programming Language :: C',
           'Programming Language :: Python :: 2.7',
-          'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3.7',
           'Topic :: Scientific/Engineering :: Astronomy',
           'Topic :: Scientific/Engineering :: Physics',
           ],
