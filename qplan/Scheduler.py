@@ -632,7 +632,17 @@ class Scheduler(Callback.Callbacks):
 
         # Remove any OBs that would make us run over the program's granted
         # time
-        props = self.apriori_info
+        self.logger.info("removing any OBs that would exceed program award time")
+        props = {}
+        for key in self.programs:
+            total_time = self.programs[key].total_time
+
+            props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[],
+                                     obcount=0, sched_time=0.0,
+                                     total_time=total_time)
+            # get time already spent working on this program
+            self.get_sched_time(key, props[key])
+
         #print(props)
         for idx, res in enumerate(list(good)):
             ob = res.ob
@@ -641,18 +651,18 @@ class Scheduler(Callback.Callbacks):
             # if we schedule this OB
             # NOTE: charge them for any delay time, filter exch time, etc?
             # currently: no
-            #obtime = (ob.time_stop - ob.time_start).total_seconds()
-            obtime = ob.total_time
+            #acct_time = (ob.time_stop - ob.time_start).total_seconds()
+            #acct_time = ob.total_time
             acct_time = ob.acct_time
             key = str(ob.program)
-            if key in props:
-                prop_total = props[str(ob.program)].sched_time + acct_time
-                if prop_total > props[str(ob.program)].total_time:
-                    errmsg = "rejected {} ({}) because it would exceed program allotted time".format(str(ob), ob_id)
-                    res.obs_ok = False
-                    res.reason = errmsg
-                    bad.append(res)
-                    good.remove(res)
+            prop_total = props[key].sched_time + acct_time
+            if prop_total > props[key].total_time:
+                errmsg = "rejected {} ({}) because adding it would exceed program allotted time".format(str(ob), ob_id)
+                self.logger.warning(errmsg)
+                res.obs_ok = False
+                res.reason = errmsg
+                bad.append(res)
+                good.remove(res)
 
         self.logger.info("total time: %.4f sec" % (time.time() - t1))
         return good, bad
