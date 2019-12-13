@@ -1441,13 +1441,13 @@ class InsCfgFile(QueueFile):
         self.stringio[self.name].seek(0)
         reader = csv.reader(self.stringio[self.name], **self.fmtparams)
         column_names = next(reader)
-        row = next(reader)
-        rec = self.parse_row(row, column_names, self.column_map)
-        insname = rec.insname
-        # If the second row has a blank instrument name, then look at
-        # the third row.
-        if len(insname.strip()) == 0:
+        insname = ''
+        count = 0
+        search_limit = 20
+        # Search the first 20 lines to identify the instrument name
+        while len(insname.strip()) < 1 and count < search_limit:
             row = next(reader)
+            count += 1
             rec = self.parse_row(row, column_names, self.column_map)
             insname = rec.insname
         return insname
