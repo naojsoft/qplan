@@ -70,6 +70,12 @@ class Report(PlBase.Plugin):
         btn.set_enabled(False)
         self.w.btn_exec_integgui2 = btn
         hbox.add_widget(btn)
+        btn = Widgets.Button('Save Report')
+        btn.add_callback('activated', self.save_report_cb)
+        btn.set_tooltip("Save contents as a text file")
+        btn.set_enabled(False)
+        self.w.btn_save_report = btn
+        hbox.add_widget(btn)
 
         hbox.add_widget(Widgets.Label(''), stretch=1)
         vbox.add_widget(Widgets.Label(''), stretch=1)
@@ -216,8 +222,28 @@ class Report(PlBase.Plugin):
         self.tw.set_font(self.font)
         self.tw.set_text(str(text))
         self.w.btn_make_ope.set_enabled(True)
+        self.w.btn_save_report.set_enabled(True)
         if have_gen2:
             self.w.btn_exec_integgui2.set_enabled(True)
+
+    def save_report_cb(self, w):
+        def _save_rpt(path):
+            text_buf = self.tw.get_text()
+
+            with open(path, 'w') as out_f:
+                out_f.write(text_buf)
+
+        dialog_w = Widgets.SaveDialog(title="Save Report")
+        dialog_w.show()
+
+        path = dialog_w.get_path()
+        dialog_w.hide()
+        dialog_w.deleteLater()
+        if path is None:
+            return
+
+        self.view.error_wrap(_save_rpt, path)
+        return
 
     def show_schedule_cb(self, qmodel, schedule):
         try:
@@ -293,6 +319,7 @@ class Report(PlBase.Plugin):
             self.tw.set_text('')
             self.w.btn_make_ope.set_enabled(False)
             self.w.btn_exec_integgui2.set_enabled(False)
+            self.w.btn_save_report.set_enabled(False)
         if self.gui_up:
             # NOTE: this needs to be a gui_call!
             self.view.gui_call(_no_schedule)
