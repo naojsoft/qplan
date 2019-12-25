@@ -393,9 +393,15 @@ class ControlPanel(PlBase.Plugin):
 
     def update_db_cb(self, widget):
 
-        self.update_scheduler(use_db=True, ignore_pgm_skip_flag=True)
+        self.update_scheduler(use_db=False, ignore_pgm_skip_flag=True)
 
         sdlr = self.model.get_scheduler()
+
+        try:
+            if self.qdb is None:
+                self.connect_qdb()
+        except Exception as e:
+            self.logger.error('Unexpected error while connecting to queue database: %s' % str(e), exc_info=True)
 
         # store programs into db
         try:
