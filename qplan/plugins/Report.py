@@ -275,6 +275,7 @@ class Report(PlBase.Plugin):
             'Date', 'ObsBlk', 'Code', 'Program', 'Grade', 'Rank', 'Time',
             'Target', 'Filter', 'AM', 'Comment'))
 
+        scored_sum = 0.0
         targets = {}
         for slot in schedule.slots:
 
@@ -294,6 +295,9 @@ class Report(PlBase.Plugin):
                     ob.total_time / 60, ob.target.name,
                     ob.inscfg.filter, ob.envcfg.airmass,
                     comment))
+
+                # this is Terai-san's scored sum request
+                scored_sum += float(ob.program.rank) * (ob.total_time / 60)
             else:
                 out_f.write("%-16.16s  %-8.8s\n" % (date, str(ob)))
 
@@ -302,6 +306,7 @@ class Report(PlBase.Plugin):
         waste = res.time_waste_sec / 60.0
         out_f.write("%d targets  %d filter exch  Time: avail=%.2f sched=%.2f unsched=%.2f min\n" % (
             len(targets), res.num_filter_exchanges, time_avail, (time_avail - waste), waste))
+        out_f.write("rank * on_source time: %.2f\n" % (scored_sum))
         out_f.write("\n")
 
         self.schedules[schedule] = Bunch.Bunch(report=out_f.getvalue())

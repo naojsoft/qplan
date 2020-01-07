@@ -175,8 +175,8 @@ Z=7.00
                  tgtname=ob.target.name,
                  extra_params=ob.extra_params)
         # write out any comments
+        out("\n## %s" % (ob.comment))
         if include_comments:
-            out("\n## %s" % (ob.comment))
             if len(ob.target.comment) > 0:
                 out("\n## tgt: %s" % (ob.target.comment))
             if len(ob.inscfg.comment) > 0:
@@ -190,8 +190,7 @@ Z=7.00
     def out_teardown_ob(self, ob, out_f):
         out = self._mk_out(out_f)
         # write out any comments
-        if include_comments:
-            out("\n## %s" % (ob.comment))
+        out("\n## %s" % (ob.comment))
 
         cmd_str = '''Stop_OB $DEF_CMNTOOL\n'''
         out(cmd_str)
@@ -208,8 +207,7 @@ Z=7.00
 
     def out_filterchange(self, ob, out_f):
         out = self._mk_out(out_f)
-        if include_comments:
-            out("\n# %s" % (ob.comment))
+        out("\n# %s" % (ob.comment))
 
         d = dict(filter=self.get_filtername(ob.inscfg.filter))
         # HSC uses two commands to change the filter
@@ -265,8 +263,7 @@ Z=7.00
         tgtname = ob.target.name.lower()
 
         if tgtname == 'domeflat':
-            if include_comments:
-                out("\n# %s" % (ob.comment))
+            out("\n# %s" % (ob.comment))
             cmd_str = 'SetupDomeFlat $DEF_CMNTOOL SETUP=SETUP LAMP=4X10W VOLT=4.00 AMP=5.10'
             out(cmd_str)
 
@@ -282,16 +279,14 @@ Z=7.00
             return
 
         elif tgtname == 'bias':
-            if include_comments:
-                out("\n# %s" % (ob.comment))
+            out("\n# %s" % (ob.comment))
             d = dict(num_exp=ob.inscfg.num_exp)
             cmd_str = 'GetBias $DEF_IMAGE NUMBER=%(num_exp)d' % d
             out(cmd_str)
             return
 
         elif tgtname == 'dark':
-            if include_comments:
-                out("\n# %s" % (ob.comment))
+            out("\n# %s" % (ob.comment))
             d = dict(num_exp=ob.inscfg.num_exp, exptime=ob.inscfg.exp_time)
             cmd_str = 'GetDark $DEF_IMAGE EXPTIME=%(exptime)d NUMBER=%(num_exp)d' % d
             out(cmd_str)
@@ -320,8 +315,7 @@ Z=7.00
         ##     cmd_str = '''\n#FOCUSOBE $DEF_IMAGE %(tgtstr)s DELTA_Z=0.05 DELTA_DEC=5 EXPTIME=10 Z=3.75''' % d
         ##     out(cmd_str)
 
-        if include_comments:
-            out("\n# %s" % (ob.comment))
+        out("\n# %s" % (ob.comment))
 
         if ob.inscfg.dither == '1':
             if ob.inscfg.guiding:
