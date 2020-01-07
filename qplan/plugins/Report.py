@@ -297,7 +297,8 @@ class Report(PlBase.Plugin):
                     comment))
 
                 # this is Terai-san's scored sum request
-                scored_sum += float(ob.program.rank) * (ob.total_time / 60)
+                if ob.program.grade.upper() in ('A', 'B'):
+                    scored_sum += float(ob.program.rank) * (ob.total_time / 60)
             else:
                 out_f.write("%-16.16s  %-8.8s\n" % (date, str(ob)))
 
