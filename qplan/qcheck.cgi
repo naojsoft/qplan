@@ -58,7 +58,7 @@ form_element = {'Excel_file': {'action': '/cgi-bin/qcheck/qcheck_xls.cgi',
                                'list_button_label': 'List files',
                           },
                 'Google_sheet':  {'action': '/cgi-bin/qcheck/qcheck.cgi',
-                                  'input_prompt': 'Google Sheet name for checking or submitting <input type="text" size="20" name="gsheetname", value=""> (e.g., S19B-QN001)',
+                                  'input_prompt': 'Google Sheet name for checking or submitting <input type="text" size="20" name="gsheetname", value=""> (e.g., S20B-QN001)',
                                   'instructions': 'For Google Sheet submission, enter the sheet name in the box above',
                                   'button_label': 'Submit',
                                   'list_instructions': 'Google Sheet submission timestamps',
@@ -508,7 +508,7 @@ Use the following entry field and button to list the %(list_instructions)s for a
 print("""\
 <p>
 <label for="name">Proposal ID</label>
-<input type="text" name="propid" id="propid" value="%s"> (e.g., S18B-QN001)
+<input type="text" name="propid" id="propid" value="%s"> (e.g., S20B-QN001)
 """ % propid)
 print("""\
 <br>
@@ -548,7 +548,7 @@ if list_files_val:
         if filetypes.ProposalFile.propID_re.match(propid):
             list_files(propid, user_filetype)
         else:
-            print('Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S18B-QN001.' % propid)
+            print('Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S20B-QN001.' % propid)
     else:
         print('Please enter a Proposal ID.')
     page_footer()
@@ -655,7 +655,7 @@ if len(fileList[0].filename) > 0:
 
         if progFile:
             if user_filetype == 'Google_sheet':
-                file_check_results_str = 'Check Results from Google Sheet <a href="https://docs.google.com/spreadsheets/d/%s" target="_blank">%s</a>' % (gsheet.id, gsheetname.value)
+                file_check_results_str = 'Check Results from Google Sheet %s' % (gsheetname.value)
             else:
                 file_check_results_str = 'File Check Results From File %s' % item.filename
             print("""\
