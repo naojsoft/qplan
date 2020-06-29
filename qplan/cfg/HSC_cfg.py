@@ -5,7 +5,7 @@
 #
 
 # Complete list of all HSC filters
-all_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB400', 'NB430', 'NB468', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'NB926', 'IB945', 'NB973', 'NB1010')]
+all_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB400', 'NB430', 'NB468', 'NB497', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'NB926', 'IB945', 'NB973', 'NB1010')]
 
 # List of filters available for each semester
 semester_filters = {
