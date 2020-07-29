@@ -387,12 +387,21 @@ class Scheduler(Callback.Callbacks):
                 continue
 
             night_start = site.get_date("%s %s" % (rec.date, rec.starttime))
-            next_day = night_start + timedelta(0, 3600*14)
-            next_day_s = next_day.strftime("%Y-%m-%d")
-            # Assume that stoptime is on the next day, but revert to same
-            # day if resulting end time is less than the start time
+
+            # rec.date is supplied in schedule.xlsx as the local date
+            # for the start of the observing night. If rec.starttime
+            # is after midnight, we have to advance night_start by one
+            # day to get the correct value for night_start.
+            if 0 <= night_start.hour <= 9:
+                night_start += timedelta(days=1)
+
+            # Assume that stoptime is on the day specified by
+            # rec.date, but advance date to next day day if resulting
+            # end time is less than the start time
             night_stop = site.get_date("%s %s" % (rec.date, rec.stoptime))
             if night_stop < night_start:
+                next_day = night_start + timedelta(0, 3600*14)
+                next_day_s = next_day.strftime("%Y-%m-%d")
                 night_stop = site.get_date("%s %s" % (next_day_s, rec.stoptime))
 
             # associate available filters and other items with this schedule

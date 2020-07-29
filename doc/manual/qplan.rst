@@ -1,63 +1,78 @@
 ++++++++++++++++++++++++++++++++++++++++
-How to use the Queue Simulation software
+How to use the queue planning software
 ++++++++++++++++++++++++++++++++++++++++
 
 Installing the software
 -----------------------
 
-The software currently requires Python 2.7 plus a few packages,
-including matplotlib, ephem and ginga.
+The Queue Planning software currently requires Python 3.6 or newer
+plus a few packages, including astropy, matplotlib, ephem, and ginga.
 
-For Windows or Macintosh, the "Anaconda" distribution contains most of
-what you need to run scientific python applications.  Install this and
-then from a terminal do::
+For Linux, Windows, or Macintosh, we recommend that you use the
+"Anaconda - Individual Edition" Python distribution or the Miniconda
+Python distribution, available from the following URL's:
 
-    $ pip install ginga
-    $ pip install ephem
+  `Anaconda`: https://www.anaconda.com/products/individual
 
-Finally you will need to install one module from source.  Best to clone
-this with git:: 
+  `Miniconda`: https://docs.conda.io/en/latest/miniconda.html
 
-    $ mkdir ~/Git
-    $ cd ~/Git
-    $ git clone git://ocsapp.subaru.nao.ac.jp/Observer
-    $ cd Observer
-    $ python setup.py install
+Either one of the above distributions will allow you to set up a
+Python environment in your own user directory without requiring any
+system administrator privileges.
 
-Lastly we need our queue simulation software::
+Follow the instructions from one of the above URL's to install either
+Anaconda or Miniconda (choose one or the other - you don't need both).
 
-    $ cd ~/Git
-    $ git clone git://ocsapp.subaru.nao.ac.jp/queuesim
+The next step is to create a Python environment with the packages
+required by qplan. Run the following commands in a terminal window::
 
+  $ conda create -y -n qplan python=3.6 astropy ephem matplotlib numpy pandas pyqt python-dateutil pytz qtpy xlrd
+  $ conda install -n qplan -c astropy ginga
+
+The next step is to download and install the qplan software::
+
+  $ conda activate qplan
+  $ git clone https://github.com/naojsoft/qplan
+  $ cd ./qplan
+  $ python setup.py install
+
+At this point, you should be able to run qplan::
+
+  $ conda activate qplan
+  $ qplan
+
+The qplan GUI should appear on your desktop.
 
 Input files
 -----------
 
 A set of input files is necessary to define the parameters of the
-simulation as a series of records in tables.  The format of the input
-files is Comma Separated Value (CSV) table format.  These can be
-exported from regular spreadsheets. Initially, we are using LibreOffice
-to edit the spreadsheets and then export as CSV for the program.  Later
-on we may develop other GUIs to produce the records.
+observations as a series of records in tables. The format of the input
+files is Excel spreadsheet files. Either the older Excel .xls or newer
+.xlsx format is ok.
 
 The following files are defined:
 
-- `programs.csv`
+- `programs.xlsx`
   This defines all the accepted programs for the semester.  Important
   columns include a proposal id, and an overall rank for each program.
 
-- `schedule.csv`
+- `schedule.xlsx`
   This defines all the runs of the semester, the filters available in
   each run, and the observed seeing and sky conditions for each night.
 
+- `weights.xlsx`
+  This defines relative weights of the constraints to be used to
+  determine the optimal schedule.
+
 In addition to these main two files, there is a separate file for each
-proposal that was accepted, named after the proposal id.  For example, 
-"S10B-130.csv".  If there are twenty proposals accepted then there will
-be twenty such files.  Each of these files contains all the Observation
-Blocks (hereafter called "OBs") defined by the observer for their
-observation.  An observation block defines a minimum schedulable unit of
-observation. For SPCAM and  HSC, this usually means one dithered
-exposure. 
+proposal that was accepted, named after the proposal id. For example,
+"S10B-130.xlsx". If there are twenty proposals accepted then there
+will be twenty such files.  Each of these files contains all the
+Observation Blocks (hereafter called "OBs") defined by the observer
+for their observation. An observation block defines a minimum
+schedulable unit of observation. For SPCAM and HSC, this usually means
+one dithered exposure.
 
 An OB combines a telescope configuration, an instrument configuration,
 an environment configuration (which contains constraints) and a target
@@ -71,48 +86,47 @@ link or via a local download.  Untar the files into a directory.
 Running the software
 --------------------
 
-At present we are just running the software from a terminal::
+At present we are running the software from a terminal::
 
-    $ cd queuesim
-    $ ./qplan.py
+    $ conda activate qplan
+    $ qplan --stderr -i <directory path to Excel input files>
 
-A GUI should appear on your display.  It might appear behind some other
-windows (an oversight that will be fixed in the next release) so move
-some windows around if you don't see it right away.
+A GUI should appear on your display.
 
-Initializing the simulation
----------------------------
+Initializing the queue scheduling
+---------------------------------
 
 In the upper right-hand side of the simulation GUI you will see the
 "Control Panel".  In addition to the files, this provides the main
 inputs for the simulation.
 
-In the box labelled "Inputs:", type the path to the directory containing
-the CSV simulation input files.  Then click "Load Info".  If everything
-went well you should be able to click on the "Log" tab and see some
-messages to the effect that: a) the schedule was read, b) the proposals
-were read and, c) the OBs were loaded.
+In the box labelled "Inputs:", you should see the path to the
+directory containing the Excel input files. Click the "Load Info"
+button.  If everything went well, you should see that the "Weights",
+"Schedule", and "Programs" tabs appeared in the pane in the top-center
+of the GUI. Those three tabs should all be populated with the contents
+read in from their respective Excel files.
 
-Running the simulation
-----------------------
 
-Finally we are ready to run the simulation.  Click "Build Schedule".
-The Log should begin to fill up with messages about checking the OBs and
-scheduling the OBs over the semester.  This process takes a little while
-to run and while it is running the GUI controls may not be very
-responsive to user actions.  Eventually the nights of the semester
-should appear as dates in the left hand panel.  When the whole semester
-has been scheduled, the Log will complete with a summary report, giving
-the rate of completed and uncompleted programs.
+Creating the schedule
+---------------------
 
-After the simulation has run, you can click any date in the left column
-to see the schedule for that night.  This will adjust the content in
-three tabs:
+Finally we are ready to create the schedule.  Click "Build Schedule".
+This process takes a little while to run and while it is running the
+GUI controls may not be very responsive to user actions.  Eventually
+the nights of the semester should appear as dates in the left hand
+panel. When the entire semester has been scheduled, the terminal
+window from which you ran qplan will show a summary report, giving the
+rate of completed and uncompleted programs.
+
+After the scheduling process has run, you can click any date in the
+left column to see the schedule for that night.  This will adjust the
+content in three tabs:
 
 - `Report` gives a schedule breakdown for the night.  It tells the time
   that an OB should execute, what program it belongs to (with rank), the
   time needed to run that OB, the filter used, desired airmass and
-  target/comment. 
+  target/comment.
 
 - `AirMass Chart` shows the rise/fall of each target for the night and
   showing the maximum airmass reached.
@@ -121,7 +135,7 @@ three tabs:
   sky, so that the telescope slews can be judged.
 
 -----------------------
-Notes on the simulation
+Notes on the scheduling
 -----------------------
 
 Pass/Fail criteria
@@ -184,17 +198,40 @@ The description of these weights is as follows:
   one with a lower priority field.  This criterion allows observers to
   prioritize their OBs for their particular program.
 
-Changing the simulation
+Notes on the schedule file
+--------------------------
+
+The first three columns in the schedule file can be a bit confusing so
+they deserve some explanation:
+
+- `date` is the calendar date at the start of the observation night,
+  expressed in the local time zone. An observation night normally
+  begins just after sunset, so this would be the local date at
+  sunset. This interpretation applies even if the queue observing
+  begins after midnight, i.e., on the next calendar date.
+
+- `start time` is the local time at the start of queue observing,
+  i.e., the time at which you want the scheduler to start evaluting
+  OB's for inclusion in the observation queue. This time can be before
+  or after midnight. If "start time" is after midnight, it is
+  interpreted as being on the next calendar date after the one
+  specified in the "date" column.
+
+- `end time` is the local time at the end of queue observing. The
+  scheduler will make sure that all OB's have completed by this
+  time. This time can be before or after midnight, but it should
+  obviously be later than the "start time". If "stop time" is after
+  midnight, it is interpreted as being on the next calendar date after
+  the one specified in the "date" column.
+
+Changing the scheduling
 -----------------------
 
-To rerun the simulation with different weights, simply change any of the
-weights and click "Build Schedule".
+To rerun the scheduling with different weights, simply change any of
+the weights and click "Build Schedule".
 
-To change the simulation data, open the CSV file with an editor and change
-any of the desired fields in any of the files/records.  You can use a text
-editor directly on the CSV file, or open the CSV file with a spreadsheet
-program.  Save the file, then click "Load Info", verify the simulation
-records loaded correctly in the Log, then click "Build Schedule".
-
-
-
+To change the scheduling data, open the Excel file with a Excel or
+LibreOffice and change any of the desired fields in any of the
+files/records. Save the file using either the .xls or .xlsx format,
+then click "Load Info", verify the updated records loaded correctly in
+the respective tabs, then click "Build Schedule".
