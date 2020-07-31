@@ -230,8 +230,38 @@ Changing the scheduling
 To rerun the scheduling with different weights, simply change any of
 the weights and click "Build Schedule".
 
-To change the scheduling data, open the Excel file with a Excel or
+To change the scheduling data, open the Excel file with Excel or
 LibreOffice and change any of the desired fields in any of the
 files/records. Save the file using either the .xls or .xlsx format,
 then click "Load Info", verify the updated records loaded correctly in
 the respective tabs, then click "Build Schedule".
+
+Builder
+-------
+
+The Builder tab in qplan can be used to generate a list of OB's
+appropriate for any of the observing dates in the schedule.xlsx
+file. Builder can schedule only nights that are specified in
+schedule.xlsx because it uses schedule.xlsx to determine which filters
+are available on any given night.
+
+If you are running qplan on the Gen2 summit system, the "Update"
+button on the Builder tab can be used to fetch from Gen2 the current
+Az, El, and filter values to enable more efficient queue scheduling
+based on actual current conditions.
+
+For testing or simulation purposes, you can enter into the text boxes
+your choices for the date, time, schedule length, etc. Note that the
+"Local date" box should contain the calendar date in the local time
+zone for when you want the schedule to begin. For scheduling that
+starts before midnight, "Local date" will be the same date as in the
+"date" column in schedule.xlsx. For start times after midnight, "Local
+date" will be the following calendar date. The "Start Time" box in
+Builder should contain the time, expressed in the local time zone,
+when you want the schedule to begin.
+
+Click on the "Get OB's" button to generate the list of OB's
+appropriate to the conditions specified in the Builder tab. After the
+schedule is created, you can click on any of the OB's in the result
+and then the Airmass Chart and Slew Chart will update showing the OB's
+target visibility and position on the sky, respectively.
