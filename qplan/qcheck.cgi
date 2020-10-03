@@ -51,16 +51,20 @@ alternate_url = {'Excel_file': 'This page is for checking/uploading Excel files.
 # uploading from user's Excel file or downloading from Google Sheet.
 form_element = {'Excel_file': {'action': '/cgi-bin/qcheck/qcheck_xls.cgi',
                                'input_prompt': 'File name for checking or uploading (must be Excel file format): <input type="file" name="filename">',
-                               'instructions': 'For file upload, select the file using the Browse/Choose File button above',
+                               'instructions': 'Welcome to the Subaru Excel File Checker/Uploader/Listing site',
                                'button_label': 'Upload',
+                               'file_type_str': 'Excel file',
+                               'upload_or_submit': 'uploads',
                                'list_instructions': 'names of the files that have been uploaded',
                                'list_caption': 'uploaded files',
                                'list_button_label': 'List files',
                           },
                 'Google_sheet':  {'action': '/cgi-bin/qcheck/qcheck.cgi',
                                   'input_prompt': 'Google Sheet name for checking or submitting <input type="text" size="20" name="gsheetname", value=""> (e.g., S20B-QN001)',
-                                  'instructions': 'For Google Sheet submission, enter the sheet name in the box above',
+                                  'instructions': 'Welcome to the Subaru Google Sheet Checker/Submitter/Listing site',
                                   'button_label': 'Submit',
+                                  'file_type_str': 'Google Sheet',
+                                  'upload_or_submit': 'submissions',
                                   'list_instructions': 'Google Sheet submission timestamps',
                                   'list_caption': 'submission timestamps',
                                   'list_button_label': 'List submissions',
@@ -306,14 +310,15 @@ def validateSession(cookieFromClient):
         return False
 
     session_cookie_filepath = getSessionCookieFilepath(sid)
+    logger.info('session_cookie_filepath is {}'.format(session_cookie_filepath))
     try:
         with open(session_cookie_filepath, 'rb') as f:
             serverCookie = pickle.load(f)
     except IOError:
         logger.error('Unable to open cookie pickle file %s' % session_cookie_filepath)
         return False
-    logger.info('cookieFromClient %s' % cookieFromClient)
-    logger.info('serverCookie %s' % serverCookie)
+    logger.info('cookieFromClient is %s' % cookieFromClient)
+    logger.info('serverCookie is %s' % serverCookie)
     now = datetime.datetime.now()
     qcheck_session_end_timestamp = getTimestampFromCookie(serverCookie, 'qcheck-session-end-timestamp')
     if cookieFromClient['qcheck-session-id'].value == serverCookie['qcheck-session-id'].value and now < qcheck_session_end_timestamp:
@@ -346,10 +351,33 @@ logger.info('Received request from address %s' % os.environ['REMOTE_ADDR'])
 
 form = cgi.FieldStorage()
 
-# Check to see if there is a cookie in the HTTP request and if we can
-# validate the session.
-cc = getClientCookie()
-sessionValid = validateSession(cc)
+# Check to see if the user clicked on the Logout button
+try:
+    logout = form['logout'].value
+    sessionValid = False
+except KeyError:
+    logout = None
+
+logger.info('logout value from form is {}'.format(logout))
+
+if logout:
+    logger.info('user logged out - set session to invalid')
+    cc = None
+    sessionValid = False
+    cc = getClientCookie()
+    logger.info('client cookie is {}'.format(cc))
+    # Change qcheck-session-end-timestamp to a time in the past to
+    # invalidate the server cookie.
+    now = datetime.datetime.now()
+    backdated_timestamp = now - datetime.timedelta(seconds=COOKIE_MAX_AGE)
+    cc['qcheck-session-end-timestamp'] = backdated_timestamp.isoformat()
+    saveCookie(cc)
+else:
+    # Check to see if there is a cookie in the HTTP request and if we can
+    # validate the session.
+    cc = getClientCookie()
+    sessionValid = validateSession(cc)
+
 if sessionValid:
     sc = cc
     user_auth_type = getAttrFromCookie(sc, 'qcheck-session-user_auth_type')
@@ -365,13 +393,22 @@ try:
 except KeyError:
     upload = None
 
+# Check to see if the user clicked on the Login button
+try:
+    login = form['login'].value
+except KeyError:
+    login = None
+
+logger.info('login value from form is {}'.format(login))
 
 # If upload was clicked and we weren't able to validate the session,
 # see if we can validate the username/password in STARS LDAP or, if
 # that fails, to ProMS MySQL database.
 user_auth_success = None
 user_auth_result = None
-if upload and not sessionValid:
+username = None
+password = None
+if login and not sessionValid:
     try:
         username = form['username'].value
         password = form['password'].value
@@ -382,7 +419,6 @@ if upload and not sessionValid:
         user_auth_result, user_auth_success, user_auth_fullname = stars_ldap_connect(username, password)
         stars_ldap_result = user_auth_result
         logger.info('stars_ldap_result %s' % stars_ldap_result)
-
     if user_auth_success:
         logger.info('creating server cookie based on STARS LDAP user authentication')
         user_auth_type = 'STARS'
@@ -415,7 +451,6 @@ try:
     file_info_supplied = True
 except KeyError:
     file_info_supplied = False
-
 
 # Check to see if the user clicked on the "List files" button
 try:
@@ -459,32 +494,32 @@ if user_filetype == 'Excel_file':
 print("""\
 <form enctype="multipart/form-data" action=%(action)s method="POST">
 <input type="hidden" name="logLevel" value="30">
-%(input_prompt)s
-<hr>
-<br>
-<input type="submit" name="check"  value="Check">
-(Username/password not required for checking the file)
-<hr>
 """ % form_element[user_filetype])
-
 if sessionValid:
     print("""\
     %(instructions)s
     <br>
-    and then press the %(button_label)s button.
+    Please enter the name of your %(file_type_str)s and then press the Check or %(button_label)s button.
+    <p>
+    You can also list previous %(upload_or_submit)s for a Proposal ID with the "%(list_button_label)s" button.
     <p>
     """ % form_element[user_filetype])
     print("""\
-    Session is valid until HST %s (Username/password not currently required)<br>
-    """ % getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c'))
+    You have already logged in as %s and your session is valid until HST %s<br>
+    """ % (user_auth_fullname, getTimestampFromCookie(sc, 'qcheck-session-end-timestamp').strftime('%c')))
 else:
+    if login:
+        print("""\
+        <span class="error">Username/ID or Password incorrect. Please try again.</span>
+        <p>
+        """)
     print("""\
     <p>
     %(instructions)s,
     <br>
-    enter your STARS username and password or Subaru ProMS ID and password,
+    Please enter your STARS username and password or Subaru ProMS ID and password,
     <br>
-    and then press the %(button_label)s button.
+    and then press the Login button.
     <table>
     <tr>
     <td><label for="name">Userame or ID</label></td>
@@ -495,15 +530,28 @@ else:
     <td><input type="password" name="password" id="password" value=""></td>
     </tr>
     </table>
+    <input type="submit" name="login"  value="Login">
     """ % form_element[user_filetype])
+    page_footer()
+    sys.exit(1)
+
+print("""\
+<hr>
+%(input_prompt)s
+<hr>
+<br>
+Check validity of your %(file_type_str)s: <input type="submit" name="check"  value="Check">
+<hr>
+""" % form_element[user_filetype])
+
 print("""\
 <p>
-<input type="submit" name="upload" value="%(button_label)s">
+%(button_label)s your %(file_type_str)s: <input type="submit" name="upload" value="%(button_label)s">
 """ % form_element[user_filetype])
 print("""\
 <hr>
 <p>
-Use the following entry field and button to list the %(list_instructions)s for a Proposal ID (username/password not required).
+Use the following entry field and button to list the %(list_instructions)s for a Proposal ID.
 """ % form_element[user_filetype])
 print("""\
 <p>
@@ -513,6 +561,8 @@ print("""\
 print("""\
 <br>
 <input type="submit" name="list_files" value="%(list_button_label)s">
+<hr>
+<input type="submit" name="logout"  value="Logout">
 </form>
 """ % form_element[user_filetype])
 
@@ -537,7 +587,7 @@ try:
 except TypeError:
     fileList = [fileitem]
 
-if upload and user_auth_success is not None:
+if user_auth_success is not None:
     if user_auth_success:
         print('STARS LDAP or ProMS DB result: %s' % user_auth_result)
     else:
