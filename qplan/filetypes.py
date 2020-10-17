@@ -19,6 +19,7 @@ from ginga.misc import Bunch
 from . import entity
 from .cfg import HSC_cfg
 from qplan.util.site import site_subaru
+import qplan.util.calcpos
 
 # In moon_states, the dict keys are the allowable the Phase 1 Moon
 # illumination names. The dict values are the list of acceptable Moon
@@ -881,7 +882,7 @@ class EnvCfgFile(QueueFile):
         self.columnInfo = {
             'code':         {'iname': 'Code',         'type': str,   'constraint': "len(value) > 0", 'prefilled': False, 'required': True},
             'seeing':       {'iname': 'Seeing',       'type': float, 'constraint': self.seeing_check, 'prefilled': False, 'required': True},
-            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0",   'prefilled': False, 'required': True},
+            'airmass':      {'iname': 'Airmass',      'type': float, 'constraint': "value >= 1.0",   'prefilled': False, 'required': False},
             'moon':         {'iname': 'Moon',         'type': str,   'constraint': self.moon_check,  'prefilled': False, 'required': True},
             'moon_sep':     {'iname': 'Moon Sep',     'type': float, 'constraint': self.moon_sep_check,  'prefilled': False, 'required': True},
             'transparency': {'iname': 'Transparency', 'type': float, 'constraint': self.transparency_check,   'prefilled': False, 'required': True},
@@ -897,6 +898,9 @@ class EnvCfgFile(QueueFile):
         self.transparency_from_ph1 = None
         # semester value will be set by validate_data method
         self.semester = None
+        # Default airmass if armass column is not found - use airmass
+        # at 30 deg elevation
+        self.default_airmass = qplan.util.calcpos.alt2airmass(30.0)
         super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
 
     def validate_data(self, progFile, propname):
@@ -992,6 +996,16 @@ class EnvCfgFile(QueueFile):
 
                 rec = self.parse_row(row, self.columnNames,
                                      self.column_map)
+
+                # Starting with S21A, the airmass column has been
+                # removed from the envcfg sheet. If we didn't find the
+                # airmass column, set airmass to the default value.
+                if 'airmass' in rec:
+                    self.logger.info('Using supplied airmass constraint of {}'.format(rec['airmass']))
+                else:
+                    rec['airmass'] = self.default_airmass
+                    self.logger.info('Setting airmass constraint to default value {}'.format(rec['airmass']))
+
                 envcfg = entity.EnvironmentConfiguration()
                 code = envcfg.import_record(rec)
 
