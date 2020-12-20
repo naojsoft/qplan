@@ -1771,6 +1771,75 @@ class OBListFile(QueueFile):
             progFile.warnings[self.name].append([None, [iname], msg])
             progFile.warn_count += 1
 
+    def totalTimeCheck(self, progFile, iname):
+
+        # We don't need to look through the entire set of rows. We
+        # should be able to locate the string withing the first
+        # "max_search_rows".
+        max_search_rows = 50
+
+        self.stringio[self.name].seek(0)
+        queue_file = self.stringio[self.name]
+        reader = csv.reader(queue_file, **self.fmtparams)
+
+        # skip header
+        next(reader)
+
+        # Iterate through rows and look for the row that has a string
+        # that matches the iname value.
+        tt_row = None
+        tt_col = None
+        for i, row in enumerate(reader):
+            for j, item in enumerate(row):
+                if item == iname:
+                    tt_row = i
+                    tt_col = j
+                    break
+            if tt_row or i > max_search_rows:
+                break
+
+        if tt_row and tt_col:
+
+            row = next(reader)
+            totalTime_str = row[tt_col]
+
+            try:
+                totalTime = float(totalTime_str)
+            except ValueError as e:
+                msg = 'Error while checking sheet %s: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
+                progFile.logger.error(msg)
+                progFile.errorss[self.name].append([None, [iname], msg])
+                progFile.error_count += 1
+
+            ph1_allocated_time_str = progFile.cfg['proposal'].proposal_info['allocated_time']
+            try:
+                ph1_allocated_time = float(progFile.cfg['proposal'].proposal_info['allocated_time'])
+            except ValueError as e:
+                msg = 'Error while checking sheet %s: Could not convert Phase 1 Allocated Time {} to a numerical value'.format(self.name, ph1_allocated_time_str)
+                progFile.logger.error(msg)
+                progFile.errorss[self.name].append([None, [iname], msg])
+                progFile.error_count += 1
+
+            ph1_allocated_time = round(ph1_allocated_time,1)
+            # Compare totalTime to ph1_allocated_time and report
+            # warning if totalTime is greater than ph1_allocated_time
+            if totalTime < ph1_allocated_time:
+                msg = 'Warning while checking sheet {}: {} of {} seconds is less than the Phase 1 allocated value of {} seconds'.format(self.name, iname, totalTime, ph1_allocated_time)
+                progFile.logger.warning(msg)
+                progFile.warnings[self.name].append([None, [iname], msg])
+                progFile.warn_count += 1
+            elif totalTime == ph1_allocated_time:
+                progFile.logger.debug('Sheet {}: {} of {} seconds is equal to the Phase 1 allocated value of {} seconds and is ok'.format(self.name, iname, totalTime, ph1_allocated_time))
+            else:
+                msg = 'Warning while checking sheet {}: {} of {} seconds is greater than the Phase 1 allocated value of {} seconds'.format(self.name, iname, totalTime, ph1_allocated_time)
+                progFile.logger.warning(msg)
+                progFile.warnings[self.name].append([None, [iname], msg])
+                progFile.warn_count += 1
+            return True
+        else:
+            self.logger.info('String {} not found in ob sheet'.format(iname))
+            return False
+
     def parse_input(self):
         """
         Read all observing blocks from a CSV file.
@@ -2032,10 +2101,22 @@ class ProgramFile(QueueFile):
         # versa.
         self.cfg['ob'].calibCheck(self)
 
-        # Compute the sum of the on-source time of all the observing
-        # blocks and compare the result to the allocated time on the
-        # "proposal" sheet.
-        self.cfg['ob'].totalOnSrcTimeCheck(self)
+        # Compare the total required time on the"ob" sheet to the
+        # allocated time on the "proposal" sheet. This is for all
+        # semesters from S21A onward. It is not an error if the "Total
+        # On-src Time" string isn't found in the file, at least while
+        # we are transitioning to the S21A-style files.
+        found = self.cfg['ob'].totalTimeCheck(self, 'Total Required Time')
+
+        if not found:
+            # Compute the sum of the on-source time of all the
+            # observing blocks and compare the result to the allocated
+            # time on the "proposal" sheet. This is for semesters
+            # prior to S21A. It is not an error if the "Total On-src
+            # Time" string isn't found in the file. Once we are fully
+            # into the S21A semester and don't have to read in S20B
+            # and earlier files, this method call can be deleted.
+            self.cfg['ob'].totalTimeCheck(self, 'Total On-src Time')
 
         # We have checked the "ob" sheet, so process it now.
         self.cfg['ob'].process_input()
