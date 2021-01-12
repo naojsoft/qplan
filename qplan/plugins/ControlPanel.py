@@ -26,7 +26,7 @@ except ImportError:
 
 # local imports
 from qplan.plugins import PlBase
-from qplan import filetypes, misc, entity
+from qplan import filetypes, misc, entity, common
 
 have_qdb = False
 try:
@@ -120,7 +120,7 @@ class ControlPanel(PlBase.Plugin):
         b.update_database_from_files.set_tooltip("Update Gen2 database from changes to phase 2 files")
         b.remove_scheduled_obs.set_state(sdlr.remove_scheduled_obs)
         def toggle_sdled_obs(w, tf):
-            print(('setting sdled obs', tf))
+            #print(('setting sdled obs', tf))
             sdlr.remove_scheduled_obs = tf
         b.remove_scheduled_obs.add_callback('activated', toggle_sdled_obs)
 
@@ -354,7 +354,10 @@ class ControlPanel(PlBase.Plugin):
                     bnch = props.setdefault(propid, Bunch(obcount=0,
                                                           sched_time=0.0))
                     info = self.model.completed_obs[ob_key]
-                    bnch.sched_time += info['acct_time']
+                    # 2021-01-11 EJ
+                    # Added extra overhead charge
+                    bnch.sched_time += (info['acct_time'] *
+                                        common.extra_overhead_factor)
                     bnch.obcount += 1
 
             sdlr.set_apriori_program_info(props)

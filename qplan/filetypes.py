@@ -1851,7 +1851,10 @@ class OBListFile(QueueFile):
                                priority=priority,
                                name=code,
                                total_time=float(rec.total_time),
-                               acct_time=float(rec.on_src_time),
+                               # Note: As of S21B we are now charging the user
+                               # for instrument overheads (used to be):
+                               # acct_time=float(rec.on_src_time),
+                               acct_time=float(rec.total_time),
                                comment=comment,
                                extra_params=extra_params)
                 self.obs_info.append(ob)

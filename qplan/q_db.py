@@ -23,9 +23,14 @@ class QueueDatabase(object):
       db = QueueDatabase(logger, addr)
     """
 
-    def __init__(self, logger, addr):
+    def __init__(self, logger, addr, username=None, password=None,
+                 auth_mech='SCRAM-SHA-256', auth_src='auth_db'):
         self.logger = logger
         self.db_host, self.db_port = addr
+        self.db_user = username
+        self.db_pswd = password
+        self.db_auth = auth_mech
+        self.db_auth_src = auth_src
 
         self.mdb_client = None
         self.mdb_db = None
@@ -37,7 +42,13 @@ class QueueDatabase(object):
         self.mdb_db = None
 
     def reconnect(self):
-        self.mdb_client = MongoClient(self.db_host, self.db_port)
+        kwargs = {}
+        if self.db_user is not None:
+            kwargs = dict(username=self.db_user, password=self.db_pswd,
+                          authSource=self.db_auth_src,
+                          authMechanism=self.db_auth)
+        self.mdb_client = MongoClient(self.db_host, self.db_port,
+                                      **kwargs)
         self.mdb_db = self.mdb_client['queue_db']
 
     def get_adaptor(self):

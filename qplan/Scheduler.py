@@ -86,6 +86,11 @@ class Scheduler(Callback.Callbacks):
         self.schedule_recs = info
 
     def set_apriori_program_info(self, info):
+        """
+        This is where information about programs is stored for the purposes
+        of scheduling.  For example, the amount of time already spent observing
+        each program (in executed OBs with "good" FQA).
+        """
         self.apriori_info = info
 
     def get_sched_time(self, prop, bnch):
@@ -251,11 +256,10 @@ class Scheduler(Callback.Callbacks):
                 ob_id = self._ob_code(ob)
                 # check whether this proposal has exceeded its allotted time
                 # if we schedule this OB
-                # NOTE: charge them for any delay time, filter exch time, etc?
-                # currently: no
                 #obtime = (ob.time_stop - ob.time_start).total_seconds()
                 obtime = ob.total_time
-                acct_time = ob.acct_time
+                # NOTE: 2021-01-11 EJ  Added extra overhead charge
+                acct_time = ob.acct_time * common.extra_overhead_factor
                 prop_total = props[str(ob.program)].sched_time + acct_time
                 if prop_total > props[str(ob.program)].total_time:
                     self.logger.debug("rejected %s (%s) because it would exceed program allotted time" % (
@@ -435,7 +439,7 @@ class Scheduler(Callback.Callbacks):
 
         # build a lookup table of programs -> OBs
         props = {}
-        total_program_time = 0
+        total_program_time = 0.0
         for key in self.programs:
             total_time = self.programs[key].total_time
 
@@ -448,17 +452,15 @@ class Scheduler(Callback.Callbacks):
             total_program_time += total_time
 
         # count OBs in each program
-        total_ob_time = 0
+        total_ob_time = 0.0
         for ob in self.oblist:
             pgmname = str(ob.program)
             ob_key = (pgmname, ob.name)
             props[pgmname].obs.append(ob_key)
             props[pgmname].obcount += 1
-            # New policy is not to charge any overhead to the client,
-            # including readout time
-            #obtime_no_overhead = ob.inscfg.exp_time * ob.inscfg.num_exp
-            obtime_no_overhead = ob.acct_time
-            total_ob_time += obtime_no_overhead
+            # 2021-01-11 EJ  New policy charges overhead to the client
+            obtime_w_overhead = ob.acct_time * common.extra_overhead_factor
+            total_ob_time += obtime_w_overhead
 
         unscheduled_obs = list(oblist)
         total_avail = 0.0
@@ -658,11 +660,8 @@ class Scheduler(Callback.Callbacks):
             ob_id = self._ob_code(ob)
             # check whether this proposal has exceeded its allotted time
             # if we schedule this OB
-            # NOTE: charge them for any delay time, filter exch time, etc?
-            # currently: no
-            #acct_time = (ob.time_stop - ob.time_start).total_seconds()
-            #acct_time = ob.total_time
-            acct_time = ob.acct_time
+            # 2021-01-11 EJ  New policy charges overhead to the client
+            acct_time = ob.acct_time * common.extra_overhead_factor
             key = str(ob.program)
             prop_total = props[key].sched_time + acct_time
             if prop_total > props[key].total_time:

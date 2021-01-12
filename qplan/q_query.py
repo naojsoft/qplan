@@ -3,7 +3,7 @@
 #
 from ginga.misc.Bunch import Bunch
 
-from qplan import entity
+from qplan import entity, common
 
 # MODULE FUNCTIONS
 
@@ -271,7 +271,10 @@ class QueueQuery(object):
             ob = self.get_ob(ob_key)
             bnch = props.setdefault(proposal, Bunch(obcount=0,
                                                     sched_time=0.0))
-            bnch.sched_time += ob.acct_time
+            # 2021-01-11 EJ
+            # Added extra overhead charge
+            bnch.sched_time += (ob.acct_time *
+                                common.extra_overhead_factor)
             bnch.obcount += 1
 
         return dne_obs, props
