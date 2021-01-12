@@ -64,7 +64,9 @@ class ControlPanel(PlBase.Plugin):
         prefs = self.controller.get_preferences()
         self.settings = prefs.create_category('plugin_ControlPanel')
         self.settings.add_defaults(qdb_host='localhost',
-                                   qdb_port=None)
+                                   qdb_port=None,
+                                   qdb_username=None,
+                                   qdb_password=None)
         self.settings.load(onError='silent')
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
@@ -88,8 +90,12 @@ class ControlPanel(PlBase.Plugin):
             raise ValueError("No value for `qdb_port` in settings")
         qdb_addr = (qdb_host, qdb_port)
 
+        qdb_user = self.settings.get('qdb_username')
+        qdb_pass = self.settings.get('qdb_password')
+
         # Set up Queue database access
-        self.qdb = q_db.QueueDatabase(self.logger, qdb_addr)
+        self.qdb = q_db.QueueDatabase(self.logger, qdb_addr,
+                                      username=qdb_user, password=qdb_pass)
         self.qa = q_db.QueueAdapter(self.qdb)
         self.qq = q_query.QueueQuery(self.qa)
 
