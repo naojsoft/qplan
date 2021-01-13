@@ -380,5 +380,3 @@ class QueueQuery(object):
         if self.use_cache:
             self.add_cache(tblname, key, pyobj)
         return pyobj
-
-#END

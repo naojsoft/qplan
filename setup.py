@@ -34,8 +34,9 @@ setup(
     package_data = { 'qplan.doc': ['manual/*.rst'],
                      },
     scripts = ['scripts/qplan', 'scripts/qexec.py'],
-    install_requires = ['pandas>=0.13.1', 'ginga>=3.0',
-                        'matplotlib>=1.1', 'ephem>=3.7.5.3'],
+    install_requires = ['pandas>=0.24.1', 'xlrd>=1.2.0', 'openpyxl>=3.0.5',
+                        'ginga>=3.1', 'qtpy>=1.6.0',
+                        'matplotlib>=3.0.2', 'ephem>=3.7.5.3'],
     #test_suite = "",
     classifiers=[
           'Intended Audience :: Science/Research',
