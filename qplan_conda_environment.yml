@@ -1,0 +1,12 @@
+name: qplan
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7.*
+  - pandas=0.24.*
+  - xlrd=1.2.*
+  - openpyxl=3.0.*
+  - ginga=3.1
+  - qtpy=1.6.*
+  - matplotlib=3.0.*
+  - ephem=3.7.*.*

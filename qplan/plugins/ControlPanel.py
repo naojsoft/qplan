@@ -26,7 +26,7 @@ except ImportError:
 
 # local imports
 from qplan.plugins import PlBase
-from qplan import filetypes, misc, entity
+from qplan import filetypes, misc, entity, common
 
 have_qdb = False
 try:
@@ -64,7 +64,9 @@ class ControlPanel(PlBase.Plugin):
         prefs = self.controller.get_preferences()
         self.settings = prefs.create_category('plugin_ControlPanel')
         self.settings.add_defaults(qdb_host='localhost',
-                                   qdb_port=None)
+                                   qdb_port=None,
+                                   qdb_username=None,
+                                   qdb_password=None)
         self.settings.load(onError='silent')
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
@@ -88,8 +90,12 @@ class ControlPanel(PlBase.Plugin):
             raise ValueError("No value for `qdb_port` in settings")
         qdb_addr = (qdb_host, qdb_port)
 
+        qdb_user = self.settings.get('qdb_username')
+        qdb_pass = self.settings.get('qdb_password')
+
         # Set up Queue database access
-        self.qdb = q_db.QueueDatabase(self.logger, qdb_addr)
+        self.qdb = q_db.QueueDatabase(self.logger, qdb_addr,
+                                      username=qdb_user, password=qdb_pass)
         self.qa = q_db.QueueAdapter(self.qdb)
         self.qq = q_query.QueueQuery(self.qa)
 
@@ -120,7 +126,7 @@ class ControlPanel(PlBase.Plugin):
         b.update_database_from_files.set_tooltip("Update Gen2 database from changes to phase 2 files")
         b.remove_scheduled_obs.set_state(sdlr.remove_scheduled_obs)
         def toggle_sdled_obs(w, tf):
-            print(('setting sdled obs', tf))
+            #print(('setting sdled obs', tf))
             sdlr.remove_scheduled_obs = tf
         b.remove_scheduled_obs.add_callback('activated', toggle_sdled_obs)
 
@@ -354,7 +360,10 @@ class ControlPanel(PlBase.Plugin):
                     bnch = props.setdefault(propid, Bunch(obcount=0,
                                                           sched_time=0.0))
                     info = self.model.completed_obs[ob_key]
-                    bnch.sched_time += info['acct_time']
+                    # 2021-01-11 EJ
+                    # Added extra overhead charge
+                    bnch.sched_time += (info['acct_time'] *
+                                        common.extra_overhead_factor)
                     bnch.obcount += 1
 
             sdlr.set_apriori_program_info(props)

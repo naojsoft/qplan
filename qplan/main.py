@@ -176,7 +176,8 @@ class QueuePlanner(object):
                                     preferences, ev_quit, model)
 
         # Get settings folder
-        if 'CONFHOME' in os.environ:
+        if ('CONFHOME' in os.environ and
+            len(os.environ['CONFHOME'].strip()) > 0):
             basedir = os.path.join(os.environ['CONFHOME'], svcname)
         else:
             basedir = os.path.join(os.environ['HOME'], '.' + svcname)
@@ -187,7 +188,7 @@ class QueuePlanner(object):
         settings = prefs.create_category('general')
         settings.load(onError='silent')
         settings.set_defaults(output_dir=options.output_dir,
-                              save_layout=False)
+                              save_layout=True)
 
         mm = ModuleManager.ModuleManager(logger)
 

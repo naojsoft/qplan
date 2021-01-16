@@ -26,7 +26,7 @@ Anaconda or Miniconda (choose one or the other - you don't need both).
 The next step is to create a Python environment with the packages
 required by qplan. Run the following commands in a terminal window::
 
-  $ conda create -y -n qplan python=3.6 astropy ephem matplotlib numpy pandas pyqt python-dateutil pytz qtpy xlrd
+  $ conda create -y -n qplan python=3.6 astropy ephem matplotlib numpy openpyxl pandas pyqt python-dateutil pytz qtpy xlrd
   $ conda install -n qplan -c astropy ginga
 
 The next step is to download and install the qplan software::
