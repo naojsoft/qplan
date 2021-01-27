@@ -5,6 +5,7 @@
 from datetime import datetime
 
 # third-party imports
+import yaml
 from pymongo import MongoClient
 
 from qplan import entity
@@ -20,12 +21,14 @@ class QueueDatabase(object):
 
     Usage example:
       addr = ('localhost', 9800)
-      db = QueueDatabase(logger, addr)
+      db = QueueDatabase(logger, addr=addr)
     """
 
-    def __init__(self, logger, addr, username=None, password=None,
+    def __init__(self, logger, addr=None, username=None, password=None,
                  auth_mech='SCRAM-SHA-256', auth_src='auth_db'):
         self.logger = logger
+        if addr is None:
+            addr = ('localhost', 9800)
         self.db_host, self.db_port = addr
         self.db_user = username
         self.db_pswd = password
@@ -35,13 +38,23 @@ class QueueDatabase(object):
         self.mdb_client = None
         self.mdb_db = None
 
-        self.reconnect()
+    def read_config(self, cfg_path):
+        with open(cfg_path, 'r') as in_f:
+            buf = in_f.read()
+        cf = yaml.safe_load(buf)
+
+        self.db_host = cf.get('db_host', 'localhost')
+        self.db_port = cf.get('db_port', 9800)
+        self.db_user = cf.get('db_user', None)
+        self.db_pswd = cf.get('db_pass', None)
+        self.db_auth = cf.get('db_auth', 'SCRAM-SHA-256')
+        self.db_auth_src = cf.get('auth_src', 'auth_db')
 
     def close(self):
         self.mdb_client.close()
         self.mdb_db = None
 
-    def reconnect(self):
+    def connect(self):
         kwargs = {}
         if self.db_user is not None:
             kwargs = dict(username=self.db_user, password=self.db_pswd,

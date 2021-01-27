@@ -59,15 +59,8 @@ class ControlPanel(PlBase.Plugin):
         self.qdb = None
         self.qa = None
         self.qq = None
-
-
         prefs = self.controller.get_preferences()
-        self.settings = prefs.create_category('plugin_ControlPanel')
-        self.settings.add_defaults(qdb_host='localhost',
-                                   qdb_port=None,
-                                   qdb_username=None,
-                                   qdb_password=None)
-        self.settings.load(onError='silent')
+        self.cfg_path = os.path.join(prefs.folder, 'qdb.yml')
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
                                   klass='WeightsTab', ptype='global',
@@ -84,18 +77,23 @@ class ControlPanel(PlBase.Plugin):
 
 
     def connect_qdb(self):
-        qdb_host = self.settings.get('qdb_host')
-        qdb_port = self.settings.get('qdb_port')
-        if qdb_port is None:
-            raise ValueError("No value for `qdb_port` in settings")
-        qdb_addr = (qdb_host, qdb_port)
 
-        qdb_user = self.settings.get('qdb_username')
-        qdb_pass = self.settings.get('qdb_password')
+        if not os.path.exists(self.cfg_path):
+            raise ValueError("No queue database configuration in '{}'".format(self.cfg_path))
+        self.qdb = q_db.QueueDatabase(self.logger)
 
         # Set up Queue database access
-        self.qdb = q_db.QueueDatabase(self.logger, qdb_addr,
-                                      username=qdb_user, password=qdb_pass)
+        try:
+            self.qdb.read_config(self.cfg_path)
+            self.qdb.connect()
+        except Exception as e:
+            errmsg = "Exception connecting to queue db: {}".format(e)
+            self.logger.error(errmsg, exc_info=True)
+            self.controller.gui_do(self.controller.show_error, errmsg,
+                                   raisetab=True)
+            self.qdb = None
+            return
+
         self.qa = q_db.QueueAdapter(self.qdb)
         self.qq = q_query.QueueQuery(self.qa)
 
@@ -113,6 +111,7 @@ class ControlPanel(PlBase.Plugin):
         captions = (('Inputs:', 'label', 'Input dir', 'entry'),
                     ('Load Info', 'button'),
                     ('Update Database from Files', 'button'),
+                    ('Check Database against Files', 'button'),
                     ('Build Schedule', 'button', 'Use QDB', 'checkbutton'),
                     ("Remove scheduled OBs", 'checkbutton'))
         w, b = Widgets.build_info(captions, orientation='vertical')
@@ -130,22 +129,22 @@ class ControlPanel(PlBase.Plugin):
             sdlr.remove_scheduled_obs = tf
         b.remove_scheduled_obs.add_callback('activated', toggle_sdled_obs)
 
-        if have_gen2:
+        if have_qdb and os.path.exists(self.cfg_path):
             b.update_database_from_files.add_callback('activated',
                                                       self.update_db_cb)
+            b.check_database_against_files.add_callback('activated',
+                                                        self.check_db_cb)
+            b.use_qdb.set_state(True)
         else:
             b.update_database_from_files.set_enabled(False)
+            b.check_database_against_files.set_enabled(False)
+            b.use_qdb.set_state(False)
+            b.use_qdb.set_enabled(False)
 
         b.build_schedule.set_tooltip("Schedule all periods defined in schedule tab")
         b.build_schedule.add_callback('activated', self.build_schedule_cb)
 
         b.use_qdb.set_tooltip("Use Gen2 queue database when scheduling")
-        if not have_qdb:
-            b.use_qdb.set_enabled(False)
-        else:
-            qdb_port = self.settings.get('qdb_port')
-            if qdb_port is not None:
-                b.use_qdb.set_state(True)
 
         fr.set_widget(w)
         vbox.add_widget(fr, stretch=0)
@@ -418,6 +417,7 @@ class ControlPanel(PlBase.Plugin):
             for key in sdlr.programs:
                 self.logger.info("adding record for program '%s'" % (str(key)))
                 qt.put(sdlr.programs[key])
+
         except Exception as e:
             self.logger.error('Unexpected error while updating program table in database: %s' % str(e), exc_info=True)
 
@@ -427,8 +427,81 @@ class ControlPanel(PlBase.Plugin):
             for ob in sdlr.oblist:
                 self.logger.info("adding record for OB '%s'" % (str(ob)))
                 qt.put(ob)
+
         except Exception as e:
             self.logger.error('Unexpected error while updating ob table in database: %s' % str(e), exc_info=True)
+
+        self.logger.info("done updating database")
+
+    def check_db_cb(self, widget):
+
+        self.update_scheduler(use_db=False, ignore_pgm_skip_flag=True)
+
+        sdlr = self.model.get_scheduler()
+
+        try:
+            if self.qdb is None:
+                self.connect_qdb()
+
+        except Exception as e:
+            self.logger.error("Unexpected error while connecting to queue database: %s" % str(e), exc_info=True)
+            return
+
+        # Now check that we have everything in the database
+        self.logger.info("Checking consistency of queue database to files")
+        self.qq.clear_cache()
+
+        # check programs in db
+        self.logger.info("checking programs...")
+        try:
+            for key in sdlr.programs:
+                pgm_f = sdlr.programs[key]
+                pgm_d = self.qq.get_program(pgm_f.proposal)
+                if pgm_d is None:
+                    self.logger.error("No program '%s' in database" % (str(key)))
+                    continue
+
+                if pgm_d != pgm_f:
+                    errmsg = "program '%s' in database and files differ" % (str(key))
+                    self.logger.error(errmsg)
+                    self.controller.gui_do(self.controller.show_error, errmsg,
+                                           raisetab=True)
+                    print("-- FILE --")
+                    print(pgm_f.__dict__)
+                    print("-- DB --")
+                    print(pgm_d.__dict__)
+                    print("")
+                    print("-------------------------------")
+                else:
+                    self.logger.debug("program '%s' is a match" % (str(key)))
+                    continue
+        except Exception as e:
+            self.logger.error("Unexpected error while checking program table in database: %s" % str(e), exc_info=True)
+            return
+        self.logger.info("done checking programs")
+
+        # check OBs in db
+        self.logger.info("checking OBs...")
+        try:
+            for ob_f in sdlr.oblist:
+                ob_key = (ob_f.key['program'], ob_f.key['name'])
+                ob_d = self.qq.get_ob(ob_key)
+                if ob_d is None:
+                    self.logger.error("No OB matching '%s' in database" % (str(ob_key)))
+                    continue
+
+                if ob_d != ob_f:
+                    errmsg = "OB '%s' in database and files differ" % (str(ob_key))
+                    self.logger.error(errmsg)
+                    self.controller.gui_do(self.controller.show_error, errmsg,
+                                           raisetab=True)
+                else:
+                    self.logger.debug("OB '%s' is a match" % (str(ob_key)))
+                    continue
+        except Exception as e:
+            self.logger.error("Unexpected error while checking ob table in database: %s" % str(e), exc_info=True)
+            return
+        self.logger.info("done checking OBs")
 
     def set_plot_pct_cb(self, w, val):
         #print(('pct', val))

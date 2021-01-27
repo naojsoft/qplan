@@ -1,8 +1,6 @@
 #
 # Errors.py -- Errors plugin for qplan
 #
-# Eric Jeschke (eric@naoj.org)
-#
 
 # stdlib imports
 import time
@@ -108,5 +106,3 @@ class Errors(PlBase.Plugin):
 
     def __str__(self):
         return 'errors'
-
-#END

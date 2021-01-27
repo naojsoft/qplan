@@ -161,10 +161,14 @@ class Viewer(GwMain.GwMain, Widgets.Application):
             self.plugin_lst.append(spec)
 
     def start_plugin(self, plugin_name, raise_tab=False):
-        self.gpmon.start_plugin_future(None, plugin_name, None)
-        if raise_tab:
-            p_info = self.gpmon.get_plugin_info(plugin_name)
-            self.ds.raise_tab(p_info.tabname)
+        try:
+            self.gpmon.start_plugin_future(None, plugin_name, None)
+            if raise_tab:
+                p_info = self.gpmon.get_plugin_info(plugin_name)
+                self.ds.raise_tab(p_info.tabname)
+        except Exception as e:
+            self.logger.error("Error starting plugin '{}'".format(plugin_name),
+                              exc_info=True)
 
     def stop_plugin(self, plugin_name):
         self.logger.info('deactivating plugin %s' % (plugin_name))

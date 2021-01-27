@@ -5,11 +5,14 @@
 #
 from datetime import timedelta, datetime
 import math
+import functools
 import dateutil.parser
 from dateutil import tz
 
 # 3rd party imports
-from ginga.util import wcs
+import numpy as np
+from astropy.coordinates import Angle
+from astropy import units
 
 entity_version = 20180618.0
 
@@ -48,6 +51,7 @@ class PersistentEntity(object):
         qt.put(self)
 
 
+@functools.total_ordering
 class Program(PersistentEntity):
     """
     Program
@@ -86,6 +90,31 @@ class Program(PersistentEntity):
 
     __str__ = __repr__
 
+    def __eq__(self, other):
+        if self.proposal != other.proposal:
+            return False
+        if self.propid != other.propid:
+            return False
+        if self.pi != other.pi:
+            return False
+        if self.observers != other.observers:
+            return False
+        if not np.isclose(self.rank, other.rank):
+            return False
+        if self.grade != other.grade:
+            return False
+        if self.partner != other.partner:
+            return False
+        if self.category != other.category:
+            return False
+        if not np.isclose(self.rank, other.rank):
+            return False
+        if set(self.instruments) != set(other.instruments):
+            return False
+        return True
+
+    def __gt__(self, other):
+        return self.rank > other.rank
 
 class SlotError(Exception):
     pass
@@ -289,6 +318,7 @@ class Schedule(object):
     __str__ = __repr__
 
 
+@functools.total_ordering
 class OB(PersistentEntity):
     """
     Observing Block
@@ -323,7 +353,7 @@ class OB(PersistentEntity):
         self.envcfg = envcfg
 
         # this can be None, "default" or a valid target configuration
-        if calib_tgtcfg == 'default':
+        if isinstance(calib_tgtcfg, str) and calib_tgtcfg == 'default':
             # default calib_tgtcfg is same pointing as science target,
             # but name is prefixed with "calib for "
             calib_tgtcfg = HSCTarget(name="calib for %s" % target.name,
@@ -331,7 +361,7 @@ class OB(PersistentEntity):
                                      equinox=target.equinox)
         self.calib_tgtcfg = calib_tgtcfg
 
-        if calib_inscfg == 'default':
+        if isinstance(calib_inscfg, str) and calib_inscfg == 'default':
             # default calib_inscfg is a 30 sec single shot with same
             # filter as the science inscfg
             calib_inscfg = HSCConfiguration(filter=inscfg.filter,
@@ -390,10 +420,52 @@ class OB(PersistentEntity):
 
     __str__ = __repr__
 
+    def __eq__(self, other):
+        # Do ID's need to match?--I don't think so, would be difficult to
+        # enforce
+        ## if self.id != other.id:
+        ##     return False
+        if self.name != other.name:
+            return False
+        if not np.isclose(self.priority, other.priority):
+            return False
+        if not np.isclose(self.total_time, other.total_time):
+            return False
+        if not np.isclose(self.acct_time, other.acct_time):
+            return False
+        if self.derived != other.derived:
+            return False
+        if self.extra_params != other.extra_params:
+            return False
+        if self.comment != other.comment:
+            return False
+
+        # costly object compares
+        if self.program != other.program:
+            return False
+        if self.target != other.target:
+            return False
+        if self.inscfg != other.inscfg:
+            return False
+        if self.telcfg != other.telcfg:
+            return False
+        if self.envcfg != other.envcfg:
+            return False
+        if self.calib_tgtcfg != other.calib_tgtcfg:
+            return False
+        if self.calib_inscfg != other.calib_inscfg:
+            return False
+
+        return True
+
+    def __gt__(self, other):
+        return self.name > other.name
+
 
 class BaseTarget(object):
     pass
 
+@functools.total_ordering
 class StaticTarget(BaseTarget):
     def __init__(self, name=None, ra=None, dec=None, equinox=2000.0,
                  comment=''):
@@ -435,12 +507,29 @@ class StaticTarget(BaseTarget):
     def calc(self, observer, time_start):
         return self.body.calc(observer, time_start)
 
+    def __eq__(self, other):
+        if self.name != other.name:
+            return False
+        if self.ra != other.ra:
+            return False
+        if self.dec != other.dec:
+            return False
+        if self.equinox != other.equinox:
+            return False
+        if self.comment != other.comment:
+            return False
+        return True
+
+    def __gt__(self, other):
+        return self.name > other.name
+
 
 class HSCTarget(StaticTarget):
     def __init__(self, *args, **kwdargs):
         super(HSCTarget, self).__init__(*args, **kwdargs)
 
 
+@functools.total_ordering
 class TelescopeConfiguration(object):
 
     def __init__(self, focus=None, dome=None, comment=''):
@@ -464,6 +553,23 @@ class TelescopeConfiguration(object):
         self.dome = rec['dome'].lower()
         self.comment = rec['comment'].strip()
         return code
+
+    def __eq__(self, other):
+        if self.focus != other.focus:
+            return False
+        if self.dome != other.dome:
+            return False
+        if not np.isclose(self.min_el, other.min_el):
+            return False
+        if not np.isclose(self.max_el, other.max_el):
+            return False
+        if self.comment != other.comment:
+            return False
+        return True
+
+    def __gt__(self, other):
+        return self.focus > other.focus
+
 
 class InstrumentConfiguration(object):
 
@@ -504,6 +610,7 @@ class SPCAMConfiguration(InstrumentConfiguration):
         filter_change_time_sec = 10.0 * 60.0
         return filter_change_time_sec
 
+@functools.total_ordering
 class HSCConfiguration(InstrumentConfiguration):
 
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
@@ -561,6 +668,43 @@ class HSCConfiguration(InstrumentConfiguration):
         self.comment = rec['comment'].strip()
         return code
 
+    def __eq__(self, other):
+        if self.insname != other.insname:
+            return False
+        if self.mode != other.mode:
+            return False
+        if self.filter != other.filter:
+            return False
+        if self.dither != other.dither:
+            return False
+        if self.guiding != other.guiding:
+            return False
+        if self.num_exp != other.num_exp:
+            return False
+        if not np.isclose(self.exp_time, other.exp_time):
+            return False
+        if not np.isclose(self.offset_ra, other.offset_ra):
+            return False
+        if not np.isclose(self.offset_dec, other.offset_dec):
+            return False
+        if not np.isclose(self.pa, other.pa):
+            return False
+        if not np.isclose(self.dith1, other.dith1):
+            return False
+        if not np.isclose(self.dith2, other.dith2):
+            return False
+        if self.skip != other.skip:
+            return False
+        if self.stop != other.stop:
+            return False
+        if self.comment != other.comment:
+            return False
+        return True
+
+    def __gt__(self, other):
+        return self.insname > other.insname
+
+
 class FOCASConfiguration(InstrumentConfiguration):
 
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
@@ -609,6 +753,8 @@ class FOCASConfiguration(InstrumentConfiguration):
         self.binning = rec['binning']
         return code
 
+
+@functools.total_ordering
 class EnvironmentConfiguration(object):
 
     # Default time zone for lower_time_limit and upper_time_limit
@@ -681,6 +827,28 @@ class EnvironmentConfiguration(object):
 
         self.comment = rec['comment'].strip()
         return code
+
+    def __eq__(self, other):
+        if not np.isclose(self.seeing, other.seeing):
+            return False
+        if not np.isclose(self.airmass, other.airmass):
+            return False
+        if self.moon != other.moon:
+            return False
+        if not np.isclose(self.moon_sep, other.moon_sep):
+            return False
+        if not np.isclose(self.transparency, other.transparency):
+            return False
+        if self.lower_time_limit != other.lower_time_limit:
+            return False
+        if self.upper_time_limit != other.upper_time_limit:
+            return False
+        if self.comment != other.comment:
+            return False
+        return True
+
+    def __gt__(self, other):
+        return self.seeing > other.seeing
 
 
 class Executed_OB(PersistentEntity):
@@ -810,15 +978,19 @@ def parse_date_time(dt_str, default_timezone):
         dt = None
     return dt
 
+
 def normalize_radec_str(ra_str, dec_str):
     if ra_str is None or ra_str == '':
         ra = ra_str
     else:
-        ra = wcs.raDegToString(wcs.hmsStrToDeg(ra_str))
+        ra_ang = Angle(ra_str, unit=units.hour)
+        ra = ra_ang.to_string(sep=':', precision=3, pad=True)
     if dec_str is None or dec_str == '':
         dec = dec_str
     else:
-        dec = wcs.decDegToString(wcs.dmsStrToDeg(dec_str))
+        dec_ang = Angle(dec_str, unit=units.deg)
+        dec = dec_ang.to_string(sep=':', precision=2, pad=True,
+                                alwayssign=True)
     return (ra, dec)
 
 #

@@ -78,6 +78,8 @@ plugins = [
           ptype='global', tab='Semester Chart', ws='sub1', start=True),
     Bunch(name='errors', module='Errors', klass='Errors',
           ptype='global', tab='Errors', ws='right', start=True),
+    Bunch(name='command', module='Command', klass='Command',
+          ptype='global', tab='Command', ws='right', start=False),
     ]
 
 
