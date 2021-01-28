@@ -461,7 +461,7 @@ class ControlPanel(PlBase.Plugin):
                     self.logger.error("No program '%s' in database" % (str(key)))
                     continue
 
-                if pgm_d != pgm_f:
+                if not pgm_d.equivalent(pgm_f):
                     errmsg = "program '%s' in database and files differ" % (str(key))
                     self.logger.error(errmsg)
                     self.controller.gui_do(self.controller.show_error, errmsg,
@@ -490,7 +490,7 @@ class ControlPanel(PlBase.Plugin):
                     self.logger.error("No OB matching '%s' in database" % (str(ob_key)))
                     continue
 
-                if ob_d != ob_f:
+                if not ob_d.equivalent(ob_f):
                     errmsg = "OB '%s' in database and files differ" % (str(ob_key))
                     self.logger.error(errmsg)
                     self.controller.gui_do(self.controller.show_error, errmsg,

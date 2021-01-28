@@ -5,7 +5,6 @@
 #
 from datetime import timedelta, datetime
 import math
-import functools
 import dateutil.parser
 from dateutil import tz
 
@@ -51,7 +50,6 @@ class PersistentEntity(object):
         qt.put(self)
 
 
-@functools.total_ordering
 class Program(PersistentEntity):
     """
     Program
@@ -90,7 +88,7 @@ class Program(PersistentEntity):
 
     __str__ = __repr__
 
-    def __eq__(self, other):
+    def equivalent(self, other):
         if self.proposal != other.proposal:
             return False
         if self.propid != other.propid:
@@ -113,8 +111,6 @@ class Program(PersistentEntity):
             return False
         return True
 
-    def __gt__(self, other):
-        return self.rank > other.rank
 
 class SlotError(Exception):
     pass
@@ -318,7 +314,6 @@ class Schedule(object):
     __str__ = __repr__
 
 
-@functools.total_ordering
 class OB(PersistentEntity):
     """
     Observing Block
@@ -420,7 +415,7 @@ class OB(PersistentEntity):
 
     __str__ = __repr__
 
-    def __eq__(self, other):
+    def equivalent(self, other):
         # Do ID's need to match?--I don't think so, would be difficult to
         # enforce
         ## if self.id != other.id:
@@ -441,31 +436,41 @@ class OB(PersistentEntity):
             return False
 
         # costly object compares
-        if self.program != other.program:
+        if not self.program.equivalent(other.program):
             return False
-        if self.target != other.target:
+        if not self.target.equivalent(other.target):
             return False
-        if self.inscfg != other.inscfg:
+        if not self.inscfg.equivalent(other.inscfg):
             return False
-        if self.telcfg != other.telcfg:
+        if not self.telcfg.equivalent(other.telcfg):
             return False
-        if self.envcfg != other.envcfg:
+        if not self.envcfg.equivalent(other.envcfg):
             return False
-        if self.calib_tgtcfg != other.calib_tgtcfg:
-            return False
-        if self.calib_inscfg != other.calib_inscfg:
-            return False
+
+        if self.calib_tgtcfg is None:
+            if other.calib_tgtcfg is not None:
+                return False
+        else:
+            if other.calib_tgtcfg is None:
+                return False
+            elif not self.calib_tgtcfg.equivalent(other.calib_tgtcfg):
+                return False
+
+        if self.calib_inscfg is None:
+            if other.calib_inscfg is not None:
+                return False
+        else:
+            if other.calib_inscfg is None:
+                return False
+            elif not self.calib_inscfg.equivalent(other.calib_inscfg):
+                return False
 
         return True
-
-    def __gt__(self, other):
-        return self.name > other.name
 
 
 class BaseTarget(object):
     pass
 
-@functools.total_ordering
 class StaticTarget(BaseTarget):
     def __init__(self, name=None, ra=None, dec=None, equinox=2000.0,
                  comment=''):
@@ -507,7 +512,7 @@ class StaticTarget(BaseTarget):
     def calc(self, observer, time_start):
         return self.body.calc(observer, time_start)
 
-    def __eq__(self, other):
+    def equivalent(self, other):
         if self.name != other.name:
             return False
         if self.ra != other.ra:
@@ -520,16 +525,12 @@ class StaticTarget(BaseTarget):
             return False
         return True
 
-    def __gt__(self, other):
-        return self.name > other.name
-
 
 class HSCTarget(StaticTarget):
     def __init__(self, *args, **kwdargs):
         super(HSCTarget, self).__init__(*args, **kwdargs)
 
 
-@functools.total_ordering
 class TelescopeConfiguration(object):
 
     def __init__(self, focus=None, dome=None, comment=''):
@@ -554,7 +555,7 @@ class TelescopeConfiguration(object):
         self.comment = rec['comment'].strip()
         return code
 
-    def __eq__(self, other):
+    def equivalent(self, other):
         if self.focus != other.focus:
             return False
         if self.dome != other.dome:
@@ -566,9 +567,6 @@ class TelescopeConfiguration(object):
         if self.comment != other.comment:
             return False
         return True
-
-    def __gt__(self, other):
-        return self.focus > other.focus
 
 
 class InstrumentConfiguration(object):
@@ -610,7 +608,6 @@ class SPCAMConfiguration(InstrumentConfiguration):
         filter_change_time_sec = 10.0 * 60.0
         return filter_change_time_sec
 
-@functools.total_ordering
 class HSCConfiguration(InstrumentConfiguration):
 
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
@@ -668,7 +665,7 @@ class HSCConfiguration(InstrumentConfiguration):
         self.comment = rec['comment'].strip()
         return code
 
-    def __eq__(self, other):
+    def equivalent(self, other):
         if self.insname != other.insname:
             return False
         if self.mode != other.mode:
@@ -700,9 +697,6 @@ class HSCConfiguration(InstrumentConfiguration):
         if self.comment != other.comment:
             return False
         return True
-
-    def __gt__(self, other):
-        return self.insname > other.insname
 
 
 class FOCASConfiguration(InstrumentConfiguration):
@@ -754,7 +748,6 @@ class FOCASConfiguration(InstrumentConfiguration):
         return code
 
 
-@functools.total_ordering
 class EnvironmentConfiguration(object):
 
     # Default time zone for lower_time_limit and upper_time_limit
@@ -828,7 +821,7 @@ class EnvironmentConfiguration(object):
         self.comment = rec['comment'].strip()
         return code
 
-    def __eq__(self, other):
+    def equivalent(self, other):
         if not np.isclose(self.seeing, other.seeing):
             return False
         if not np.isclose(self.airmass, other.airmass):
@@ -846,9 +839,6 @@ class EnvironmentConfiguration(object):
         if self.comment != other.comment:
             return False
         return True
-
-    def __gt__(self, other):
-        return self.seeing > other.seeing
 
 
 class Executed_OB(PersistentEntity):
