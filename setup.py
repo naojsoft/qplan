@@ -36,7 +36,7 @@ setup(
     scripts = ['scripts/qplan', 'scripts/qexec.py'],
     install_requires = ['pandas>=0.24.1', 'xlrd>=1.2.0', 'openpyxl>=3.0.5',
                         'ginga>=3.1', 'qtpy>=1.6.0',
-                        'matplotlib>=3.0.2', 'ephem>=3.7.5.3',
+                        'matplotlib>=2.2.3', 'ephem>=3.7.5.3',
                         'pyyaml>=5.3.1'],
     #test_suite = "",
     classifiers=[

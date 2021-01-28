@@ -60,7 +60,12 @@ class ControlPanel(PlBase.Plugin):
         self.qa = None
         self.qq = None
         prefs = self.controller.get_preferences()
-        self.cfg_path = os.path.join(prefs.folder, 'qdb.yml')
+        self.settings = prefs.create_category('plugin_ControlPanel')
+        self.settings.add_defaults(db_config_file='qdb.yml')
+        self.settings.load(onError='silent')
+
+        self.cfg_path = os.path.join(prefs.folder,
+                                     self.settings.get('db_config_file'))
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
                                   klass='WeightsTab', ptype='global',
