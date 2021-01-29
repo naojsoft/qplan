@@ -205,7 +205,7 @@ class CommandInterpreter(object):
         p_info = gpmon.get_plugin_info(plname)
         gpmon.stop_plugin(p_info)
         #self.controller.update_pending(0.5)
-        #self.controller.mm.load_module(plname)
+        self.controller.mm.load_module(plname)
         gpmon.reload_plugin(plname)
         self.controller.start_plugin(plname)
         return True

@@ -127,12 +127,17 @@ class ControlPanel(PlBase.Plugin):
         b.input_dir.set_text(self.controller.input_dir)
         b.load_info.set_tooltip("Load data from phase 2 files")
         b.load_info.add_callback('activated', self.initialize_model_cb)
-        b.update_database_from_files.set_tooltip("Update Gen2 database from changes to phase 2 files")
+        b.update_database_from_files.set_tooltip("Update Gen2 queue database from changes to phase 2 files.\n"
+                                                 "(Watch log to monitor completion of task)")
+        b.check_database_against_files.set_tooltip("Check the Gen2 queue database against loaded progams and OBs.\n"
+                                                   "(Watch log to monitor completion of task)")
         b.remove_scheduled_obs.set_state(sdlr.remove_scheduled_obs)
         def toggle_sdled_obs(w, tf):
             #print(('setting sdled obs', tf))
             sdlr.remove_scheduled_obs = tf
         b.remove_scheduled_obs.add_callback('activated', toggle_sdled_obs)
+        b.remove_scheduled_obs.set_tooltip("After an OB has been scheduled, remove it from consideration for the same schedule run.\n"
+                                           "(typically should be ON)")
 
         if have_qdb and os.path.exists(self.cfg_path):
             b.update_database_from_files.add_callback('activated',

@@ -65,7 +65,7 @@ plugins = [
     Bunch(name='builder', module='Builder', klass='Builder',
           ptype='global', tab='Builder', ws='report', start=True),
     Bunch(name='logger', module='Logger', klass='Logger',
-          ptype='global', tab='Log', ws='report', start=False),
+          ptype='global', tab='Log', ws='report', start=True),
     Bunch(name='cp', module='ControlPanel', klass='ControlPanel',
           ptype='global', tab='Control Panel', ws='right', start=True),
     Bunch(name='night_activity', module='SumChart', klass='NightSumChart',
