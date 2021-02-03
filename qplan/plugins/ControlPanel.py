@@ -319,7 +319,12 @@ class ControlPanel(PlBase.Plugin):
 
                 if propname not in self.ob_info:
                     # If we haven't read these OBs in already, read them now
-                    if use_db:
+                    if False:  # use_db
+                        # NOTE: this is fetching old OBs that are in the db
+                        # but that may not be desired for programs carried
+                        # over semester to semester.  To use this, we need to
+                        # clear the old OBs out of the db
+                        # DISABLING FOR NOW...EJ
                         oblist = list(self.qq.get_obs_by_proposal(propname))
 
                     else:
