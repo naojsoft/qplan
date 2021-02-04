@@ -269,22 +269,24 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
     # and consider this a dark night
     horizon_deg = 0.0   # change as necessary
     if (c1.moon_alt < horizon_deg) and (c2.moon_alt < horizon_deg):
-        #print("moon down, dark night")
-        is_dark_night = True
+        #print("moon is down, dark night conditions")
+        moon_is_down = True
 
     # if observer specified a moon phase, check it now
     if ob.envcfg.moon == 'dark':
         ## print("moon pct=%f moon alt=%f moon_sep=%f" % (
         ##       c1.moon_pct, c1.moon_alt, c1.moon_sep))
-        if not is_dark_night:
+        if not (is_dark_night or moon_is_down):
             res.setvals(obs_ok=False,
                         reason="Moon illumination=%f not acceptable (alt 1=%.2f 2=%.2f" % (
                 c1.moon_pct, c1.moon_alt, c2.moon_alt))
             return False
 
-    # override the observer's desired separation if it is a dark night
-    limit_sep = min(30.0, desired_moon_sep)
-    if (desired_moon_sep is not None) and is_dark_night:
+    # NOTE: change in HSC queue policy regarding override (2021/02...EJ)
+    # override the observer's desired separation if it is a gray night
+    # OR it is a dark night AND the moon is below the horizon
+    if (desired_moon_sep is not None) and (not is_dark_night or moon_is_down):
+        limit_sep = min(30.0, desired_moon_sep)
         desired_moon_sep = min(desired_moon_sep, limit_sep)
         if desired_moon_sep < ob.envcfg.moon_sep:
             res.setvals(override="overrode moon separation (%.2f) -> %.2f deg" % (
