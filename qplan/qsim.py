@@ -283,9 +283,8 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
             return False
 
     # NOTE: change in HSC queue policy regarding override (2021/02...EJ)
-    # override the observer's desired separation if it is a gray night
-    # OR it is a dark night AND the moon is below the horizon
-    if (desired_moon_sep is not None) and (not is_dark_night or moon_is_down):
+    # override the observer's desired separation if moon is below the horizon
+    if (desired_moon_sep is not None) and moon_is_down:
         limit_sep = min(30.0, desired_moon_sep)
         desired_moon_sep = min(desired_moon_sep, limit_sep)
         if desired_moon_sep < ob.envcfg.moon_sep:
