@@ -267,6 +267,7 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
 
     # if the moon is down for entire exposure, override illumination
     # and consider this a dark night
+    moon_is_down = False
     horizon_deg = 0.0   # change as necessary
     if (c1.moon_alt < horizon_deg) and (c2.moon_alt < horizon_deg):
         #print("moon is down, dark night conditions")
