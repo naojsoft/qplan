@@ -81,9 +81,20 @@ class QueueQuery(object):
         return self.cmake1('program', proposal, {'proposal': proposal},
                            entity.make_program)
 
+    def _ob_keys_to_obs(self, ob_keys):
+        ob_map = self.partition_ob_keys_by_program(ob_keys)
+        query = {'$or': [{'$and':[ {'program': proposal},
+                                   {'name': {'$in': names}}
+                                   ]}
+                         for proposal, names in ob_map.items()
+                         ]}
+        tbl = self._qa.get_db_native_table('ob')
+        return tbl.find(query)
+
     def ob_keys_to_obs(self, ob_keys):
-        # TODO: can this be made more efficient with a Mongo query?
-        return map(self.get_ob, ob_keys)
+        #return map(self.get_ob, ob_keys)
+        recs = self._ob_keys_to_obs(ob_keys)
+        return self._make_obs(recs)
 
     def ex_ob_to_ob(self, ex_ob):
         """
@@ -261,23 +272,20 @@ class QueueQuery(object):
         # programs for executed OBs.  Needed to inform scheduler so that
         # it can correctly calculate when to stop allocating OBs for a
         # program that has reached its time limit.
-        dne_obs = []
+        dne_ob_keys = [tuple(rec['ob_key']) for rec in recs]
         props = {}
-        for rec in recs:
-            ob_key = tuple(rec['ob_key'])
-            dne_obs.append(ob_key)
-            proposal = ob_key[0]
-
-            ob = self.get_ob(ob_key)
+        ob_recs = self._ob_keys_to_obs(dne_ob_keys)
+        for rec in ob_recs:
+            proposal = rec['program']
             bnch = props.setdefault(proposal, Bunch(obcount=0,
                                                     sched_time=0.0))
             # 2021-01-11 EJ
             # Added extra overhead charge
-            bnch.sched_time += (ob.acct_time *
+            bnch.sched_time += (rec['acct_time'] *
                                 common.extra_overhead_factor)
             bnch.obcount += 1
 
-        return dne_obs, props
+        return dne_ob_keys, props
 
     def get_schedulable_ob_keys(self):
         """
@@ -315,6 +323,18 @@ class QueueQuery(object):
             key = ob.program.proposal
             l = res.setdefault(key, [])
             l.append(ex_ob)
+        return res
+
+    def partition_ob_keys_by_program(self, ob_keys):
+        """
+        Given a list of executed ob records, returns a mapping of
+        proposal names to lists of executed ob records
+        """
+        res = {}
+        for ob_key in ob_keys:
+            key = ob_key[0]
+            l = res.setdefault(key, [])
+            l.append(ob_key[1])
         return res
 
     #
