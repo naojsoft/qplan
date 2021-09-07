@@ -83,6 +83,8 @@ class QueueQuery(object):
 
     def _ob_keys_to_obs(self, ob_keys):
         ob_map = self.partition_ob_keys_by_program(ob_keys)
+        if len(ob_map) == 0:
+            return []
         query = {'$or': [{'$and':[ {'program': proposal},
                                    {'name': {'$in': names}}
                                    ]}

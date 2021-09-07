@@ -400,7 +400,7 @@ class ControlPanel(PlBase.Plugin):
             errmsg = 'Error storing into scheduler: {}\n'.format(str(e))
             #self.logger.error("Error storing into scheduler: %s" % (str(e)))
             errmsg += "\n".join([e.__class__.__name__, str(e)])
-            self.logger.error(errmsg)
+            self.logger.error(errmsg, exc_info=True)
             self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
             raise e
 
