@@ -8,6 +8,7 @@ import mysql.connector
 import sqlalchemy
 import logging
 from sqlsoup import SQLSoup as SqlSoup
+import bcrypt
 
 from ginga.misc import log
 
@@ -72,14 +73,20 @@ class ProMSdb(object):
             logging.getLogger('sqlalchemy.engine').setLevel(logging.WARN)
         try:
             # auth is table name
-            res = self.auth.filter_by(email='%s' % id, passwd='%s' % passwd).first()
+            res = self.auth.filter_by(email='%s' % id).first()
+            self.logger.info('res is %s' % res)
+            if res:
+                auth_check = bcrypt.checkpw(passwd.encode('UTF-8'), res.passwd.encode('UTF-8'))
+            else:
+                auth_check = False
+            self.logger.info('auth_check is %s' % auth_check)
             logging.getLogger('sqlalchemy.engine').setLevel(savedLevel)
         except Exception as e:
             logging.getLogger('sqlalchemy.engine').setLevel(savedLevel)
             self.logger.error('Unexpected error while authenticating user: %s %s' % (id, e))
             res = None
 
-        return res
+        return str(res), auth_check
 
 def main(options, args):
 
@@ -98,8 +105,8 @@ def main(options, args):
         res = s.user_in_proms(options.id)
         logger.info('user_in_proms result is %s' % res)
     if options.id and options.passwd:
-        res = s.user_auth_in_proms(options.id, options.passwd)
-        logger.info('user_auth_in_proms result is %s' % res)
+        sres, auth_check = s.user_auth_in_proms(options.id, options.passwd)
+        logger.info('user_auth_in_proms result is %s, auth_check is %s' % (sres, auth_check))
 
 if __name__ == "__main__":
 
