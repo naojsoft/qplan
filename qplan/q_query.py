@@ -44,11 +44,11 @@ class QueueQuery(object):
     qq = QueueQuery(da)
     """
 
-    def __init__(self, qa):
+    def __init__(self, qa, use_cache=True):
         self._qa = qa
         self.logger = qa.logger
 
-        self.use_cache = True
+        self.use_cache = use_cache
         self.cache = {}
 
     def get_ob(self, ob_key):
