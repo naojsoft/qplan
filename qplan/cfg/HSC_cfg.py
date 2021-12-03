@@ -21,4 +21,5 @@ semester_filters = {
     'S20B': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB430', 'NB497', 'NB816')],
     'S21A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB497', 'NB515', 'NB527')],
     'S21B': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB395', 'NB497', 'NB527')],
+    'S22A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB395', 'NB497', 'NB527', 'NB656', 'NB718')],
     }
