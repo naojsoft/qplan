@@ -226,15 +226,8 @@ def proms_auth(id, passwd):
         success = False
         return result, success
 
-    sres, auth_check = s.user_auth_in_proms(username, password)
-    # Hide the password, if any, in the log output
-    pw_match = re.search("passwd='(\w{8})'", sres)
-    if pw_match:
-        pw = pw_match.group(1)
-        res4log = sres.replace(pw, 'X'*len(pw))
-    else:
-        res4log = sres
-    logger.info('res from ProMSdb %s' % res4log)
+    res, auth_check = s.user_auth_in_proms(username, password)
+    logger.info('res from ProMSdb %s' % str(res))
     if auth_check:
         result="ProMS login succeeded"
         success = True

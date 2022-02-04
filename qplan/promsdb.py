@@ -74,7 +74,7 @@ class ProMSdb(object):
         try:
             # auth is table name
             res = self.auth.filter_by(email='%s' % id).first()
-            self.logger.info('res is %s' % res)
+            self.logger.info('res is %s' % str(res))
             if res:
                 auth_check = bcrypt.checkpw(passwd.encode('UTF-8'), res.passwd.encode('UTF-8'))
             else:
@@ -86,7 +86,7 @@ class ProMSdb(object):
             self.logger.error('Unexpected error while authenticating user: %s %s' % (id, e))
             res = None
 
-        return str(res), auth_check
+        return res, auth_check
 
 def main(options, args):
 
