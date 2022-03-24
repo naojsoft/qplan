@@ -8,7 +8,7 @@ import os
 from collections import OrderedDict
 from datetime import timedelta, datetime
 
-# ginga imports
+# 3rd party imports
 from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
 
@@ -41,12 +41,11 @@ class Builder(PlBase.Plugin):
         self.settings = prefs.create_category('plugin_Builder')
         self.settings.add_defaults(gen2_status_host='localhost',
                                    gen2_status_user=None,
-                                   gen2_status_pass=None)
+                                   gen2_status_pass=None,
+                                   plan_folder='.')
         self.settings.load(onError='silent')
 
-        # TEMP
-        t_ = prefs.get_settings('general')
-        self.use_qc_plans = t_.get('use_qc_plans', False)
+        self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
 
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -184,18 +183,15 @@ class Builder(PlBase.Plugin):
         btn.add_callback('activated', self.find_executable_obs_cb)
         vbx2.add_widget(btn, stretch=0)
 
-        if self.use_qc_plans:
-            btn = Widgets.Button("Load Plan")
-            btn.set_tooltip("Load a queue coordinator plan")
-            btn.add_callback('activated', self.load_plan_cb)
-            vbx2.add_widget(btn, stretch=0)
+        btn = Widgets.Button("Load Plan")
+        btn.set_tooltip("Load a queue coordinator plan")
+        btn.add_callback('activated', self.load_plan_cb)
+        vbx2.add_widget(btn, stretch=0)
 
-            fr = Widgets.Frame()
-            self.plan_lbl = Widgets.Label("(no plan)")
-            fr.set_widget(self.plan_lbl)
-            vbx2.add_widget(fr, stretch=0)
-
-            self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
+        fr = Widgets.Frame()
+        self.plan_lbl = Widgets.Label("(no plan)")
+        fr.set_widget(self.plan_lbl)
+        vbx2.add_widget(fr, stretch=0)
 
         # add stretch spacer
         vbx2.add_widget(Widgets.Label(''), stretch=1)
