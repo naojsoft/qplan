@@ -179,8 +179,6 @@ class QNavi(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
         now = datetime.now(tz=sdlr.timezone)
         date_s = now.strftime("%Y-%m-%d")
-        # for testing...
-        date_s = '2022-04-28'
         time_b = now.strftime("%H-%M-%S")
         try:
             time_start = sdlr.site.get_date("%s %s" % (date_s, time_b))
@@ -188,7 +186,7 @@ class QNavi(PlBase.Plugin):
             errmsg = 'Error parsing start date/time:: {}\n'.format(str(e))
             errmsg += "\n".join([e.__class__.__name__, str(e)])
             self.logger.error(errmsg)
-            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
         # get the string for the date of observation in HST, which is what
@@ -209,7 +207,7 @@ class QNavi(PlBase.Plugin):
         if rec is None:
             errmsg = "Can't find a record in the Schedule table matching '{}'".format(date_obs_local)
             self.logger.error(errmsg)
-            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
         data = Bunch(rec.data)
@@ -363,7 +361,12 @@ class QNavi(PlBase.Plugin):
         self.stobj.reconnect()
 
     def load_plan_cb(self, w):
-        cp = self.view.get_plugin('programstab')
+        try:
+            cp = self.view.get_plugin('programstab')
+        except KeyError:
+            self.view.show_error("Has info been loaded from Control Panel?",
+                                 raisetab=True)
+            return
         cp.load_plan_cb(w)
 
     def _plan_loaded_cb(self, model, plan_name):

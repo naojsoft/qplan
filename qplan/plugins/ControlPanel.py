@@ -82,7 +82,6 @@ class ControlPanel(PlBase.Plugin):
                                    hidden=True, enabled=True,
                                    workspace='report', tab='Programs', start=True)
 
-
     def connect_qdb(self):
 
         try:
