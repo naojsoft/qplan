@@ -664,7 +664,7 @@ class ProgramsFile(QueueFile):
                 pgm = entity.Program(key, propid=rec.propid,
                                      pi=rec.pi_name,
                                      rank=float(rec.rank),
-                                     qc_priority=float(rec.qc_priority),
+                                     qc_priority=float(rec.get('qc_priority', 0.0)),
                                      grade=rec.grade.upper(),
                                      partner=rec.partner,
                                      category=rec.category,

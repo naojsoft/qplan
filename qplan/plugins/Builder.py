@@ -41,8 +41,7 @@ class Builder(PlBase.Plugin):
         self.settings = prefs.create_category('plugin_Builder')
         self.settings.add_defaults(gen2_status_host='localhost',
                                    gen2_status_user=None,
-                                   gen2_status_pass=None,
-                                   plan_folder='.')
+                                   gen2_status_pass=None)
         self.settings.load(onError='silent')
 
         self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
