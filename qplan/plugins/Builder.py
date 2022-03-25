@@ -1,7 +1,7 @@
 #
 # Builder.py -- build schedule plugin
 #
-# Eric Jeschke (eric@naoj.org)
+# E. Jeschke
 #
 
 import os
@@ -44,6 +44,10 @@ class Builder(PlBase.Plugin):
                                    gen2_status_pass=None)
         self.settings.load(onError='silent')
 
+        # TEMP
+        t_ = prefs.get_settings('general')
+        self.use_qc_plans = t_.get('use_qc_plans', False)
+
     def build_gui(self, container):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
@@ -79,7 +83,7 @@ class Builder(PlBase.Plugin):
         self.w.len_time.set_length(8)
         gr.add_widget(Widgets.Label('Length (min)'), 0, i)
         gr.add_widget(self.w.len_time, 1, i)
-        self.w.len_time.set_text('70')
+        self.w.len_time.set_text('25')
         self.w.len_time.set_tooltip("Length of interval in MINUTES")
 
         i += 1
@@ -158,6 +162,19 @@ class Builder(PlBase.Plugin):
         btn.add_callback('activated', self.find_executable_obs_cb)
         vbx2.add_widget(btn, stretch=0)
 
+        if self.use_qc_plans:
+            btn = Widgets.Button("Load Plan")
+            btn.set_tooltip("Load a queue coordinator plan")
+            btn.add_callback('activated', self.load_plan_cb)
+            vbx2.add_widget(btn, stretch=0)
+
+            fr = Widgets.Frame()
+            self.plan_lbl = Widgets.Label("(no plan)")
+            fr.set_widget(self.plan_lbl)
+            vbx2.add_widget(fr, stretch=0)
+
+            self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
+
         # add stretch spacer
         vbx2.add_widget(Widgets.Label(''), stretch=1)
 
@@ -190,7 +207,7 @@ class Builder(PlBase.Plugin):
             errmsg = 'Error parsing start date/time:: {}\n'.format(str(e))
             errmsg += "\n".join([e.__class__.__name__, str(e)])
             self.logger.error(errmsg)
-            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
         # get the string for the date of observation in HST, which is what
@@ -211,7 +228,7 @@ class Builder(PlBase.Plugin):
         if rec is None:
             errmsg = "Can't find a record in the Schedule table matching '{}'".format(date_obs_local)
             self.logger.error(errmsg)
-            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
         len_s = self.w.len_time.get_text().strip()
@@ -382,4 +399,10 @@ class Builder(PlBase.Plugin):
                                   username=gen2_user, password=gen2_pass)
         self.stobj.reconnect()
 
-#END
+    def load_plan_cb(self, w):
+        cp = self.view.get_plugin('programstab')
+        cp.load_plan_cb(w)
+
+    def _plan_loaded_cb(self, model, plan_name):
+        self.plan_lbl.set_text(plan_name)
+        self.tree1.clear()

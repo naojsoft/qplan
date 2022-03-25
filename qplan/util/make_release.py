@@ -3,7 +3,7 @@ import time
 from io import StringIO
 
 major = 0
-minor = 6
+minor = 7
 
 rlfile = 'version.py'
 backup = 'version.py.bak'

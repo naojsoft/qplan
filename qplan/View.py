@@ -264,5 +264,12 @@ class Viewer(GwMain.GwMain, Widgets.Application):
             self.logger.error(errmsg)
             self.gui_do(self.show_error, errmsg, raisetab=True)
 
+    def status_msg(self, msg):
+        if msg is None:
+            self.w.status.set_message('', duration=0.0)
+        else:
+            self.w.status.set_message(msg)
+        self.update_pending(timeout=0.001)
+
 
 #END

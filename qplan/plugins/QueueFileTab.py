@@ -4,7 +4,7 @@
 #
 
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
+from qtpy import QtWidgets, QtGui
 
 from ginga.gw import Widgets
 from . import PlBase
@@ -36,14 +36,13 @@ class QueueFileTab(PlBase.Plugin):
         self.file_save_item = filemenu.add_name('Save')
         self.file_save_item.set_enabled(False)
         self.file_save_item.add_callback('activated', self.save_item_clicked)
+        self.filemenu = filemenu
 
         # Create an "Edit" menu
         editmenu = toolbar.add_menu('Edit')
         copy_item = editmenu.add_name('Copy')
-        copy_item.get_widget().setShortcut("Ctrl+C")
         copy_item.add_callback('activated', lambda w: self.copy_clicked())
         paste_item = editmenu.add_name('Paste')
-        paste_item.get_widget().setShortcut("Ctrl+V")
         paste_item.add_callback('activated', lambda w: self.paste_clicked())
 
         insert_row_item = editmenu.add_name('Insert Rows')
@@ -54,15 +53,20 @@ class QueueFileTab(PlBase.Plugin):
                                      lambda w: self.delete_row_clicked())
 
         # Create the table view
-        tableview = QtGui.QTableView()
+        tableview = QtWidgets.QTableView()
         self.tableview = tableview
         # Set the selection behavior
-        tableview.setSelectionBehavior(QtGui.QAbstractItemView.SelectItems)
-        tableview.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        tableview.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        tableview.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        # set up shortcuts for the Copy/Paste
+        sc = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+C"), tableview)
+        sc.activated.connect(self.copy_clicked)
+        sc = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+V"), tableview)
+        sc.activated.connect(self.paste_clicked)
 
         # Set up the vertical header
         vh = tableview.verticalHeader()
-        ## vh.setSectionResizeMode(QtGui.QHeaderView.ResizeToContents)
+        ## vh.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
         # Add the table view to the top_layout
         w = Widgets.wrap(tableview)
@@ -159,7 +163,7 @@ class QueueFileTab(PlBase.Plugin):
                 string += '\n'
             self.logger.debug(string)
             self.view._qtapp.clipboard().setText(string)
-            self.copySelectionRange = QtGui.QItemSelectionRange(selRangeFirst)
+            self.copySelectionRange = QtCore.QItemSelectionRange(selRangeFirst)
 
     def paste_clicked_gui_do(self, selRow, selCol):
         startRow = self.copySelectionRange.indexes()[0].row()
@@ -172,7 +176,7 @@ class QueueFileTab(PlBase.Plugin):
             self.logger.debug('row %d col %d %s' % (row, col, copied_value))
             newIndex = self.table_model.createIndex(selRow + row - startRow, selCol + col - startCol)
             self.table_model.setData(newIndex, copied_value)
-            self.table_model.layoutChanged()
+            self.table_model.layoutChanged.emit()
         self.table_model.parse_flag = True
         self.inputData.parse()
 
@@ -289,6 +293,3 @@ class TableModel(GenericTableModel):
         for i in range(count):
             self.model_data.pop(row)
         self.endRemoveRows()
-
-    def layoutChanged(self):
-        self.emit(QtCore.SIGNAL("layoutChanged()"))

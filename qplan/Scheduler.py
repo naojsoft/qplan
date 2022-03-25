@@ -2,7 +2,7 @@
 #
 # Scheduler.py -- Observing Queue Scheduler
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import os
 import time
@@ -53,7 +53,7 @@ class Scheduler(Callback.Callbacks):
         # define weights (see cmp_res() method)
         self.weights = Bunch.Bunch(w_rank=0.3, w_delay=0.2,
                                    w_slew=0.2, w_priority=0.1,
-                                   w_filterchange = 0.3)
+                                   w_filterchange = 0.3, w_qcp=0.0)
 
         # For callbacks
         for name in ('schedule-cleared', 'schedule-added', 'schedule-completed',):
@@ -64,7 +64,7 @@ class Scheduler(Callback.Callbacks):
         self.remove_scheduled_obs = True
 
     def set_weights(self, weights):
-        self.weights = weights
+        self.weights.update(weights)
 
     def set_programs_info(self, info, ignore_pgm_skip_flag=False):
         self.programs = {}
@@ -114,32 +114,51 @@ class Scheduler(Callback.Callbacks):
         - time lost (if any) having to change
              filters (weight: self.w_filterchange)
         - rank of the program (weight: w_rank)
+        - queue coordinators priority for program (weight: w_qcp)
 
         LOWER NUMBERS ARE BETTER!
         """
+        # TODO: turn this into a table-based iterative calculation,
+        # where all factors and weights are parameterized.  Can this
+        # be done without slowing it down significantly?
         wts = self.weights
+        t1 = t2 = 0.0
 
+        # slew time factor
         r1_slew = min(res1.slew_sec, self.max_slew) / self.max_slew
+        t1 += wts.w_slew * r1_slew
+        r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
+        t2 += wts.w_slew * r2_slew
+
+        # delay time factor
         r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay
+        t1 += wts.w_delay * r1_delay
+        r2_delay = min(res2.delay_sec, self.max_delay) / self.max_delay
+        t2 += wts.w_delay * r2_delay
+
+        # filter exchange time factor
         r1_filter = (min(res1.filterchange_sec, self.max_filterchange) /
                      self.max_filterchange)
+        t1 += wts.w_filterchange * r1_filter
+        r2_filter = (min(res2.filterchange_sec, self.max_filterchange) /
+                    self.max_filterchange)
+        t2 += wts.w_filterchange * r2_filter
+
+        # program rank factor
         r1_rank = min(res1.ob.program.rank, self.max_rank) / self.max_rank
         # invert because higher rank should make a lower number
         r1_rank = 1.0 - r1_rank
-        t1 = ((wts.w_slew * r1_slew) + (wts.w_delay * r1_delay) +
-              (wts.w_filterchange * r1_filter) + (wts.w_rank * r1_rank))
-
-        r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
-        r2_delay = min(res2.delay_sec, self.max_delay) / self.max_delay
-        r2_filter = (min(res2.filterchange_sec, self.max_filterchange) /
-                    self.max_filterchange)
+        t1 += wts.w_rank * r1_rank
         r2_rank = min(res2.ob.program.rank, self.max_rank) / self.max_rank
         r2_rank = 1.0 - r2_rank
-        t2 = ((wts.w_slew * r2_slew) + (wts.w_delay * r2_delay) +
-              (wts.w_filterchange * r2_filter) + (wts.w_rank * r2_rank))
+        t2 += wts.w_rank * r2_rank
+
+        # queue coordinator priority
+        t1 += wts.w_qcp * res1.ob.program.qc_priority
+        t2 += wts.w_qcp * res2.ob.program.qc_priority
 
         if res1.ob.program == res2.ob.program:
-            # for OBs in the same program, factor in priority
+            # for OBs in the same program, factor in PI's OB priority
             t1 += wts.w_priority * res1.ob.priority
             t2 += wts.w_priority * res2.ob.priority
 

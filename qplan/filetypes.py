@@ -2,7 +2,7 @@
 # filetypes.py -- CSV file interfaces
 #
 # Russell Kackley (rkackley@naoj.org)
-# Eric Jeschke (eric@naoj.org)
+# E. Jeschke
 #
 import os
 import csv
@@ -47,7 +47,8 @@ class QueueFile(object):
     excel_ext = ['xlsx', 'xls']
     all_ext = excel_ext + ['csv']
 
-    def __init__(self, input_dir, file_prefix, logger, file_ext=None, **parse_kwdargs):
+    def __init__(self, input_dir, file_prefix, logger, file_ext=None,
+                 **parse_kwdargs):
         self.input_dir = input_dir
         self.logger = logger
         self.queue_file = None
@@ -597,11 +598,13 @@ class ProgramsFile(QueueFile):
             'category': 'category',
             'instruments': 'instruments',
             'grade': 'grade',
+            'qcp': 'qc_priority',
             'hours': 'hours',
             'partner': 'partner',
             'skip': 'skip',
             }
-        super(ProgramsFile, self).__init__(input_dir, 'programs', logger, file_ext)
+        super(ProgramsFile, self).__init__(input_dir, 'programs', logger,
+                                           file_ext)
         self.find_filepath()
         if self.file_ext == 'csv':
             self.read_csv_file()
@@ -644,6 +647,7 @@ class ProgramsFile(QueueFile):
                 pgm = entity.Program(key, propid=rec.propid,
                                      pi=rec.pi_name,
                                      rank=float(rec.rank),
+                                     qc_priority=float(rec.get('qc_priority', 0.0)),
                                      grade=rec.grade.upper(),
                                      partner=rec.partner,
                                      category=rec.category,
@@ -664,6 +668,42 @@ class ProgramsFile(QueueFile):
                 raise ValueError("Error reading line %d of programs: %s" % (
                     lineNum, str(e)))
 
+    def update_table(self, tbl_dct, parse_flag=False):
+        """Update items in the internal table representation (self.rows).
+        """
+
+        for row_key, col_dct in tbl_dct.items():
+
+            row_key = row_key.upper()
+            # locate row index for this row_key
+            # TODO: make more efficient!
+            found = False
+            for row_idx in range(0, len(self.rows)):
+                if self.rows[row_idx]['proposal'].upper() == row_key:
+                    found = True
+                    break
+
+            if not found:
+                raise ValueError(f"Can't find entry for row_key={row_key}")
+
+            for col_key, col_val in col_dct.items():
+                # locate column header for this col_key
+                # TODO: make more efficient!
+                found = False
+                for col_hdr, ent_field in self.column_map.items():
+                    if ent_field == col_key:
+                        found = True
+                        break
+
+                if not found:
+                    raise ValueError(f"Can't find entry for col_key={col_key}")
+
+                # update the cell in the table representation
+                self.rows[row_idx][col_hdr] = col_val
+
+        if parse_flag:
+            self.parse()
+
 
 class WeightsFile(QueueFile):
 
@@ -677,6 +717,7 @@ class WeightsFile(QueueFile):
             'filter': 'w_filterchange',
             'rank': 'w_rank',
             'priority': 'w_priority',
+            'qcp': 'w_qcp',
             }
         super(WeightsFile, self).__init__(input_dir, 'weights', logger, file_ext)
         self.find_filepath()

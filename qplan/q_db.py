@@ -1,5 +1,5 @@
 #
-# Eric Jeschke (eric@naoj.org)
+# E. Jeschke
 #
 
 from datetime import datetime

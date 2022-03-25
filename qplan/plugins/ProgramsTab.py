@@ -1,11 +1,14 @@
 #
 # ProgramsTab.py -- Plugin to display/edit the programs in a table GUI
 #
-
-from ginga.misc.Bunch import Bunch
+import yaml
 
 from qtpy import QtCore
 from qtpy import QtWidgets as QtGui
+
+from ginga.misc.Bunch import Bunch
+from ginga.gw import Widgets
+from ginga.gw.GwHelp import FileSelection
 
 from qplan.plugins import PlBase
 from qplan.plugins import QueueFileTab
@@ -27,6 +30,16 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         super(ProgramsTab, self).build_gui(container)
 
         self.tableview.doubleClicked.connect(self.doubleClicked)
+
+        load_plan = self.filemenu.add_name('Load Plan')
+        load_plan.set_enabled(True)
+        load_plan.add_callback('activated', self.load_plan_cb)
+
+        save_plan = self.filemenu.add_name('Save As Plan')
+        save_plan.set_enabled(True)
+        save_plan.add_callback('activated', self.save_plan_cb)
+
+        self.file_sel = FileSelection(container.get_widget())
 
     def build_table(self):
         super(ProgramsTab, self).build_table('ProgramsTab', 'TableModel')
@@ -70,6 +83,51 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
 
         # Raise the tab we just created
         self.view.ds.raise_tab(proposal)
+
+    def save_plan_cb(self, w):
+        try:
+            if self.inputData is None:
+                raise ValueError("No table data defined yet")
+
+            w = Widgets.SaveDialog(title="Save Plan As", selectedfilter="*.yml")
+            plan_file = w.get_path()
+            if plan_file is None:
+                # user cancelled dialog
+                return
+
+            # prepare a dict of the plan
+            plan_dct = { d['proposal']: dict(qc_priority=d['qcp'],
+                                             skip=d['skip'])
+                         for d in self.inputData.rows }
+            plan_dct = dict(programs=plan_dct)
+
+            with open(plan_file, 'w') as out_f:
+                out_f.write(yaml.dump(plan_dct))
+
+            self.logger.info(f"wrote plan {plan_file}")
+
+        except Exception as e:
+            errmsg = f"error writing plan file: {e}"
+            self.logger.error(errmsg, exc_info=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
+
+    def load_plan_cb(self, w):
+        if self.inputData is None:
+            self.logger.error("No table data defined yet")
+
+        self.file_sel.popup("Load Plan", self.load_plan, filename="*.yml")
+
+    def load_plan(self, plan_file):
+        try:
+            if self.inputData is None:
+                raise ValueError("No table data defined yet")
+
+            self.model.load_qc_plan(plan_file)
+
+        except Exception as e:
+            errmsg = f"error reading QC plan file: {e}"
+            self.logger.error(errmsg, exc_info=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
 
 class TableModel(QueueFileTab.TableModel):
 

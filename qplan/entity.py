@@ -1,7 +1,7 @@
 #
 # entity.py -- various entities used by queue system
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 from datetime import timedelta, datetime
 import math
@@ -13,7 +13,7 @@ import numpy as np
 from astropy.coordinates import Angle
 from astropy import units
 
-entity_version = 20180618.0
+entity_version = 20220309.0
 
 from ginga.misc import Bunch
 
@@ -58,7 +58,7 @@ class Program(PersistentEntity):
     def __init__(self, proposal, pi='', observers='', rank=1.0,
                  propid=None, grade=None, partner=None, hours=0.0,
                  category='', instruments=[], description=None,
-                 skip=False):
+                 skip=False, qc_priority=0.0):
         super(Program, self).__init__('program')
 
         self.proposal = proposal
@@ -70,6 +70,7 @@ class Program(PersistentEntity):
         self.pi = pi
         self.observers = observers
         self.rank = rank
+        self.qc_priority = qc_priority
         self.grade = grade
         self.partner = partner
         self.category = category.lower()
@@ -98,6 +99,8 @@ class Program(PersistentEntity):
         if self.observers != other.observers:
             return False
         if not np.isclose(self.rank, other.rank):
+            return False
+        if not np.isclose(self.qc_priority, other.qc_priority):
             return False
         if self.grade != other.grade:
             return False

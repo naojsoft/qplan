@@ -1,7 +1,7 @@
 #
 # ControlPanel.py -- Controller plugin for operating scheduler
 #
-# Eric Jeschke (eric@naoj.org)
+# E. Jeschke
 #
 
 # stdlib imports
@@ -94,8 +94,8 @@ class ControlPanel(PlBase.Plugin):
         except Exception as e:
             errmsg = "Exception connecting to queue db: {}".format(e)
             self.logger.error(errmsg, exc_info=True)
-            self.controller.gui_do(self.controller.show_error, errmsg,
-                                   raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg,
+                             raisetab=True)
             self.qdb = None
             return
 
@@ -285,11 +285,12 @@ class ControlPanel(PlBase.Plugin):
                 tb_str = "Traceback information unavailable."
             errmsg += tb_str
             self.logger.error(errmsg)
-            self.controller.gui_do(self.controller.show_error, errmsg,
-                                   raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg,
+                             raisetab=True)
             return False
 
     def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):
+
         sdlr = self.model.get_scheduler()
         try:
             if use_db:
@@ -302,6 +303,8 @@ class ControlPanel(PlBase.Plugin):
             sdlr.set_programs_info(pgms, ignore_pgm_skip_flag)
             self.logger.info('list of programs to be scheduled %s' % sdlr.programs.keys())
 
+            self.view.status_msg("Loading any unread program OBs from files...")
+
             # TODO: this maybe should be done in the Model
             ob_keys = set([])
             ob_dict = {}
@@ -313,6 +316,7 @@ class ControlPanel(PlBase.Plugin):
             # Programs. Otherwise, we do pay attention to the "skip"
             # flag and ignore all OB's in "skipped" programs.
             for propname in propnames:
+                self.view.update_pending(timeout=0.001)
                 if not ignore_pgm_skip_flag and pgms[propname].skip:
                     self.logger.info('skip flag for program %s is set - skipping all OB in this program' % propname)
                     continue
@@ -353,6 +357,8 @@ class ControlPanel(PlBase.Plugin):
 
             do_not_execute = set([])
             props = {}
+
+            self.view.status_msg("Removing already executed OBs...")
 
             # Remove keys for OBs that are already executed
             if use_db:
@@ -401,8 +407,11 @@ class ControlPanel(PlBase.Plugin):
             #self.logger.error("Error storing into scheduler: %s" % (str(e)))
             errmsg += "\n".join([e.__class__.__name__, str(e)])
             self.logger.error(errmsg, exc_info=True)
-            self.controller.gui_do(self.controller.show_error, errmsg, raisetab=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             raise e
+
+        finally:
+            self.view.status_msg(None)
 
         self.logger.info("scheduler initialized")
 
@@ -479,8 +488,8 @@ class ControlPanel(PlBase.Plugin):
                 if not pgm_d.equivalent(pgm_f):
                     errmsg = "program '%s' in database and files differ" % (str(key))
                     self.logger.error(errmsg)
-                    self.controller.gui_do(self.controller.show_error, errmsg,
-                                           raisetab=True)
+                    self.view.gui_do(self.view.show_error, errmsg,
+                                     raisetab=True)
                     print("-- FILE --")
                     print(pgm_f.__dict__)
                     print("-- DB --")
@@ -508,8 +517,8 @@ class ControlPanel(PlBase.Plugin):
                 if not ob_d.equivalent(ob_f):
                     errmsg = "OB '%s' in database and files differ" % (str(ob_key))
                     self.logger.error(errmsg)
-                    self.controller.gui_do(self.controller.show_error, errmsg,
-                                           raisetab=True)
+                    self.view.gui_do(self.view.show_error, errmsg,
+                                     raisetab=True)
                 else:
                     self.logger.debug("OB '%s' is a match" % (str(ob_key)))
                     continue

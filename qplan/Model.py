@@ -2,14 +2,15 @@
 #
 # Model.py -- Observing Queue Planner Model
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import os
 import time
 from datetime import timedelta
-import numpy
 
 # 3rd party imports
+import yaml
+import numpy
 from ginga.misc import Callback, Bunch
 
 # local imports
@@ -37,7 +38,8 @@ class QueueModel(Callback.Callbacks):
         for name in ('schedule-selected',
                      'programs-file-loaded', 'schedule-file-loaded',
                      'weights-file-loaded', 'programs-updated',
-                     'schedule-updated', 'weights-updated', 'show-proposal'):
+                     'schedule-updated', 'weights-updated', 'show-proposal',
+                     'qc-plan-loaded'):
             self.enable_callback(name)
 
     def get_scheduler(self):
@@ -120,5 +122,25 @@ class QueueModel(Callback.Callbacks):
     def select_schedule(self, schedule):
         self.selected_schedule = schedule
         self.make_callback('schedule-selected', schedule)
+
+    def load_qc_plan(self, plan_file):
+        if self.programs_qf is None:
+            raise ValueError("No programs table defined yet")
+
+        with open(plan_file, 'r') as in_f:
+            buf = in_f.read()
+        pgms_changes_dct = yaml.safe_load(buf)
+
+        # send changes to the rows and reparse the data
+        self.programs_qf.update_table(pgms_changes_dct['programs'],
+                                      parse_flag=True)
+
+        # to force update by the GUI to the table widget
+        self.make_callback('programs-file-loaded', self.programs_qf)
+
+        _dir, plan_name = os.path.split(plan_file)
+        plan_name, _ext = os.path.splitext(plan_name)
+        self.make_callback('qc-plan-loaded', plan_name)
+
 
 # END

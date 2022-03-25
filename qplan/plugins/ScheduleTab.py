@@ -3,6 +3,8 @@
 #
 
 import datetime
+import dateutil.parser
+
 from qtpy import QtCore
 from qtpy import QtWidgets as QtGui
 
@@ -47,8 +49,7 @@ class TableModel(QueueFileTab.TableModel):
                 # Date has to be in a form acceptable to Python's
                 # datetime module.
                 try:
-                    datetime.datetime.strptime(value, '%Y-%m-%d')
-                    value2 = value
+                    value2 = dateutil.parser.parse(value).strftime('%Y-%m-%d')
                 except ValueError:
                     self.logger.error('Error in column %s: invalid date format for %s - allowable YY-MM-DD' % (colHeader, value))
                     return False
