@@ -83,7 +83,7 @@ class Builder(PlBase.Plugin):
         self.w.len_time.set_length(8)
         gr.add_widget(Widgets.Label('Length (min)'), 0, i)
         gr.add_widget(self.w.len_time, 1, i)
-        self.w.len_time.set_text('25')
+        self.w.len_time.set_text('70')
         self.w.len_time.set_tooltip("Length of interval in MINUTES")
 
         i += 1
@@ -109,6 +109,20 @@ class Builder(PlBase.Plugin):
         gr.add_widget(self.w.filter, 1, i)
         self.w.filter.set_text('g')
         self.w.filter.set_tooltip("Currently installed filter for HSC")
+
+        i += 1
+        self.w.fltr_exch = Widgets.CheckBox("Filter Exch")
+        gr.add_widget(Widgets.Label('Allow'), 0, i)
+        gr.add_widget(self.w.fltr_exch, 1, i)
+        self.w.fltr_exch.set_state(True)
+        self.w.fltr_exch.set_tooltip("Allow filter exchange in scheduling?")
+
+        i += 1
+        self.w.allow_delay = Widgets.CheckBox("Delay")
+        gr.add_widget(Widgets.Label('Allow'), 0, i)
+        gr.add_widget(self.w.allow_delay, 1, i)
+        self.w.allow_delay.set_state(True)
+        self.w.allow_delay.set_tooltip("Allow delays in scheduling?")
 
         i += 1
         self.w.seeing = Widgets.TextEntry()
@@ -196,11 +210,17 @@ class Builder(PlBase.Plugin):
         # get a handle to the control panel plugin
         cp = self.view.get_plugin('cp')
         use_db = cp.w.use_qdb.get_state()
-        cp.update_scheduler(use_db=use_db)
+        limit_filter = None
+        if not self.w.fltr_exch.get_state():
+            limit_filter = self.w.filter.get_text().strip()
+        cp.update_scheduler(use_db=use_db,
+                            limit_filter=limit_filter,
+                            allow_delay=self.w.allow_delay.get_state())
 
         sdlr = self.model.get_scheduler()
         date_s = self.w.date.get_text().strip()
         time_b = self.w.start_time.get_text().strip()
+
         try:
             time_start = sdlr.site.get_date("%s %s" % (date_s, time_b))
         except Exception as e:
@@ -210,23 +230,21 @@ class Builder(PlBase.Plugin):
             self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
-        # get the string for the date of observation in HST, which is what
-        # is used in the Schedule table
-        if time_start.hour < 9:
-            date_obs_local = (time_start - timedelta(hours=10)).strftime("%Y-%m-%d")
-        else:
-            date_obs_local = time_start.strftime("%Y-%m-%d")
-        self.logger.info("observation date (local) is '{}'".format(date_obs_local))
+        # find the record in the schedule table that matches our date
+        try:
+            data = self.get_schedule_data(time_start)
+        except ValueError as e:
+            errmsg = str(e)
+            self.logger.error(errmsg)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
+            return
 
-        # find the record in the schedule table that matches our date;
-        # we need to get the list of filters and so on from it
-        rec = None
-        for _rec in sdlr.schedule_recs:
-            if _rec.date == date_obs_local:
-                rec = _rec
-                break
-        if rec is None:
-            errmsg = "Can't find a record in the Schedule table matching '{}'".format(date_obs_local)
+        # should we get the actual installed list of filters instead from
+        # Gen2 rather than reading it out of the Schedule
+        filters = data.filters
+        _filter = self.w.filter.get_text().strip()
+        if not _filter in filters:
+            errmsg = "filter '{}' not found in available filters: {}".format(_filter, str(filters))
             self.logger.error(errmsg)
             self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
@@ -234,7 +252,6 @@ class Builder(PlBase.Plugin):
         len_s = self.w.len_time.get_text().strip()
         slot_length = max(0.0, float(len_s) * 60.0)
 
-        data = Bunch(rec.data)
         # override some items from Schedule table
         data.cur_filter = self.w.filter.get_text().strip()
         data.cur_az = float(self.w.az.get_text().strip())
@@ -398,6 +415,30 @@ class Builder(PlBase.Plugin):
         self.stobj = StatusClient(gen2_host,
                                   username=gen2_user, password=gen2_pass)
         self.stobj.reconnect()
+
+    def get_schedule_data(self, time_start):
+        # get the string for the date of observation in HST, which is what
+        # is used in the Schedule tables
+        if time_start.hour < 9:
+            date_obs_local = (time_start - timedelta(hours=10)).strftime("%Y-%m-%d")
+        else:
+            date_obs_local = time_start.strftime("%Y-%m-%d")
+        self.logger.info("observation date (local) is '{}'".format(date_obs_local))
+
+        sdlr = self.model.get_scheduler()
+        # find the record in the schedule table that matches our date;
+        # we need to get the list of filters and so on from it
+        rec = None
+        for _rec in sdlr.schedule_recs:
+            if _rec.date == date_obs_local:
+                rec = _rec
+                break
+        if rec is None:
+            errmsg = "Can't find a record in the Schedule table matching '{}'".format(date_obs_local)
+            raise ValueError(errmsg)
+
+        data = Bunch(rec.data)
+        return data
 
     def load_plan_cb(self, w):
         cp = self.view.get_plugin('programstab')

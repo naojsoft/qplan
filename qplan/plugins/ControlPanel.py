@@ -289,7 +289,8 @@ class ControlPanel(PlBase.Plugin):
                              raisetab=True)
             return False
 
-    def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False):
+    def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False,
+                         limit_filter=None, allow_delay=True):
 
         sdlr = self.model.get_scheduler()
         try:
@@ -301,6 +302,8 @@ class ControlPanel(PlBase.Plugin):
             sdlr.set_schedule_info(self.schedule_qf.schedule_info)
             pgms = self.programs_qf.programs_info
             sdlr.set_programs_info(pgms, ignore_pgm_skip_flag)
+            sdlr.set_scheduling_params(dict(limit_filter=limit_filter,
+                                            allow_delay=allow_delay))
             self.logger.info('list of programs to be scheduled %s' % sdlr.programs.keys())
 
             self.view.status_msg("Loading any unread program OBs from files...")
@@ -417,8 +420,8 @@ class ControlPanel(PlBase.Plugin):
 
     def build_schedule_cb(self, widget):
         # update the model with any changes from GUI
-        use_db = self.w.use_qdb.get_state()
-        self.update_scheduler(use_db=use_db)
+        self.update_scheduler(use_db=self.w.use_qdb.get_state(),
+                              allow_delay=True)
 
         sdlr = self.model.get_scheduler()
         self.view.nongui_do(sdlr.schedule_all)

@@ -42,6 +42,7 @@ class Scheduler(Callback.Callbacks):
         self.schedule_recs = []
         self.programs = dict()
         self.apriori_info = dict()
+        self.sch_params = Bunch.Bunch(limit_filter=None, allow_delay=True)
 
         # FOR SCALING PURPOSES ONLY, define maximums
         # (see cmp_res() )
@@ -92,6 +93,9 @@ class Scheduler(Callback.Callbacks):
         each program (in executed OBs with "good" FQA).
         """
         self.apriori_info = info
+
+    def set_scheduling_params(self, params):
+        self.sch_params.update(params)
 
     def get_sched_time(self, prop, bnch):
         try:
@@ -167,11 +171,12 @@ class Scheduler(Callback.Callbacks):
         ##     self._ob_code(res1.ob), t1, self._ob_code(res2.ob), t2))
         return res
 
-
     def eval_slot(self, prev_slot, slot, site, oblist):
 
         # evaluate each OB against this slot
-        results = map(lambda ob: qsim.check_slot(site, prev_slot, slot, ob),
+        results = map(lambda ob: qsim.check_slot(site, prev_slot, slot, ob,
+                                                 limit_filter=self.sch_params.limit_filter,
+                                                 allow_delay=self.sch_params.allow_delay),
                            oblist)
 
         # filter out unobservable OBs

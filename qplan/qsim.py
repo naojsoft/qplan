@@ -307,7 +307,8 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
     return True
 
 
-def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
+def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
+               limit_filter=None, allow_delay=True):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
@@ -350,6 +351,13 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
     ##                 reason="Slot cannot take category '%s'" % (
     ##         ob.program.category))
     ##     return res
+
+    # if we are limiting the filter to a certain one
+    if limit_filter is not None and ob.inscfg.filter != limit_filter:
+        res.setvals(obs_ok=False,
+                    reason="Filter (%s) does not match limit_filter (%s)" % (
+            ob.inscfg.filter, limit_filter))
+        return res
 
     filterchange = False
     cur_filter = None
@@ -515,6 +523,13 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
 
     delay_sec = max(0.0, (t_start - start_time).total_seconds())
 
+    # if we are disallowing any delays
+    if not allow_delay and delay_sec > 0.0:
+        res.setvals(obs_ok=False,
+                    reason="no_delay==True and OB has a delay of %.4f sec" % (
+            delay_sec))
+        return res
+
     stop_time = t_start + timedelta(0, ob.total_time)
 
     if ob.envcfg.upper_time_limit is not None:
@@ -544,9 +559,9 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True):
     return res
 
 
-def eval_schedule(schedule):
+def eval_schedule(schedule, current_filter=None):
 
-    current_filter = None
+    current_filter = current_filter
     num_filter_exchanges = 0
     time_waste_sec = 0.0
     proposal_total_time_sec = {}
