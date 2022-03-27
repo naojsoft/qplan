@@ -339,7 +339,6 @@ class Builder(PlBase.Plugin):
             return
 
         info = dcts[0]['_rec']
-        #print(info)
 
         schedule = sdlr.slot_to_schedule(self.slot, info)
 
@@ -373,7 +372,6 @@ class Builder(PlBase.Plugin):
                       'TSCS.ROTPOS': 0,
                       'FITS.HSC.SEEING': 0, 'FITS.HSC.TRANSPARENCY': 0}
             self.stobj.fetch(result)
-            #print(result)
         except Exception as e:
             self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
             return

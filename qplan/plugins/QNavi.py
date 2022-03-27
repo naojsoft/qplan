@@ -1,6 +1,7 @@
 #
-# QNavi.py -- build schedule plugin
+# QNavi.py -- night OB scheduler plugin
 #
+# T. Terai
 # E. Jeschke
 #
 
@@ -14,19 +15,18 @@ import yaml
 from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
 
-# local imports
-from qplan.plugins import PlBase
-from qplan import entity
-
 # Gen2 imports
 have_gen2 = False
 try:
-    from g2cam.status.client import StatusClient
     from g2cam.status.common import STATNONE, STATERROR
     have_gen2 = True
 
 except ImportError:
     pass
+
+# local imports
+from qplan.plugins import PlBase
+from qplan import entity
 
 
 class QNavi(PlBase.Plugin):
@@ -35,11 +35,13 @@ class QNavi(PlBase.Plugin):
         super().__init__(controller)
 
         self.slot = None
+        # status fetch object shared with Builder
         self.stobj = None
         self.w = Bunch()
 
-        # TODO: get from Gen2
-        self.filters = ['auto', 'g', 'r2', 'i2', 'z', 'Y']
+        # TODO: static list of all filters, or get from Schedule, or
+        # get installed list from Gen2
+        self.filters = ['auto', 'g', 'r2', 'i2', 'z', 'y', 'NB400', 'NB430']
         self.seeings = ['auto', '0.8', '1.0', '1.3', '1.6', '100']
         self.transparencies = ['auto', '0.7', '0.4', '0.1', '0.0']
         # define a 1 hour slot length
@@ -52,17 +54,20 @@ class QNavi(PlBase.Plugin):
         self.cur_el = 89.0
         self.cur_seeing = 1.0
         self.cur_transparency = 0.7
-        self.cur_plan = '(NONE)'
+        self._no_plan = '(NONE)'
+        self.cur_plan = self._no_plan
 
         prefs = self.controller.get_preferences()
         self.settings = prefs.create_category('plugin_QNavi')
-        self.settings.add_defaults(gen2_status_host='localhost',
-                                   gen2_status_user=None,
-                                   gen2_status_pass=None,
+        self.settings.add_defaults(test_date=None, test_time=None,
                                    plan_folder='.')
         self.settings.load(onError='silent')
 
         self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
+
+        self.timer_interval = 30.0
+        self.timer = self.view.make_timer()
+        self.timer.add_callback('expired', self._timer_cb)
 
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -88,7 +93,7 @@ class QNavi(PlBase.Plugin):
 
         i += 1
         self.w.cur_seeing = Widgets.Label(str(self.cur_seeing))
-        gr.add_widget(Widgets.Label('Est Seeing'), 0, i)
+        gr.add_widget(Widgets.Label('Calc Seeing'), 0, i)
         gr.add_widget(self.w.cur_seeing, 1, i)
 
         i += 1
@@ -101,7 +106,7 @@ class QNavi(PlBase.Plugin):
 
         i += 1
         self.w.cur_transp = Widgets.Label(str(self.cur_transparency))
-        gr.add_widget(Widgets.Label('Est Transparency'), 0, i)
+        gr.add_widget(Widgets.Label('Calc Transp'), 0, i)
         gr.add_widget(self.w.cur_transp, 1, i)
 
         i += 1
@@ -157,29 +162,59 @@ class QNavi(PlBase.Plugin):
         container.add_widget(vbox, stretch=1)
 
     def start(self):
-        gen2_pass = self.settings.get('gen2_status_pass')
+        builder = self.view.get_plugin('builder')
+        gen2_pass = builder.settings.get('gen2_status_pass')
         if gen2_pass is not None:
             self.create_status_client()
+            self.timer.set(5.0)
 
     def find_executable_obs_cb(self, widget):
 
         self.tree1.clear()
         self.view.update_pending()
 
+        if self.cur_plan == self._no_plan:
+            self.view.show_error("Please select a queue coordinator plan.")
+            return
+
         if have_gen2 and self.stobj is not None:
-            gen2_pass = self.settings.get('gen2_status_pass')
-            if gen2_pass is not None:
-                self.fetch_gen2_status()
+            self.fetch_gen2_status()
+
+        # check seeing is valid
+        seeing = self.w.seeing.get_text().strip()
+        if seeing == 'auto':
+            seeing = self.w.cur_seeing.get_text().strip()
+            try:
+                seeing = float(seeing)
+            except ValueError:
+                self.view.show_error(f"{seeing} is not a valid seeing value; please select a seeing", raisetab=True)
+                return
+        else:
+            seeing = float(seeing)
+
+        # check transparency is valid
+        transp = self.w.trans.get_text().strip()
+        if transp == 'auto':
+            transp = self.w.cur_transp.get_text().strip()
+            try:
+                transp = float(transp)
+            except ValueError:
+                self.view.show_error(f"{transp} is not a valid transparency value; please select a transparency", raisetab=True)
+                return
+        else:
+            transp = float(transp)
 
         # get a handle to the control panel plugin
         cp = self.view.get_plugin('cp')
-        use_db = cp.w.use_qdb.get_state()
-        cp.update_scheduler(use_db=use_db)
-
         sdlr = self.model.get_scheduler()
+
+        date_s = self.settings.get('test_date', None)
+        time_b = self.settings.get('test_time', None)
         now = datetime.now(tz=sdlr.timezone)
-        date_s = now.strftime("%Y-%m-%d")
-        time_b = now.strftime("%H-%M-%S")
+        if date_s is None:
+            date_s = now.strftime("%Y-%m-%d")
+        if time_b is None:
+            time_b = now.strftime("%H-%M-%S")
         try:
             time_start = sdlr.site.get_date("%s %s" % (date_s, time_b))
         except Exception as e:
@@ -189,46 +224,38 @@ class QNavi(PlBase.Plugin):
             self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
-        # get the string for the date of observation in HST, which is what
-        # is used in the Schedule table
-        if time_start.hour < 9:
-            date_obs_local = (time_start - timedelta(hours=10)).strftime("%Y-%m-%d")
-        else:
-            date_obs_local = time_start.strftime("%Y-%m-%d")
-        self.logger.info("observation date (local) is '{}'".format(date_obs_local))
-
-        # find the record in the schedule table that matches our date;
-        # we need to get the list of filters and so on from it
-        rec = None
-        for _rec in sdlr.schedule_recs:
-            if _rec.date == date_obs_local:
-                rec = _rec
-                break
-        if rec is None:
-            errmsg = "Can't find a record in the Schedule table matching '{}'".format(date_obs_local)
+        # find the record in the schedule table that matches our date
+        try:
+            builder = self.view.get_plugin('builder')
+            # NOTE: needed to make sure get_schedule_data works
+            sdlr.set_schedule_info(cp.schedule_qf.schedule_info)
+            data = builder.get_schedule_data(time_start)
+        except Exception as e:
+            errmsg = str(e)
             self.logger.error(errmsg)
             self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
             return
 
-        data = Bunch(rec.data)
-
-        # override some items from Schedule table
+        # check filter is valid
         _filter = self.w.filter.get_text().strip()
         if _filter == 'auto':
-            _filter = self.cur_filter
+            # use currently installed filter if set to "auto"
+            _filter = self.w.cur_filter.get_text().strip()
+
+        if _filter not in data.filters:
+            self.view.show_error(f"'{_filter}' not in installed filters; please select a different filter", raisetab=True)
+            return
+
+        use_db = cp.w.use_qdb.get_state()
+
+        cp.update_scheduler(use_db=use_db,
+                            limit_filter=_filter,
+                            allow_delay=False)
+
+        # override some items from Schedule table
         data.cur_filter = _filter
-
-        seeing = self.w.seeing.get_text().strip()
-        if seeing == 'auto':
-            data.seeing = self.cur_seeing
-        else:
-            data.seeing = float(seeing)
-
-        transp = self.w.trans.get_text().strip()
-        if transp == 'auto':
-            data.transparency = self.cur_transparency
-        else:
-            data.transparency = float(transp)
+        data.seeing = seeing
+        data.transparency = transp
 
         data.cur_az = self.cur_az
         data.cur_el = self.cur_el
@@ -311,9 +338,16 @@ class QNavi(PlBase.Plugin):
         except Exception as e:
             self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
             return
+        self.logger.info("status fetch result: {}".format(result))
 
         self.logger.info('From Gen2 current HSC filter %s Az %f El %f' % (result['FITS.HSC.FILTER'], result['TSCS.AZ'], result['TSCS.EL']))
 
+        if self.view.is_gui_thread():
+            self._update_current_values(result)
+        else:
+            self.view.gui_do(self._update_current_values, result)
+
+    def _update_current_values(self, result):
         cur_filter = result['FITS.HSC.FILTER']
         if cur_filter not in (STATNONE, STATERROR, '0'):
             # Filter name special cases
@@ -336,29 +370,24 @@ class QNavi(PlBase.Plugin):
         self.w.cur_seeing.set_text(str(result['FITS.HSC.SEEING']))
         self.w.cur_transp.set_text(str(result['FITS.HSC.TRANSPARENCY']))
 
+        cur_az, cur_el = self.cur_az, self.cur_el
+
         if result['TSCS.AZ'] not in (STATNONE, STATERROR):
-            cur_az = '%8.2f' % result['TSCS.AZ']
-            cur_az = cur_az.strip()
-            self.cur_az = cur_az
+            self.cur_az = float(result['TSCS.AZ'])
 
         if result['TSCS.EL'] not in (STATNONE, STATERROR):
-            cur_el = '%8.2f' % result['TSCS.EL']
-            cur_el = cur_el.strip()
-            self.cur_el = cur_el
+            self.cur_el = float(result['TSCS.EL'])
 
         # Compensate for Subaru's funky az reading
-        az, el = (float(cur_az) - 180.0) % 360.0, float(cur_el)
+        az, el = (cur_az - 180.0) % 360.0, cur_el
         slew_plt = self.view.get_plugin('SlewChart')
         slew_plt.set_telescope_position(az, el)
 
     def create_status_client(self):
-        gen2_host = self.settings.get('gen2_status_host')
-        gen2_user = self.settings.get('gen2_status_user')
-        gen2_pass = self.settings.get('gen2_status_pass')
-
-        self.stobj = StatusClient(gen2_host,
-                                  username=gen2_user, password=gen2_pass)
-        self.stobj.reconnect()
+        # share status client with builder plugin
+        builder = self.view.get_plugin('builder')
+        builder.create_status_client()
+        self.stobj = builder.stobj
 
     def load_plan_cb(self, w):
         try:
@@ -373,3 +402,12 @@ class QNavi(PlBase.Plugin):
         self.cur_plan = plan_name
         self.w.cur_plan.set_text(plan_name)
         self.tree1.clear()
+
+    def _timer_cb(self, timer):
+        try:
+            self.fetch_gen2_status()
+        except Exception as e:
+            # error message logged in fetch_gen2_status()
+            pass
+
+        timer.set(self.timer_interval)
