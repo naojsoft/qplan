@@ -29,7 +29,7 @@ class Errors(PlBase.Plugin):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
         vbox.set_spacing(2)
-        vbox.cfg_expand(8, 8)
+        #box.cfg_expand(horizontal='ignored', vertical='ignored')
 
         mlst = Widgets.VBox()
         mlst.set_spacing(2)
@@ -92,7 +92,7 @@ class Errors(PlBase.Plugin):
         hbox.add_widget(Widgets.Label(''), stretch=1)
         vbox.add_widget(hbox, stretch=0)
         # special hack for Qt
-        vbox.cfg_expand(horizontal=1)
+        #vbox.cfg_expand(horizontal='minimum')
 
         self.msg_list.add_widget(vbox, stretch=0)
         # TODO: force scroll to bottom

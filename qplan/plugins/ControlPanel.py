@@ -106,7 +106,6 @@ class ControlPanel(PlBase.Plugin):
         vbox = Widgets.VBox()
         vbox.set_border_width(4)
         vbox.set_spacing(2)
-        #vbox.cfg_expand(8, 8)
 
         sw = Widgets.ScrollArea()
         sw.set_widget(vbox)
