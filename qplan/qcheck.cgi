@@ -60,7 +60,7 @@ form_element = {'Excel_file': {'action': '/cgi-bin/qcheck/qcheck_xls.cgi',
                                'list_button_label': 'List files',
                           },
                 'Google_sheet':  {'action': '/cgi-bin/qcheck/qcheck.cgi',
-                                  'input_prompt': 'Google Sheet name for checking or submitting <input type="text" size="20" name="gsheetname", value=""> (e.g., S22A-QN001)',
+                                  'input_prompt': 'Google Sheet name for checking or submitting <input type="text" size="20" name="gsheetname", value=""> (e.g., S22B-QN001)',
                                   'instructions': 'Welcome to the Subaru Google Sheet Checker/Submitter/Listing site',
                                   'button_label': 'Submit',
                                   'file_type_str': 'Google Sheet',
@@ -548,7 +548,7 @@ Use the following entry field and button to list the %(list_instructions)s for a
 print("""\
 <p>
 <label for="name">Proposal ID</label>
-<input type="text" name="propid" id="propid" value="%s"> (e.g., S22A-QN001)
+<input type="text" name="propid" id="propid" value="%s"> (e.g., S22B-QN001)
 """ % propid)
 print("""\
 <br>
@@ -590,7 +590,7 @@ if list_files_val:
         if filetypes.ProposalFile.propID_re.match(propid):
             list_files(propid, user_filetype)
         else:
-            print('Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S22A-QN001.' % propid)
+            print('Proposal ID %s is not valid. Please enter a valid Proposal ID, e.g., S22B-QN001.' % propid)
     else:
         print('Please enter a Proposal ID.')
     page_footer()
