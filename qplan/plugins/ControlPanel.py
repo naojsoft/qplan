@@ -511,7 +511,14 @@ class ControlPanel(PlBase.Plugin):
         try:
             for ob_f in sdlr.oblist:
                 ob_key = (ob_f.key['program'], ob_f.key['name'])
-                ob_d = self.qq.get_ob(ob_key)
+                try:
+                    ob_d = self.qq.get_ob(ob_key)
+                except Exception as e:
+                    errmsg = "Error getting OB '%s' from database" % (str(ob_key))
+                    self.logger.error(errmsg, exc_info=True)
+                    self.view.gui_do(self.view.show_error, errmsg,
+                                     raisetab=True)
+                    continue
                 if ob_d is None:
                     self.logger.error("No OB matching '%s' in database" % (str(ob_key)))
                     continue
