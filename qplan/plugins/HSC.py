@@ -1,7 +1,7 @@
 #
 # HSC.py -- OB converter for HSC instrument
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import time
 

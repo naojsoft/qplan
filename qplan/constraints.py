@@ -1,16 +1,16 @@
 #
 # constraints.py -- scheduling constraints
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 from datetime import timedelta
 
 class Constraints(object):
-    
+
     def __init__(self, observer=None, available_filters=None):
         self.obs = observer
         self.available_filters = available_filters
-    
+
     def cns_correct_filters(self, slot, ob):
         """
         Make sure there are no filters specified by this OB that
@@ -27,9 +27,9 @@ class Constraints(object):
 
         s_time = slot.start_time
         e_time = slot.stop_time
-        
+
         min_el, max_el = ob.get_el_minmax()
-        
+
         (obs_ok, start) = self.obs.observable(ob.target, s_time, e_time,
                                               min_el, max_el, ob.total_time,
                                               airmass=ob.airmass)
@@ -44,4 +44,3 @@ class Constraints(object):
     ##     return time_done <= slot.stop_time
 
 #END
-

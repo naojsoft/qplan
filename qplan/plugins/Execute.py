@@ -1,7 +1,7 @@
 #
 # Execute.py -- Execute plugin
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import os
 

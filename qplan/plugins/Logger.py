@@ -1,7 +1,7 @@
 #
 # Logger.py -- Logging plugin
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import logging
 

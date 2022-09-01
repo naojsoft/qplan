@@ -1,7 +1,7 @@
 #
 # qsim.py -- Observing Queue Planner
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 from datetime import timedelta
 import time

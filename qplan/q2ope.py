@@ -2,7 +2,7 @@
 #
 # q2ope.py -- Queue integration with legacy OPE
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 """
 Usage:

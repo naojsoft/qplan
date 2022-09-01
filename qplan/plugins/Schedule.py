@@ -1,7 +1,7 @@
 #
 # Schedule.py -- Schedule plugin
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 
 from ginga.gw import Widgets

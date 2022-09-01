@@ -1,7 +1,7 @@
 #
 # SlewChart.py -- Slew chart plugin
 #
-# Eric Jeschke (eric@naoj.org)
+# E. Jeschke
 #
 import numpy as np
 from datetime import datetime

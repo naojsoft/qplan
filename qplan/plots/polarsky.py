@@ -62,14 +62,9 @@ class AZELPlot(plots.Plot):
         # standard polar projection has radial plot running 0 to 90,
         # inside to outside.
         # Adjust radius so it goes 90 at the center to 0 at the perimeter
-        #ax.set_ylim(90, 0)   # (doesn't work)
-
-        # Redefine yticks and labels
-        #alts = [0, 15, 60, 70, 90]
         alts = list(range(0, 90, self.alt_inc_deg))
+        # Redefine yticks and labels
         ax.set_yticks(alts)
-        #alts_r = list(alts)
-        #alts_r.reverse()
         alts_r = list(range(90, 0, -self.alt_inc_deg))
         ax.set_yticklabels([str(i) for i in alts_r])
         # maximum altitude of 90.0
@@ -118,8 +113,6 @@ class AZELPlot(plots.Plot):
             ax.plot([az], [alt], lc)
             ax.annotate(name, (az, alt))
 
-        #self.orient_plot()
-
         self.redraw()
 
     def plot_azel(self, coords):
@@ -130,7 +123,6 @@ class AZELPlot(plots.Plot):
             info = target.calc(observer, time_start)
         except Exception as e:
             print(str(e))
-        #print(info)
         az, alt = self.map_azalt(info.az_deg, info.alt_deg)
         self.ax.plot([az], [alt], 'o', color=color)
         self.ax.annotate(target.name, (az, alt))

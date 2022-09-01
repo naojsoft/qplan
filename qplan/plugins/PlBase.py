@@ -1,7 +1,7 @@
 #
 # PlBase.py -- Base class for QueueMon plugins
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 """
 This class implements the base class for StatMon plugins.  You can add any

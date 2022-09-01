@@ -1,5 +1,5 @@
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 from ginga.misc.Bunch import Bunch
 

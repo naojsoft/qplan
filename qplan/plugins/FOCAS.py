@@ -1,7 +1,7 @@
 #
 # FOCAS.py -- OB converter for FOCAS instrument
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import time
 

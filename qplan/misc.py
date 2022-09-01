@@ -1,7 +1,7 @@
 #
 # misc.py -- miscellaneous queue support functions
 #
-#  Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 from datetime import timedelta
 import math

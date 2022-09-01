@@ -1,7 +1,7 @@
 #
 # AirMassChart.py -- AirMass chart plugin
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 from datetime import timedelta
 #from dateutil import tz

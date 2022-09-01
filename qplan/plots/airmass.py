@@ -1,7 +1,7 @@
 #
 # plots.py -- does matplotlib plots needed for queue tools
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 # Some code based on "Observer" module by Daniel Magee
 #   Copyright (c) 2008 UCO/Lick Observatory.

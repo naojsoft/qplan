@@ -1,7 +1,7 @@
 #
 # Report.py -- Report plugin
 #
-# Eric Jeschke (eric@naoj.org)
+#  E. Jeschke
 #
 import time
 import os
