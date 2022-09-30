@@ -5,43 +5,25 @@
 """
 Usage:
     qplan --help
+    qplan --version
     qplan [options]
 """
 import sys, os
-from qplan import main, version
+from argparse import ArgumentParser
+
+from qplan import main
 
 if __name__ == "__main__":
 
     viewer = main.QueuePlanner(layout=main.default_layout)
     viewer.add_plugins(main.plugins)
 
-    # Parse command line options with optparse module
-    from optparse import OptionParser
+    argprs = ArgumentParser(description="Queue Planner for Subaru Telescope")
+    viewer.add_default_options(argprs)
 
-    usage = "usage: %prog [options] cmd [args]"
-    optprs = OptionParser(usage=usage,
-                          version=('%%prog %s' % version.version))
-    viewer.add_default_options(optprs)
-
-    (options, args) = optprs.parse_args(sys.argv[1:])
+    (options, args) = argprs.parse_known_args(sys.argv[1:])
 
     if options.display:
         os.environ['DISPLAY'] = options.display
 
-    # Are we debugging this?
-    if options.debug:
-        import pdb
-
-        pdb.run('viewer.main(options, args)')
-
-    # Are we profiling this?
-    elif options.profile:
-        import profile
-
-        print(("%s profile:" % sys.argv[0]))
-        profile.run('viewer.main(options, args)')
-
-    else:
-        viewer.main(options, args)
-
-#END
+    viewer.main(options, args)

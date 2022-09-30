@@ -13,7 +13,7 @@ import numpy as np
 from astropy.coordinates import Angle
 from astropy import units
 
-entity_version = 20220309.0
+entity_version = 20230109.0
 
 from ginga.misc import Bunch
 
@@ -37,7 +37,7 @@ def explode(item):
 class PersistentEntity(object):
 
     def __init__(self, tblname):
-        super(PersistentEntity, self).__init__()
+        super().__init__()
         self._tblname = tblname
 
     def to_rec(self):
@@ -59,7 +59,7 @@ class Program(PersistentEntity):
                  propid=None, grade=None, partner=None, hours=0.0,
                  category='', instruments=[], description=None,
                  skip=False, qc_priority=0.0):
-        super(Program, self).__init__('program')
+        super().__init__('program')
 
         self.proposal = proposal
         if propid is None:
@@ -125,7 +125,7 @@ class Slot(object):
     """
 
     def __init__(self, start_time, slot_len_sec, data=None):
-        super(Slot, self).__init__()
+        super().__init__()
         self.start_time = start_time
         self.stop_time = start_time + timedelta(0, slot_len_sec)
         self.data = data
@@ -207,7 +207,7 @@ class Schedule(object):
 
     """
     def __init__(self, start_time, stop_time, data=None):
-        super(Schedule, self).__init__()
+        super().__init__()
         self.start_time = start_time
         self.stop_time = stop_time
         self.data = data
@@ -326,29 +326,107 @@ class OB(PersistentEntity):
     count = 1
 
     def __init__(self, id=None, program=None, target=None, telcfg=None,
-                 inscfg=None, envcfg=None, calib_tgtcfg=None,
-                 calib_inscfg=None, total_time=None, acct_time=None,
-                 priority=1.0, name=None, derived=None, comment='',
-                 extra_params=''):
-        super(OB, self).__init__('ob')
+                 inscfg=None, envcfg=None, total_time=None, acct_time=None,
+                 priority=1.0, derived=None, comment=''):
+        super().__init__('ob')
+
         if id is None:
             id = "ob%d" % (OB.count)
             OB.count += 1
         self.id = id
+        self.name = id
 
-        # these two items make up the primary key of an OB
+        # this plus the id make up the primary key of an OB
         self.program = program
-        if name is None:
-            name = self.id
-        self.name = name
-
-        self.priority = priority
 
         # constraints
         self.target = target
         self.inscfg = inscfg
         self.telcfg = telcfg
         self.envcfg = envcfg
+
+        # other fields
+        self.priority = priority
+        self.acct_time = acct_time
+        self.total_time = total_time
+        self.derived = derived
+        self.comment = comment
+
+    @property
+    def key(self):
+        return dict(program=self.program.proposal, name=self.id)
+
+    def has_calib(self):
+        return False
+
+    def to_rec(self):
+        doc = super().to_rec()
+
+        _d = explode(doc['target'])
+        # body object not serializable to MongoDB
+        del _d['body']
+        doc['target'] = _d
+        doc['inscfg'] = explode(doc['inscfg'])
+        doc['telcfg'] = explode(doc['telcfg'])
+        doc['envcfg'] = explode(doc['envcfg'])
+        doc['program'] = self.program.proposal
+
+        return doc
+
+    def __repr__(self):
+        return self.id
+
+    __str__ = __repr__
+
+    def equivalent(self, other):
+        if self.id != other.id:
+            return False
+        if not np.isclose(self.priority, other.priority):
+            return False
+        if not np.isclose(self.total_time, other.total_time):
+            return False
+        if not np.isclose(self.acct_time, other.acct_time):
+            return False
+        if self.derived != other.derived:
+            return False
+        if self.comment != other.comment:
+            return False
+
+        # costly object compares
+        if not self.program.equivalent(other.program):
+            return False
+        if not self.target.equivalent(other.target):
+            return False
+        if not self.inscfg.equivalent(other.inscfg):
+            return False
+        if not self.telcfg.equivalent(other.telcfg):
+            return False
+        if not self.envcfg.equivalent(other.envcfg):
+            return False
+
+        return True
+
+
+class HSC_OB(OB):
+    """
+    HSC Observing Block
+    Defines an item that can be scheduled during the night for HSC.
+
+    """
+    def __init__(self, id=None, program=None, target=None, telcfg=None,
+                 inscfg=None, envcfg=None, calib_tgtcfg=None,
+                 calib_inscfg=None, total_time=None, acct_time=None,
+                 priority=1.0, name=None, derived=None, comment='',
+                 extra_params=''):
+        super().__init__(id=id, program=program, target=target,
+                         telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
+                         total_time=total_time, acct_time=acct_time,
+                         priority=priority, derived=derived, comment=comment)
+        self.kind = 'hsc_ob'
+
+        if name is None:
+            name = self.id
+        self.name = name
 
         # this can be None, "default" or a valid target configuration
         if isinstance(calib_tgtcfg, str) and calib_tgtcfg == 'default':
@@ -379,27 +457,13 @@ class OB(PersistentEntity):
         self.calib_inscfg = calib_inscfg
 
         # other fields
-        self.total_time = total_time
-        self.derived = derived
-        self.comment = comment
-        self.acct_time = acct_time
         self.extra_params = extra_params
 
-    @property
-    def key(self):
-        return dict(program=self.program.proposal, name=self.name)
+    def has_calib(self):
+        return True
 
     def to_rec(self):
-        doc = super(OB, self).to_rec()
-
-        _d = explode(doc['target'])
-        # body object not serializable to MongoDB
-        del _d['body']
-        doc['target'] = _d
-        doc['inscfg'] = explode(doc['inscfg'])
-        doc['telcfg'] = explode(doc['telcfg'])
-        doc['envcfg'] = explode(doc['envcfg'])
-        doc['program'] = self.program.proposal
+        doc = super().to_rec()
 
         if ('calib_tgtcfg' in doc and doc['calib_tgtcfg'] is not None and
             not isinstance(doc['calib_tgtcfg'], str)):
@@ -413,43 +477,15 @@ class OB(PersistentEntity):
 
         return doc
 
-    def __repr__(self):
-        return self.id
-
-    __str__ = __repr__
-
     def equivalent(self, other):
-        # Do ID's need to match?--I don't think so, would be difficult to
-        # enforce
-        ## if self.id != other.id:
-        ##     return False
+        if not super().equivalent(other):
+            return False
         if self.name != other.name:
-            return False
-        if not np.isclose(self.priority, other.priority):
-            return False
-        if not np.isclose(self.total_time, other.total_time):
-            return False
-        if not np.isclose(self.acct_time, other.acct_time):
-            return False
-        if self.derived != other.derived:
             return False
         if self.extra_params != other.extra_params:
             return False
-        if self.comment != other.comment:
-            return False
 
         # costly object compares
-        if not self.program.equivalent(other.program):
-            return False
-        if not self.target.equivalent(other.target):
-            return False
-        if not self.inscfg.equivalent(other.inscfg):
-            return False
-        if not self.telcfg.equivalent(other.telcfg):
-            return False
-        if not self.envcfg.equivalent(other.envcfg):
-            return False
-
         if self.calib_tgtcfg is None:
             if other.calib_tgtcfg is not None:
                 return False
@@ -471,13 +507,47 @@ class OB(PersistentEntity):
         return True
 
 
+class PPC_OB(OB):
+    """
+    Observing Block for PFS Pointing Centers
+    Defines an item that can be scheduled during the night.
+
+    """
+    def __init__(self, id=None, program=None, target=None, telcfg=None,
+                 inscfg=None, envcfg=None, total_time=None, acct_time=None,
+                 priority=1.0, comment=''):
+        super().__init__(id=id, program=program, target=target,
+                         telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
+                         total_time=total_time, acct_time=acct_time,
+                         priority=priority, derived=None, comment=comment)
+        self.kind = 'ppc_ob'
+        self.name = id
+
+
+class PFS_OB(OB):
+    """
+    Observing Block for PFS
+    Defines an target and parameters for observing it.
+
+    """
+    def __init__(self, id=None, program=None, target=None, telcfg=None,
+                 inscfg=None, envcfg=None, total_time=None, acct_time=None,
+                 priority=1.0, comment=''):
+        super().__init__(id=id, program=program, target=target,
+                         telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
+                         total_time=total_time, acct_time=acct_time,
+                         priority=priority, derived=None, comment=comment)
+        self.kind = 'pfs_ob'
+        self.name = id
+
+
 class BaseTarget(object):
     pass
 
 class StaticTarget(BaseTarget):
     def __init__(self, name=None, ra=None, dec=None, equinox=2000.0,
                  comment=''):
-        super(StaticTarget, self).__init__()
+        super().__init__()
         self.name = name
         self.ra, self.dec = normalize_radec_str(ra, dec)
         self.equinox = equinox
@@ -531,13 +601,13 @@ class StaticTarget(BaseTarget):
 
 class HSCTarget(StaticTarget):
     def __init__(self, *args, **kwdargs):
-        super(HSCTarget, self).__init__(*args, **kwdargs)
+        super().__init__(*args, **kwdargs)
 
 
 class TelescopeConfiguration(object):
 
     def __init__(self, focus=None, dome=None, comment=''):
-        super(TelescopeConfiguration, self).__init__()
+        super().__init__()
         self.focus = focus
         if dome is None:
             dome = 'open'
@@ -575,48 +645,19 @@ class TelescopeConfiguration(object):
 class InstrumentConfiguration(object):
 
     def __init__(self):
-        super(InstrumentConfiguration, self).__init__()
+        super().__init__()
 
         self.insname = None
         self.mode = None
         self.comment = ''
 
-class SPCAMConfiguration(InstrumentConfiguration):
-
-    def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
-                 mode='IMAGE', offset_ra=0, offset_dec=0, pa=90,
-                 dith1=60, dith2=None):
-        super(SPCAMConfiguration, self).__init__()
-
-        self.insname = 'SPCAM'
-        if filter is not None:
-            filter = filter.lower()
-        self.filter = filter
-        self.dither = dither
-        self.guiding = guiding
-        self.num_exp = num_exp
-        self.exp_time = exp_time
-        self.mode = mode
-        self.offset_ra = offset_ra
-        self.offset_dec = offset_dec
-        self.pa = pa
-        self.dith1 = dith1
-        if dith2 is None:
-            # TODO: defaults for this depends on mode
-            dith2 = 0
-        self.dith2 = dith2
-
-    def calc_filter_change_time(self):
-        # TODO: this needs to become more accurate
-        filter_change_time_sec = 10.0 * 60.0
-        return filter_change_time_sec
 
 class HSCConfiguration(InstrumentConfiguration):
 
     def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
                  mode='IMAGE', dither=1, offset_ra=0, offset_dec=0, pa=90,
                  dith1=60, dith2=None, skip=0, stop=None, comment=''):
-        super(HSCConfiguration, self).__init__()
+        super().__init__()
 
         self.insname = 'HSC'
         self.mode = mode
@@ -645,6 +686,9 @@ class HSCConfiguration(InstrumentConfiguration):
         # TODO: this needs to become more accurate
         filter_change_time_sec = 35.0 * 60.0
         return filter_change_time_sec
+
+    def check_filter_installed(self, installed_filters):
+        return self.filter in installed_filters
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
@@ -702,53 +746,96 @@ class HSCConfiguration(InstrumentConfiguration):
         return True
 
 
-class FOCASConfiguration(InstrumentConfiguration):
+class PPCConfiguration(InstrumentConfiguration):
+    """PFS Pointing Center Instrument Configuration"""
 
-    def __init__(self, filter=None, guiding=False, num_exp=1, exp_time=10,
-                 mode='IMAGE', binning='1x1', offset_ra=0, offset_dec=0,
-                 pa=0, dither_ra=5, dither_dec=5, dither_theta=0.0):
-        super(FOCASConfiguration, self).__init__()
+    def __init__(self, exp_time=15, resolution='low',
+                 guiding=True, pa=0, comment=''):
+        super().__init__()
 
-        self.insname = 'FOCAS'
-        self.mode = mode
-        if filter is not None:
-            filter = filter.lower()
-        self.filter = filter
+        self.insname = 'PPC'
+        self.mode = 'SPEC'
+        self.resolution = resolution
         self.guiding = guiding
-        self.num_exp = int(num_exp)
         self.exp_time = float(exp_time)
-        self.pa = float(pa)
-        self.binning = binning
-        self.offset_ra = float(offset_ra)
-        self.offset_dec = float(offset_dec)
-        self.dither_ra = float(dither_ra)
-        self.dither_dec = float(dither_dec)
-        self.dither_theta = float(dither_theta)
+        self.pa = pa
+        self.comment = comment
 
     def calc_filter_change_time(self):
-        # TODO: this needs to become more accurate
-        filter_change_time_sec = 30.0
-        return filter_change_time_sec
+        return 0.0
+
+    def check_filter_installed(self, installed_filters):
+        return True
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
-        self.insname = 'FOCAS'
-        self.mode = rec['mode']
-        self.filter = rec['filter'].lower()
+        self.insname = 'PFS'
+        self.resolution = rec['resolution']
         if isinstance(rec['guiding'], bool):
             self.guiding = rec['guiding']
         else:
             self.guiding = rec['guiding'] in ('y', 'Y', 'yes', 'YES')
-        self.num_exp = int(rec['num_exp'])
         self.exp_time = float(rec['exp_time'])
         self.pa = float(rec['pa'])
-        self.offset_ra = float(rec['offset_ra'])
-        self.offset_dec = float(rec['offset_dec'])
-        self.dither_ra = float(rec['dither_ra'])
-        self.dither_dec = float(rec['dither_dec'])
-        self.dither_theta = float(rec['dither_theta'])
-        self.binning = rec['binning']
+        self.comment = rec['comment'].strip()
         return code
+
+    def equivalent(self, other):
+        if self.insname != other.insname:
+            return False
+        if self.resolution != other.resolution:
+            return False
+        if self.guiding != other.guiding:
+            return False
+        if not np.isclose(self.exp_time, other.exp_time):
+            return False
+        if not np.isclose(self.pa, other.pa):
+            return False
+        if self.comment != other.comment:
+            return False
+        return True
+
+
+class PFSConfiguration(InstrumentConfiguration):
+    """PFS Observing Block Instrument Configuration"""
+
+    def __init__(self, exp_time=15, resolution='low',
+                 comment=''):
+        super().__init__()
+
+        self.insname = 'PFS'
+        self.mode = 'SPEC'
+        self.resolution = resolution
+        self.exp_time = float(exp_time)
+        self.comment = comment
+
+    # These two shouldn't be needed because we never schedule PFS OBs
+    # directly; it is done through the PPP program to get pointing centers
+
+    def calc_filter_change_time(self):
+        raise Exception("Not valid for a PFS OB")
+
+    def check_filter_installed(self, installed_filters):
+        raise Exception("Not valid for a PFS OB")
+
+    def import_record(self, rec):
+        code = rec.get('code', '').strip()
+        self.insname = 'PFS'
+        self.resolution = rec['resolution']
+        self.exp_time = float(rec['exp_time'])
+        self.comment = rec['comment'].strip()
+        return code
+
+    def equivalent(self, other):
+        if self.insname != other.insname:
+            return False
+        if self.resolution != other.resolution:
+            return False
+        if not np.isclose(self.exp_time, other.exp_time):
+            return False
+        if self.comment != other.comment:
+            return False
+        return True
 
 
 class EnvironmentConfiguration(object):
@@ -759,7 +846,7 @@ class EnvironmentConfiguration(object):
     def __init__(self, seeing=None, airmass=None, moon='any',
                  transparency=None, moon_sep=None, lower_time_limit=None,
                  upper_time_limit=None, comment=''):
-        super(EnvironmentConfiguration, self).__init__()
+        super().__init__()
         self.seeing = seeing
         self.airmass = airmass
         self.transparency = transparency
@@ -849,7 +936,7 @@ class Executed_OB(PersistentEntity):
     Describes the result of executing an OB.
     """
     def __init__(self, ob_key=None):
-        super(Executed_OB, self).__init__('executed_ob')
+        super().__init__('executed_ob')
 
         self.ob_key = ob_key
         # time this OB started and stopped
@@ -870,7 +957,7 @@ class Executed_OB(PersistentEntity):
         self.exp_history.append(exp_key)
 
     def from_rec(self, dct):
-        super(Executed_OB, self).from_rec(dct)
+        super().from_rec(dct)
 
         # comes in as a list from MongoDB, but we want a tuple
         self.ob_key = tuple(self.ob_key)
@@ -884,10 +971,11 @@ class Executed_OB(PersistentEntity):
 class HSC_Exposure(PersistentEntity):
     """
     Describes the result of executing one dither position or one exposure
-    from an OB.
+    from a HSC OB.
     """
     def __init__(self, ob_key=None, dithpos=None):
-        super(HSC_Exposure, self).__init__('exposure')
+        super().__init__('exposure')
+        self.insname = 'HSC'
 
         # time this exposure started and stopped
         self.time_start = None
@@ -924,7 +1012,65 @@ class HSC_Exposure(PersistentEntity):
         return dict(exp_id=self.exp_id)
 
     def from_rec(self, dct):
-        super(HSC_Exposure, self).from_rec(dct)
+        super().from_rec(dct)
+
+        # comes in as a list from MongoDB, but we want a tuple
+        if self.ob_key is not None:
+            # non-queue frames will have a null ob_key
+            self.ob_key = tuple(self.ob_key)
+
+        # See NOTE [1]
+        if self.time_start is not None:
+            self.time_start = self.time_start.replace(tzinfo=tz.UTC)
+        if self.time_stop is not None:
+            self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
+
+    def __str__(self):
+        return self.exp_id
+
+
+class PFS_Exposure(PersistentEntity):
+    """
+    Describes the result of executing one exposure from a PFS OB.
+    """
+    def __init__(self, ob_key=None):
+        super().__init__('exposure')
+        self.insname = 'PFS'
+
+        # time this exposure started and stopped
+        self.time_start = None
+        self.time_stop = None
+        # per exposure comment
+        self.comment = ''
+        # exposure id that links a data frame with this OB
+        self.exp_id = ''
+        self.ob_key = ob_key
+
+        # environment data at the time of exposure
+        # TODO: should this end up being a list of tuples of measurements
+        # taken at different times during the exposure?
+        self.transparency = None
+        self.seeing = None
+        self.moon_illumination = None
+        self.moon_altitude = None
+        self.moon_separation = None
+
+        # Handling can be used to exclude certain exposures
+        self.handling = 0
+
+        # Other items extracted from FITS header
+        self.object_name = None
+        self.resolution = None
+        self.data_type = None
+        self.propid = None
+        self.obsmthd = None
+
+    @property
+    def key(self):
+        return dict(exp_id=self.exp_id)
+
+    def from_rec(self, dct):
+        super().from_rec(dct)
 
         # comes in as a list from MongoDB, but we want a tuple
         if self.ob_key is not None:
@@ -944,14 +1090,14 @@ class HSC_Exposure(PersistentEntity):
 class SavedStateRec(PersistentEntity):
 
     def __init__(self):
-        super(SavedStateRec, self).__init__('saved_state')
+        super().__init__('saved_state')
 
         self.name = 'current'
         self.info = {}
         self.time_update = None
 
     def from_rec(self, dct):
-        super(SavedStateRec, self).from_rec(dct)
+        super().from_rec(dct)
 
         # See NOTE [1]
         if self.time_update is not None:
@@ -1001,7 +1147,12 @@ def make_executed_ob(dct):
     return ex_ob
 
 def make_exposure(dct):
-    exp = HSC_Exposure()
+    insname = dct.get('insname', None)
+    if insname == 'PFS':
+        exp = PFS_Exposure()
+    else:
+        exp = HSC_Exposure()
+
     exp.from_rec(dct)
     return exp
 
@@ -1015,38 +1166,71 @@ def make_ob(dct, program):
     telcfg = TelescopeConfiguration()
     telcfg.import_record(dct['telcfg'])
 
-    target = HSCTarget()
-    target.import_record(dct['target'])
-
-    inscfg = HSCConfiguration()
-    inscfg.import_record(dct['inscfg'])
-
     envcfg = EnvironmentConfiguration()
     envcfg.import_record(dct['envcfg'])
 
-    if dct['calib_tgtcfg'] is None:
+    insname = dct['inscfg']['insname']
+
+    if insname == 'HSC':
+        target = HSCTarget()
+        inscfg = HSCConfiguration()
+
+        target.import_record(dct['target'])
+        inscfg.import_record(dct['inscfg'])
+
+        if dct['calib_tgtcfg'] is None:
+            # older programs didn't have this
+            calib_tgtcfg = None
+        else:
+            calib_tgtcfg = HSCTarget()
+            calib_tgtcfg.import_record(dct['calib_tgtcfg'])
+
+        if dct['calib_inscfg'] is None:
+            # older programs didn't have this
+            calib_inscfg = None
+        else:
+            calib_inscfg = HSCConfiguration()
+            calib_inscfg.import_record(dct['calib_inscfg'])
+
         # older programs didn't have this
-        calib_tgtcfg = None
+        extra_params = dct.get('extra_params', '')
+
+        ob = HSC_OB(id=dct['id'], program=program, target=target,
+                    telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
+                    calib_tgtcfg=calib_tgtcfg, name=dct['name'],
+                    calib_inscfg=calib_inscfg,
+                    total_time=dct['total_time'], acct_time=dct['acct_time'],
+                    priority=dct['priority'],
+                    comment=dct['comment'],
+                    extra_params=extra_params)
+
+    elif insname == 'PPC':
+        target = StaticTarget()
+        inscfg = PPCConfiguration()
+
+        target.import_record(dct['target'])
+        inscfg.import_record(dct['inscfg'])
+
+        ob = PPC_OB(id=dct['id'], program=program, target=target,
+                    telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
+                    total_time=dct['total_time'], acct_time=dct['acct_time'],
+                    priority=dct['priority'], comment=dct['comment'])
+
+    elif insname == 'PFS':
+        target = StaticTarget()
+        inscfg = PFSConfiguration()
+
+        target.import_record(dct['target'])
+        inscfg.import_record(dct['inscfg'])
+
+        ob = PFS_OB(id=dct['id'], program=program, target=target,
+                    telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
+                    total_time=dct['total_time'], acct_time=dct['acct_time'],
+                    priority=dct['priority'], comment=dct['comment'])
+
     else:
-        calib_tgtcfg = HSCTarget()
-        calib_tgtcfg.import_record(dct['calib_tgtcfg'])
+        raise ValueError(f"instrument not recognized: '{insname}'")
 
-    if dct['calib_inscfg'] is None:
-        # older programs didn't have this
-        calib_inscfg = None
-    else:
-        calib_inscfg = HSCConfiguration()
-        calib_inscfg.import_record(dct['calib_inscfg'])
-
-    # older programs didn't have this
-    extra_params = dct.get('extra_params', '')
-
-    ob = OB(id=dct['id'], program=program, target=target, telcfg=telcfg,
-            inscfg=inscfg, envcfg=envcfg, calib_tgtcfg=calib_tgtcfg,
-            calib_inscfg=calib_inscfg, total_time=dct['total_time'],
-            acct_time=dct['acct_time'], priority=dct['priority'],
-            name=dct['name'], comment=dct['comment'],
-            extra_params=extra_params)
     ob._id = dct['_id']
     ob._save_tstamp = dct.get('_save_tstamp', None)
 

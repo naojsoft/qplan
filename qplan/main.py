@@ -20,6 +20,7 @@ from .Model import QueueModel
 from .Scheduler import Scheduler
 from . import version
 from .util import site
+from qplan import __version__
 
 moduleHome = os.path.split(sys.modules['qplan.version'].__file__)[0]
 sys.path.insert(0, moduleHome)
@@ -95,52 +96,50 @@ class QueuePlanner(object):
     def add_plugins(self, plugins):
         self.plugins.extend(plugins)
 
-    def add_default_options(self, optprs):
+    def add_default_options(self, argprs):
         """
         Adds the default reference viewer startup options to an
-        OptionParser instance `optprs`.
+        ArgumentParser instance `argprs`.
         """
-        optprs.add_option("-c", "--completed", dest="completed", default=None,
-                          metavar="FILE",
-                          help="Specify FILE of completed OB keys")
-        optprs.add_option("--date-start", dest="date_start", default=None,
-                          help="Define the start of the schedule ('YYYY-MM-DD HH:MM')")
-        optprs.add_option("--date-stop", dest="date_stop", default=None,
-                          help="Define the end of the schedule ('YYYY-MM-DD HH:MM')")
-        optprs.add_option("--debug", dest="debug", default=False, action="store_true",
-                          help="Enter the pdb debugger on main()")
-        optprs.add_option("--display", dest="display", metavar="HOST:N",
-                          help="Use X display on HOST:N")
-        optprs.add_option("-g", "--geometry", dest="geometry",
-                          metavar="GEOM", default=None,
-                          help="X geometry for initial size and placement")
-        optprs.add_option("-i", "--input", dest="input_dir", default=".",
-                          metavar="DIRECTORY",
-                          help="Read input files from DIRECTORY")
-        optprs.add_option("-f", "--format", dest="input_fmt", default=None,
-                          metavar="FILE_FORMAT",
-                          help="Specify input file format (csv, xls, or xlsx)")
-        optprs.add_option("--norestore", dest="norestore", default=False,
-                          action="store_true",
-                          help="Don't restore the GUI from a saved layout")
-        ## optprs.add_option("--modules", dest="modules", metavar="NAMES",
+        argprs.add_argument("-c", "--completed", dest="completed", default=None,
+                            metavar="FILE",
+                            help="Specify FILE of completed OB keys")
+        argprs.add_argument("--date-start", dest="date_start", default=None,
+                            help="Define the start of the schedule ('YYYY-MM-DD HH:MM')")
+        argprs.add_argument("--date-stop", dest="date_stop", default=None,
+                            help="Define the end of the schedule ('YYYY-MM-DD HH:MM')")
+        argprs.add_argument("--display", dest="display", metavar="HOST:N",
+                            help="Use X display on HOST:N")
+        argprs.add_argument("-g", "--geometry", dest="geometry",
+                            metavar="GEOM", default=None,
+                            help="X geometry for initial size and placement")
+        argprs.add_argument("-i", "--input", dest="input_dir", default=".",
+                            metavar="DIRECTORY",
+                            help="Read input files from DIRECTORY")
+        argprs.add_argument("-f", "--format", dest="input_fmt", default=None,
+                            metavar="FILE_FORMAT",
+                            help="Specify input file format (csv, xls, or xlsx)")
+        argprs.add_argument("--norestore", dest="norestore", default=False,
+                            action="store_true",
+                            help="Don't restore the GUI from a saved layout")
+        ## argprs.add_argument("--modules", dest="modules", metavar="NAMES",
         ##                   help="Specify additional modules to load")
-        optprs.add_option("--numthreads", dest="numthreads", type="int",
-                          default=30,
-                          help="Start NUM threads in thread pool", metavar="NUM")
-        optprs.add_option("-o", "--output", dest="output_dir", default=None,
-                          metavar="DIRECTORY",
-                          help="Write output files to DIRECTORY")
-        optprs.add_option("--profile", dest="profile", action="store_true",
-                          default=False,
-                          help="Run the profiler on main()")
-        optprs.add_option("-s", "--site", dest="sitename", metavar="NAME",
-                          default='subaru',
-                          help="Observing site NAME")
-        optprs.add_option("-t", "--toolkit", dest="toolkit", metavar="NAME",
-                          default=None,
-                          help="Prefer GUI toolkit (default: choose one)")
-        log.addlogopts(optprs)
+        argprs.add_argument("--numthreads", dest="numthreads", type=int,
+                            default=30,
+                            help="Start NUM threads in thread pool", metavar="NUM")
+        argprs.add_argument("-o", "--output", dest="output_dir", default=None,
+                            metavar="DIRECTORY",
+                            help="Write output files to DIRECTORY")
+        argprs.add_argument("-s", "--site", dest="sitename", metavar="NAME",
+                            default='subaru',
+                            help="Observing site NAME")
+        argprs.add_argument("-t", "--toolkit", dest="toolkit", metavar="NAME",
+                            default=None,
+                            help="Prefer GUI toolkit (default: choose one)")
+        argprs.add_argument('--version', action='version',
+                            version='%(prog)s v{version}'.format(version=__version__),
+                            help="Show the qplan version and exit")
+        log.addlogopts(argprs)
 
 
     def main(self, options, args):
@@ -290,34 +289,19 @@ def planner(sys_argv):
     viewer = QueuePlanner(layout=default_layout)
     viewer.add_plugins(plugins)
 
-    # Parse command line options with optparse module
-    from optparse import OptionParser
+    from argparse import ArgumentParser
 
-    usage = "usage: %prog [options] cmd [args]"
-    optprs = OptionParser(usage=usage,
-                          version=('%%prog %s' % version.version))
-    viewer.add_default_options(optprs)
+    argprs = ArgumentParser(description="Queue Planner for Subaru Telescope")
+    viewer.add_default_options(argprs)
 
-    (options, args) = optprs.parse_args(sys_argv[1:])
+    (options, args) = argprs.parse_known_args(sys_argv[1:])
+
+    if options.version:
+        from qplan import __version__
+        print(f"QPlan {__version__}")
+        sys.exit(0)
 
     if options.display:
         os.environ['DISPLAY'] = options.display
 
-    # Are we debugging this?
-    if options.debug:
-        import pdb
-
-        pdb.run('viewer.main(options, args)')
-
-    # Are we profiling this?
-    elif options.profile:
-        import profile
-
-        print(("%s profile:" % sys_argv[0]))
-        profile.run('viewer.main(options, args)')
-
-    else:
-        viewer.main(options, args)
-
-
-# END
+    viewer.main(options, args)

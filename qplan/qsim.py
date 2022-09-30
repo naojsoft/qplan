@@ -35,11 +35,11 @@ dark_night_moon_pct_limit = 0.25
 
 
 def filterchange_ob(ob, total_time):
-    new_ob = entity.OB(program=ob.program, target=ob.target,
-                       telcfg=ob.telcfg,
-                       inscfg=ob.inscfg, envcfg=ob.envcfg,
-                       total_time=total_time, derived=True,
-                       comment="Filter change for %s" % (ob))
+    new_ob = entity.HSC_OB(program=ob.program, target=ob.target,
+                           telcfg=ob.telcfg,
+                           inscfg=ob.inscfg, envcfg=ob.envcfg,
+                           total_time=total_time, derived=True,
+                           comment="Filter change for %s" % (ob))
     return new_ob
 
 
@@ -50,21 +50,21 @@ def longslew_ob(prev_ob, ob, total_time):
     else:
         #inscfg = prev_ob.inscfg
         inscfg = ob.inscfg
-    new_ob = entity.OB(program=ob.program, target=ob.target,
-                       telcfg=ob.telcfg,
-                       inscfg=inscfg, envcfg=ob.envcfg,
-                       total_time=total_time, derived=True,
-                       comment="Long slew for %s" % (ob))
+    new_ob = entity.HSC_OB(program=ob.program, target=ob.target,
+                           telcfg=ob.telcfg,
+                           inscfg=inscfg, envcfg=ob.envcfg,
+                           total_time=total_time, derived=True,
+                           comment="Long slew for %s" % (ob))
     return new_ob
 
 
 def calibration_ob(ob, total_time):
-    new_ob = entity.OB(program=ob.program, target=ob.calib_tgtcfg,
-                       telcfg=ob.telcfg, inscfg=ob.calib_inscfg,
-                       envcfg=ob.envcfg,
-                       total_time=total_time, derived=True,
-                       #extra_params=ob.extra_params,
-                       comment="Calibration for %s" % (ob))
+    new_ob = entity.HSC_OB(program=ob.program, target=ob.calib_tgtcfg,
+                           telcfg=ob.telcfg, inscfg=ob.calib_inscfg,
+                           envcfg=ob.envcfg,
+                           total_time=total_time, derived=True,
+                           #extra_params=ob.extra_params,
+                           comment="Calibration for %s" % (ob))
     return new_ob
 
 
@@ -75,12 +75,12 @@ def calibration30_ob(ob, total_time):
                                            mode='IMAGE', dither='1',
                                            pa=ob.inscfg.pa,
                                            comment='30 sec calib shot')
-    new_ob = entity.OB(program=ob.program, target=ob.target,
-                       telcfg=ob.telcfg, inscfg=calib_inscfg,
-                       envcfg=ob.envcfg,
-                       total_time=total_time, derived=True,
-                       #extra_params=ob.extra_params,
-                       comment="30 sec calibration for %s" % (ob))
+    new_ob = entity.HSC_OB(program=ob.program, target=ob.target,
+                           telcfg=ob.telcfg, inscfg=calib_inscfg,
+                           envcfg=ob.envcfg,
+                           total_time=total_time, derived=True,
+                           #extra_params=ob.extra_params,
+                           comment="30 sec calibration for %s" % (ob))
     return new_ob
 
 
@@ -99,22 +99,22 @@ def setup_ob(ob, total_time):
              proposal=ob.program.proposal)
     # make this derived OB's comment include root OB comment
     comment = "%(proposal)s %(obname)s: %(comment)s" % d
-    new_ob = entity.OB(program=ob.program, target=ob.target,
-                       telcfg=ob.telcfg,
-                       inscfg=ob.inscfg, envcfg=ob.envcfg,
-                       total_time=total_time, derived=True,
-                       comment="Setup OB: %s" % (comment))
+    new_ob = entity.HSC_OB(program=ob.program, target=ob.target,
+                           telcfg=ob.telcfg,
+                           inscfg=ob.inscfg, envcfg=ob.envcfg,
+                           total_time=total_time, derived=True,
+                           comment="Setup OB: %s" % (comment))
     #
     new_ob.orig_ob = ob
     return new_ob
 
 
 def teardown_ob(ob, total_time):
-    new_ob = entity.OB(program=ob.program, target=ob.target,
-                       telcfg=ob.telcfg,
-                       inscfg=ob.inscfg, envcfg=ob.envcfg,
-                       total_time=total_time, derived=True,
-                       comment="Teardown for %s" % (ob))
+    new_ob = entity.HSC_OB(program=ob.program, target=ob.target,
+                           telcfg=ob.telcfg,
+                           inscfg=ob.inscfg, envcfg=ob.envcfg,
+                           total_time=total_time, derived=True,
+                           comment="Teardown for %s" % (ob))
     return new_ob
 
 
@@ -156,8 +156,8 @@ def check_schedule_invariant_one(site, schedule, ob):
             ob.inscfg.insname))
         return res
 
-    # check if filter will be installed
-    if not (ob.inscfg.filter in schedule.data.filters):
+    # check if filter will be installed (affected instruments only)
+    if not ob.inscfg.check_filter_installed(schedule.data.filters):
         res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
             ob.inscfg.filter, schedule.data.filters))
         return res
@@ -215,7 +215,7 @@ def check_night_visibility_one(site, schedule, ob):
                     reason="Time or visibility of target")
         return res
 
-    tgt_cal = ob.calib_tgtcfg
+    tgt_cal = getattr(ob, 'calib_tgtcfg', None)
     if tgt_cal is not None:
         obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
         obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
@@ -340,7 +340,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
     ##     return res
 
     ## # check if filter will be installed
-    ## if not (ob.inscfg.filter in slot.data.filters):
+    ## if not ob.inscfg.check_filter_installed(slot.data.filters):
     ##     res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
     ##         ob.inscfg.filter, slot.data.filters))
     ##     return res
@@ -353,7 +353,8 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
     ##     return res
 
     # if we are limiting the filter to a certain one
-    if limit_filter is not None and ob.inscfg.filter != limit_filter:
+    if (limit_filter is not None and
+        not ob.inscfg.check_filter_installed([limit_filter])):
         res.setvals(obs_ok=False,
                     reason="Filter (%s) does not match limit_filter (%s)" % (
             ob.inscfg.filter, limit_filter))
@@ -366,14 +367,14 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
     # get immediately previous ob and filter
     if (prev_slot is None) or (prev_slot.ob is None):
         prev_ob = None
-        cur_filter = slot.data.cur_filter
+        cur_filter = getattr(slot.data, 'cur_filter', None)
 
     else:
         prev_ob = prev_slot.ob
-        cur_filter = prev_ob.inscfg.filter
+        cur_filter = getattr(prev_ob.inscfg, 'filter', None)
 
     # calculate cost of filter exchange
-    if cur_filter != ob.inscfg.filter:
+    if cur_filter != getattr(ob.inscfg, 'filter', None):
         # filter exchange necessary
         filterchange = True
         filterchange_sec = ob.inscfg.calc_filter_change_time()
@@ -429,7 +430,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
 
     # Calculate cost of slew to this target
     # Assume that we want to do the calibration target first
-    target = ob.calib_tgtcfg
+    target = getattr(ob, 'calib_tgtcfg', None)
     if target is None:
         # No calibration target specified--go with OB main target
         target = ob.target
@@ -463,7 +464,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
     # calibration exposure and slew to main OB target
     calibration_sec = 0.0
     slew2_sec = 0.0
-    tgt_cal = ob.calib_tgtcfg
+    tgt_cal = getattr(ob, 'calib_tgtcfg', None)
     if tgt_cal is not None:
         # TODO: take overheads into account?
         c_i = ob.calib_inscfg
@@ -580,7 +581,8 @@ def eval_schedule(schedule, current_filter=None):
             else:
                 proposal_total_time_sec[propID] = ob.total_time
 
-        if ((ob.inscfg.filter is not None) and
+        _filter = getattr(ob.inscfg, 'filter', None)
+        if ((_filter is not None) and
             (ob.inscfg.filter != current_filter)):
             num_filter_exchanges += 1
             current_filter = ob.inscfg.filter

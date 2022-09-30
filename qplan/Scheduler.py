@@ -206,7 +206,7 @@ class Scheduler(Callback.Callbacks):
             The object representing the observing site
 
         oblist : list of `~qplan.entity.OB` objects
-            A list of observation block obejcts that *may* be observable
+            A list of observation block objects that *may* be observable
 
         props : dict
             A dict of information about proposals
@@ -345,7 +345,7 @@ class Scheduler(Callback.Callbacks):
             schedule.insert_slot(d_slot)
 
         # is there a calibration target?
-        if ob.calib_tgtcfg is not None:
+        if getattr(ob, 'calib_tgtcfg', None) is not None:
             # TODO: add overhead?
             time_add_sec = res.calibration_sec + res.slew_sec
             _xx, c_slot, slot = slot.split(slot.start_time,

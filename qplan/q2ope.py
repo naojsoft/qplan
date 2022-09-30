@@ -8,7 +8,6 @@
 Usage:
     q2ope.py
 """
-from __future__ import print_function
 # stdlib imports
 import sys, os
 from io import BytesIO, StringIO
@@ -146,42 +145,18 @@ def main(options, args):
 
 if __name__ == "__main__":
 
-    # Parse command line options with nifty new optparse module
-    from optparse import OptionParser
+    from argparse import ArgumentParser
 
-    usage = "usage: %prog [options] cmd [args]"
-    optprs = OptionParser(usage=usage, version=('%%prog %s' % version))
+    argprs = ArgumentParser(description="Queue to OPE file converter")
 
-    optprs.add_option("--debug", dest="debug", default=False, action="store_true",
-                      help="Enter the pdb debugger on main()")
-    optprs.add_option("-i", "--input", dest="input_dir", default="input",
-                      metavar="DIRECTORY",
-                      help="Read input files from DIRECTORY")
-    optprs.add_option("-o", "--output", dest="output_dir", default="output",
-                      metavar="DIRECTORY",
-                      help="Write output files to DIRECTORY")
-    optprs.add_option("--profile", dest="profile", action="store_true",
-                      default=False,
-                      help="Run the profiler on main()")
-    log.addlogopts(optprs)
+    argprs.add_argument("-i", "--input", dest="input_dir", default="input",
+                        metavar="DIRECTORY",
+                        help="Read input files from DIRECTORY")
+    argprs.add_argument("-o", "--output", dest="output_dir", default="output",
+                        metavar="DIRECTORY",
+                        help="Write output files to DIRECTORY")
+    log.addlogopts(argprs)
 
-    (options, args) = optprs.parse_args(sys.argv[1:])
+    (options, args) = argprs.parse_known_args(sys.argv[1:])
 
-    # Are we debugging this?
-    if options.debug:
-        import pdb
-
-        pdb.run('main(options, args)')
-
-    # Are we profiling this?
-    elif options.profile:
-        import profile
-
-        print("%s profile:" % sys.argv[0])
-        profile.run('main(options, args)')
-
-
-    else:
-        main(options, args)
-
-# END
+    main(options, args)
