@@ -1276,7 +1276,7 @@ class PFS_Exposure(PersistentEntity):
         self.comment = ''
         # exposure id that links a data frame with this OB
         self.exp_id = ''
-        self.ob_key = ob_key
+        self.eff_exp_time = 0
 
         # environment data at the time of exposure
         # TODO: should this end up being a list of tuples of measurements

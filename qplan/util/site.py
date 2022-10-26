@@ -3,10 +3,10 @@
 #
 
 from dateutil import tz
+from astropy import units as u
 from qplan.util.calcpos import Observer
 
 # Subaru Telescope
-wl_a =  {'observing': 3500., 'guiding': 6500.} # Angstrom
 site_subaru = Observer('subaru',
                        longitude='-155:28:48.900',
                        latitude='+19:49:42.600',
@@ -14,7 +14,7 @@ site_subaru = Observer('subaru',
                        pressure=615,
                        temperature=0,
                        humidity=10,
-                       wavelength=wl_a,
+                       wavelength=dict(observing=3500., guiding=6500.), # Angstroms
                        timezone=tz.gettz('US/Hawaii'))
 
 # ---------------------------------
