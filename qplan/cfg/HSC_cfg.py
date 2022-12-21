@@ -5,7 +5,7 @@
 #
 
 # Complete list of all HSC filters
-all_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB391', 'NB395', 'NB400', 'NB430', 'NB468', 'NB497', 'NB506', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB921', 'NB926', 'IB945', 'NB973', 'NB1010', 'EB-gri')]
+all_filters =  [f.upper() for f in ('g', 'r', 'r2', 'i', 'i2', 'z', 'Y', 'NB387', 'NB391', 'NB395', 'NB400', 'NB430', 'NB468', 'NB497', 'NB506', 'NB515', 'NB527', 'NB656', 'NB718', 'NB816', 'NB872', 'NB921', 'NB926', 'IB945', 'NB973', 'NB1010', 'EB-gri')]
 
 # List of filters available for each semester
 semester_filters = {
@@ -24,4 +24,5 @@ semester_filters = {
     'S22A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB395', 'NB497', 'NB527', 'NB656', 'NB718')],
     'S22A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB395', 'NB497', 'NB527', 'NB656', 'NB718')],
     'S22B': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'NB391', 'NB395', 'NB497', 'NB506', 'NB515', 'NB718', 'NB816', 'NB921', 'EB-gri')],
+    'S23A': [f.upper() for f in ('g', 'r2', 'i2', 'z', 'Y', 'NB497', 'NB506', 'NB872', 'NB921')],
     }
