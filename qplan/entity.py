@@ -191,6 +191,10 @@ class Slot(object):
         diff_sec = (self.stop_time - self.start_time).total_seconds()
         return diff_sec
 
+    def printed(self):
+        ob_s = "none" if self.ob is None else self.ob.printed()
+        return "{} {}".format(self, ob_s)
+
     def __repr__(self):
         #s = self.start_time.strftime("%H:%M:%S")
         duration = self.size() / 60.0
@@ -310,6 +314,12 @@ class Schedule(object):
         ## return total
         return self.waste
 
+    def printed(self):
+        sch = []
+        for slot in self.slots:
+            sch.append(slot.printed())
+        return "\n".join(sch)
+
     def __repr__(self):
         s = self.start_time.strftime("%Y-%m-%d %H:%M")
         return s
@@ -376,7 +386,11 @@ class OB(PersistentEntity):
     def __repr__(self):
         return self.id
 
-    __str__ = __repr__
+    def __str__(self):
+        return self.id
+
+    def printed(self):
+        return "{} ({})".format(self.id, self.comment)
 
     def equivalent(self, other):
         if self.id != other.id:
@@ -405,6 +419,28 @@ class OB(PersistentEntity):
             return False
 
         return True
+
+    def longslew_ob(self, prev_ob, total_time):
+        if prev_ob is None:
+            klass = self.inscfg.__class__
+            inscfg = klass()
+        else:
+            #inscfg = prev_ob.inscfg
+            inscfg = self.inscfg
+        new_ob = OB(program=self.program, target=self.target,
+                    telcfg=self.telcfg,
+                    inscfg=inscfg, envcfg=self.envcfg,
+                    total_time=total_time, derived=True,
+                    comment="Long slew for {}".format(self))
+        return new_ob
+
+    def delay_ob(self, total_time):
+        new_ob = OB(program=self.program, target=self.target,
+                    telcfg=self.telcfg,
+                    inscfg=self.inscfg, envcfg=self.envcfg,
+                    total_time=total_time, derived=True,
+                    comment="Delay for {} visibility".format(self))
+        return new_ob
 
 
 class HSC_OB(OB):
@@ -506,6 +542,67 @@ class HSC_OB(OB):
 
         return True
 
+    def setup_ob(self):
+        d = dict(obid=str(self), obname=self.name,
+                 comment=self.comment,    # root OB's comment
+                 proposal=self.program.proposal)
+        # make this derived OB's comment include root OB comment
+        comment = "%(proposal)s %(obname)s: %(comment)s" % d
+
+        # how long approx to start OB
+        ob_change_sec = 1.0
+
+        new_ob = HSC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg,
+                        inscfg=self.inscfg, envcfg=self.envcfg,
+                        total_time=ob_change_sec, derived=True,
+                        comment="Setup OB: %s" % (comment))
+        #
+        new_ob.orig_ob = self
+        return new_ob
+
+    def teardown_ob(self):
+        # how long approx to stop current OB
+        ob_stop_sec = 1.0
+        new_ob = HSC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg,
+                        inscfg=self.inscfg, envcfg=self.envcfg,
+                        total_time=ob_stop_sec, derived=True,
+                        comment="Teardown for {}".format(self))
+        return new_ob
+
+    def filterchange_ob(self, total_time):
+        new_ob = HSC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg,
+                        inscfg=self.inscfg, envcfg=self.envcfg,
+                        total_time=total_time, derived=True,
+                        comment="Filter change for {}".format(self))
+        return new_ob
+
+    def calibration_ob(self, total_time):
+        new_ob = HSC_OB(program=self.program, target=self.calib_tgtcfg,
+                        telcfg=self.telcfg, inscfg=self.calib_inscfg,
+                        envcfg=self.envcfg,
+                        total_time=total_time, derived=True,
+                        #extra_params=self.extra_params,
+                        comment="Calibration for {}".format(self))
+        return new_ob
+
+    def calibration30_ob(self, total_time):
+        calib_inscfg = HSCConfiguration(filter=self.inscfg.filter,
+                                        guiding=False, num_exp=1,
+                                        exp_time=30,
+                                        mode='IMAGE', dither='1',
+                                        pa=self.inscfg.pa,
+                                        comment='30 sec calib shot')
+        new_ob = HSC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg, inscfg=calib_inscfg,
+                        envcfg=self.envcfg,
+                        total_time=total_time, derived=True,
+                        #extra_params=self.extra_params,
+                        comment="30 sec calibration for {}".format(self))
+        return new_ob
+
 
 class PPC_OB(OB):
     """
@@ -515,13 +612,42 @@ class PPC_OB(OB):
     """
     def __init__(self, id=None, program=None, target=None, telcfg=None,
                  inscfg=None, envcfg=None, total_time=None, acct_time=None,
-                 priority=1.0, comment=''):
+                 priority=1.0, derived=None, comment=''):
         super().__init__(id=id, program=program, target=target,
                          telcfg=telcfg, inscfg=inscfg, envcfg=envcfg,
                          total_time=total_time, acct_time=acct_time,
-                         priority=priority, derived=None, comment=comment)
+                         priority=priority, derived=derived, comment=comment)
         self.kind = 'ppc_ob'
         self.name = id
+
+    def setup_ob(self):
+        d = dict(obid=str(self), obname=self.name,
+                 comment=self.comment,    # root OB's comment
+                 proposal=self.program.proposal)
+        # make this derived OB's comment include root OB comment
+        comment = "%(proposal)s %(obname)s: %(comment)s" % d
+
+        # how long approx to start OB
+        total_time = 1.0
+
+        new_ob = PPC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg,
+                        inscfg=self.inscfg, envcfg=self.envcfg,
+                        total_time=total_time, derived=True,
+                        comment="Setup OB: %s" % (comment))
+        #
+        new_ob.orig_ob = self
+        return new_ob
+
+    def teardown_ob(self):
+        # how long approx to stop current OB
+        ob_stop_sec = 1.0
+        new_ob = PPC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg,
+                        inscfg=self.inscfg, envcfg=self.envcfg,
+                        total_time=ob_stop_sec, derived=True,
+                        comment="Teardown for {}".format(self))
+        return new_ob
 
 
 class PFS_OB(OB):
