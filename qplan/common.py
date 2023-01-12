@@ -3,7 +3,7 @@ from .util import calcpos
 
 # Extra overhead time charged to proposals on top of readout + on src time
 # https://www.naoj.org/Observing/Instruments/HSC/hsc_queue_overhead.html
-extra_overhead_factor = 1.137
+hsc_extra_overhead_factor = 1.137
 
 
 # The common solar system bodies

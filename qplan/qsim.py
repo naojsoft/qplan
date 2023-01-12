@@ -297,7 +297,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
     #print("filter change time for new ob is %f sec" % (filterchange_sec))
 
     # for adding up total preparation time for new OB
-    prep_sec = filterchange_sec
+    prep_sec = filterchange_sec + ob.setup_time()
 
     # check dome status
     if slot.data.dome != ob.telcfg.dome:
@@ -447,7 +447,8 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
             delay_sec))
         return res
 
-    stop_time = t_start + timedelta(0, ob.total_time)
+    stop_time = (t_start + timedelta(0, ob.total_time) +
+                 timedelta(0, ob.teardown_time()))
 
     if ob.envcfg.upper_time_limit is not None:
         t_stop = min(ob.envcfg.upper_time_limit, t_stop)

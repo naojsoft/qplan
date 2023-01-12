@@ -287,10 +287,7 @@ class Scheduler(Callback.Callbacks):
                 ob_id = self._ob_code(ob)
                 # check whether this proposal has exceeded its allotted time
                 # if we schedule this OB
-                #obtime = (ob.time_stop - ob.time_start).total_seconds()
-                obtime = ob.total_time
-                # NOTE: 2021-01-11 EJ  Added extra overhead charge
-                acct_time = ob.acct_time * common.extra_overhead_factor
+                acct_time = ob.acct_time
                 prop_total = props[str(ob.program)].sched_time + acct_time
                 if prop_total > props[str(ob.program)].total_time:
                     self.logger.debug("rejected %s (%s) because it would exceed program allotted time" % (
@@ -490,8 +487,7 @@ class Scheduler(Callback.Callbacks):
             ob_key = (pgmname, ob.name)
             props[pgmname].obs.append(ob_key)
             props[pgmname].obcount += 1
-            # 2021-01-11 EJ  New policy charges overhead to the client
-            obtime_w_overhead = ob.acct_time * common.extra_overhead_factor
+            obtime_w_overhead = ob.acct_time
             total_ob_time += obtime_w_overhead
 
         unscheduled_obs = list(oblist)
@@ -568,7 +564,7 @@ class Scheduler(Callback.Callbacks):
         pct = 0.0
         if num_obs > 0:
             pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
-        out_f.write("%5.2f %% of OBs scheduled\n" % (pct*100.0))
+        out_f.write("%5.2f %% of schedulable OBs scheduled\n" % (pct*100.0))
 
         self.unschedulable = unschedulable
         if len(unschedulable) > 0:
@@ -693,8 +689,7 @@ class Scheduler(Callback.Callbacks):
             ob_id = self._ob_code(ob)
             # check whether this proposal has exceeded its allotted time
             # if we schedule this OB
-            # 2021-01-11 EJ  New policy charges overhead to the client
-            acct_time = ob.acct_time * common.extra_overhead_factor
+            acct_time = ob.acct_time
             key = str(ob.program)
             prop_total = props[key].sched_time + acct_time
             if prop_total > props[key].total_time:

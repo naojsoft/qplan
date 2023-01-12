@@ -542,6 +542,11 @@ class HSC_OB(OB):
 
         return True
 
+    def setup_time(self):
+        # how long approx to start OB
+        total_time = 1.0
+        return total_time
+
     def setup_ob(self):
         d = dict(obid=str(self), obname=self.name,
                  comment=self.comment,    # root OB's comment
@@ -550,20 +555,25 @@ class HSC_OB(OB):
         comment = "%(proposal)s %(obname)s: %(comment)s" % d
 
         # how long approx to start OB
-        ob_change_sec = 1.0
+        ob_change_sec = self.setup_time()
 
         new_ob = HSC_OB(program=self.program, target=self.target,
                         telcfg=self.telcfg,
                         inscfg=self.inscfg, envcfg=self.envcfg,
                         total_time=ob_change_sec, derived=True,
                         comment="Setup OB: %s" % (comment))
-        #
+        # retain a reference to the original OB (is this still used anywhere?)
         new_ob.orig_ob = self
         return new_ob
 
+    def teardown_time(self):
+        # how long approx to stop current OB
+        total_time = 1.0
+        return total_time
+
     def teardown_ob(self):
         # how long approx to stop current OB
-        ob_stop_sec = 1.0
+        ob_stop_sec = self.teardown_time()
         new_ob = HSC_OB(program=self.program, target=self.target,
                         telcfg=self.telcfg,
                         inscfg=self.inscfg, envcfg=self.envcfg,
@@ -620,6 +630,12 @@ class PPC_OB(OB):
         self.kind = 'ppc_ob'
         self.name = id
 
+    def setup_time(self):
+        # how long approx to start OB
+        # 10 min for PFS fiber config?
+        total_time = 10.0 * 60.0
+        return total_time
+
     def setup_ob(self):
         d = dict(obid=str(self), obname=self.name,
                  comment=self.comment,    # root OB's comment
@@ -628,7 +644,7 @@ class PPC_OB(OB):
         comment = "%(proposal)s %(obname)s: %(comment)s" % d
 
         # how long approx to start OB
-        total_time = 1.0
+        total_time = self.setup_time()
 
         new_ob = PPC_OB(program=self.program, target=self.target,
                         telcfg=self.telcfg,
@@ -639,13 +655,18 @@ class PPC_OB(OB):
         new_ob.orig_ob = self
         return new_ob
 
+    def teardown_time(self):
+        # how long approx to stop current OB
+        total_time = 1.0
+        return total_time
+
     def teardown_ob(self):
         # how long approx to stop current OB
-        ob_stop_sec = 1.0
+        total_time = self.teardown_time()
         new_ob = PPC_OB(program=self.program, target=self.target,
                         telcfg=self.telcfg,
                         inscfg=self.inscfg, envcfg=self.envcfg,
-                        total_time=ob_stop_sec, derived=True,
+                        total_time=total_time, derived=True,
                         comment="Teardown for {}".format(self))
         return new_ob
 
