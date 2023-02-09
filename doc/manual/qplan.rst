@@ -26,7 +26,7 @@ Anaconda or Miniconda (choose one or the other - you don't need both).
 The next step is to create a Python environment with the packages
 required by qplan. Run the following commands in a terminal window::
 
-  $ conda create -y -n qplan python=3.6 astropy ephem matplotlib numpy openpyxl pandas pyqt python-dateutil pytz qtpy xlrd
+  $ conda create -y -n qplan python=3.10 astropy ephem matplotlib numpy openpyxl pandas pyqt python-dateutil pytz qtpy xlrd
   $ conda install -n qplan -c astropy ginga
 
 The next step is to download and install the qplan software::
@@ -34,7 +34,7 @@ The next step is to download and install the qplan software::
   $ conda activate qplan
   $ git clone https://github.com/naojsoft/qplan
   $ cd ./qplan
-  $ python setup.py install
+  $ pip install .
 
 At this point, you should be able to run qplan::
 
@@ -71,7 +71,7 @@ proposal that was accepted, named after the proposal id. For example,
 will be twenty such files.  Each of these files contains all the
 Observation Blocks (hereafter called "OBs") defined by the observer
 for their observation. An observation block defines a minimum
-schedulable unit of observation. For SPCAM and HSC, this usually means
+schedulable unit of observation. For HSC, this usually means
 one dithered exposure.
 
 An OB combines a telescope configuration, an instrument configuration,
@@ -158,7 +158,7 @@ Currently, the constraints that are considered absolute are:
 
 - moon/target illumination (OB value of "dark", must mach 25% or less
   moon illumination--everything else is considered "grey" since we don't
-  schedule SPCAM or HSC on bright nights)
+  schedule HSC on bright nights)
 
 Notes on the weights
 --------------------

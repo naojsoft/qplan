@@ -281,10 +281,7 @@ class QueueQuery(object):
             proposal = rec['program']
             bnch = props.setdefault(proposal, Bunch(obcount=0,
                                                     sched_time=0.0))
-            # 2021-01-11 EJ
-            # Added extra overhead charge
-            bnch.sched_time += (rec['acct_time'] *
-                                common.extra_overhead_factor)
+            bnch.sched_time += rec['acct_time']
             bnch.obcount += 1
 
         return dne_ob_keys, props

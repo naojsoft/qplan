@@ -1,7 +1,7 @@
 #
 # filetypes.py -- CSV file interfaces
 #
-# Russell Kackley (rkackley@naoj.org)
+# R. Kackley
 # E. Jeschke
 #
 import os
@@ -20,6 +20,7 @@ from . import entity
 from .cfg import HSC_cfg
 from qplan.util.site import site_subaru
 import qplan.util.calcpos
+from .common import hsc_extra_overhead_factor
 
 # In moon_states, the dict keys are the allowable the Phase 1 Moon
 # illumination names. The dict values are the list of acceptable Moon
@@ -1312,50 +1313,11 @@ class InsCfgFile(QueueFile):
                         'total_time': 'total_time',
                         'comment': 'comment',
                         }),
-            'FOCAS': (entity.FOCASConfiguration,
-                      { 'code': 'code',
-                        'instrument': 'insname',
-                        'mode': 'mode',
-                        'filter': 'filter',
-                        'exp_time': 'exp_time',
-                        'num_exp': 'num_exp',
-                        'dither': 'dither',
-                        'guiding': 'guiding',
-                        'pa': 'pa',
-                        'offset_ra': 'offset_ra',
-                        'offset_dec': 'offset_dec',
-                        'dither_ra': 'dither_ra',
-                        'dither_dec': 'dither_dec',
-                        'dither_theta': 'dither_theta',
-                        'binning': 'binning',
-                        'comment': 'comment',
-                        }),
-            'SPCAM': (entity.SPCAMConfiguration,
-                      { 'code': 'code',
-                        'instrument': 'insname',
-                        'mode': 'mode',
-                        'filter': 'filter',
-                        'exp_time': 'exp_time',
-                        'num_exp': 'num_exp',
-                        'dither': 'dither',
-                        'guiding': 'guiding',
-                        'pa': 'pa',
-                        'offset_ra': 'offset_ra',
-                        'offset_dec': 'offset_dec',
-                        'dith1': 'dith1',
-                        'dith2': 'dith2',
-                        'comment': 'comment',
-                        }),
             }
 
-        self.FOCAS_filters = "('U', 'B', 'V', 'R', 'I', 'N373', 'N386', 'N487', 'N502', 'N512', 'N642', 'N658', 'N670')".upper()
-        self.SPCAM_filters = "('B', 'V', 'Rc', 'Ic', 'g\'', 'r\'', 'i\'', 'z\'', 'Y', 'NA656', 'NB711', 'NB816', 'NB921')".upper()
-
         self.HSC_modes = "('imaging', 'dark')".upper()
-        self.FOCAS_modes = "('imaging', 'spectroscopy')".upper()
-        self.SPCAM_modes = "('imaging',)".upper()
 
-        self.readoutOverheadAllInst = {'HSC': 40, 'FOCAS': 0, 'SPCAM': 0}
+        self.readoutOverheadAllInst = {'HSC': 40}
 
         self.dither_constr = "value in ('1', '5', 'N')"
         self.guiding_constr = "value in ('Y','N')"
@@ -1378,38 +1340,6 @@ class InsCfgFile(QueueFile):
             'stop':         {'iname': 'Stop',       'type': int,   'constraint': self.stopCheck,                   'prefilled': True,  'required': True},
             'on_src_time':  {'iname': 'On-src Time','type': float, 'constraint': self.onSrcTimeCalcCheck,          'prefilled': True,  'required': True},
             'total_time':   {'iname': 'Total Time', 'type': float, 'constraint': self.totalTimeCalcCheck,          'prefilled': True,  'required': True},
-            },
-            'FOCAS': {
-            'code':         {'iname': 'Code',        'type': str,   'constraint': "len(value) > 0"},
-            'instrument':   {'iname': 'Instrument',  'type': str,   'constraint': "value == 'FOCAS'"},
-            'mode':         {'iname': 'Mode',        'type': str,   'constraint': "value in %s" % self.FOCAS_modes},
-            'filter':       {'iname': 'Filter',      'type': str,   'constraint': "value in %s" % self.FOCAS_filters},
-            'exp_time':     {'iname': 'Exp Time',    'type': float, 'constraint': "value > 0.0"},
-            'num_exp':      {'iname': 'Num Exp',     'type': int,   'constraint': "value > 0"},
-            'dither':       {'iname': 'Dither',      'type': str,   'constraint': self.dither_constr},
-            'guiding':      {'iname': 'Guiding',     'type': str,   'constraint': self.guiding_constr},
-            'pa':           {'iname': 'PA',          'type': float, 'constraint': None},
-            'offset_ra':    {'iname': 'Offset RA',   'type': float, 'constraint': None},
-            'offset_dec':   {'iname': 'Offset DEC',  'type': float, 'constraint': None},
-            'dither_ra':    {'iname': 'Dither RA',   'type': float, 'constraint': None},
-            'dither_dec':   {'iname': 'Dither DEC',  'type': float, 'constraint': None},
-            'dither_theta': {'iname': 'Dither Theta','type': float, 'constraint': None},
-            'binning':      {'iname': 'Binning',     'type': str,   'constraint': "x in ('1x1',)"},
-            },
-            'SPCAM': {
-            'code':         {'iname': 'Code',       'type': str,   'constraint': "len(value) > 0"},
-            'instrument':   {'iname': 'Instrument', 'type': str,   'constraint': "value == 'SPCAM'"},
-            'mode':         {'iname': 'Mode',       'type': str,   'constraint': "value in %s" % self.SPCAM_modes},
-            'filter':       {'iname': 'Filter',     'type': str,   'constraint': "value in %s" % self.SPCAM_filters},
-            'exp_time':     {'iname': 'Exp Time',   'type': float, 'constraint': "value > 0.0"},
-            'num_exp':      {'iname': 'Num Exp',    'type': int,   'constraint': "value > 0"},
-            'dither':       {'iname': 'Dither',     'type': str,   'constraint': self.dither_constr},
-            'guiding':      {'iname': 'Guiding',    'type': str,   'constraint': self.guiding_constr},
-            'pa':           {'iname': 'PA',         'type': float, 'constraint': None},
-            'offset_ra':    {'iname': 'Offset RA',  'type': float, 'constraint': None},
-            'offset_dec':   {'iname': 'Offset DEC', 'type': float, 'constraint': None},
-            'dith1':        {'iname': 'Dith1',      'type': float, 'constraint': None},
-            'dith2':        {'iname': 'Dith2',      'type': float, 'constraint': None},
             },
             }
         # If "proposal" sheet supplies a "Maximum OB Length" value,
@@ -1951,22 +1881,25 @@ class OBListFile(QueueFile):
                 if rec.has_key('comment'):
                     comment = rec.comment.strip()
 
-                ob = entity.OB(program=program,
-                               target=tgtcfg,
-                               inscfg=inscfg,
-                               envcfg=envcfg,
-                               telcfg=telcfg,
-                               calib_tgtcfg=calib_tgtcfg,
-                               calib_inscfg=calib_inscfg,
-                               priority=priority,
-                               name=code,
-                               total_time=float(rec.total_time),
-                               # Note: As of S21B we are now charging the user
-                               # for instrument overheads (used to be):
-                               # acct_time=float(rec.on_src_time),
-                               acct_time=float(rec.total_time),
-                               comment=comment,
-                               extra_params=extra_params)
+                ob = entity.HSC_OB(program=program,
+                                   target=tgtcfg,
+                                   inscfg=inscfg,
+                                   envcfg=envcfg,
+                                   telcfg=telcfg,
+                                   calib_tgtcfg=calib_tgtcfg,
+                                   calib_inscfg=calib_inscfg,
+                                   priority=priority,
+                                   name=code,
+                                   total_time=float(rec.total_time),
+                                   # NOTE: As of S21B we are now charging the
+                                   # user for instrument overheads (used to be):
+                                   # acct_time=float(rec.on_src_time),
+                                   acct_time=(float(rec.total_time)
+                                              # NOTE: 2021-01-11 EJ  As of S22A,
+                                              # added extra overhead charge
+                                              * hsc_extra_overhead_factor),
+                                   comment=comment,
+                                   extra_params=extra_params)
                 self.obs_info.append(ob)
 
             except Exception as e:

@@ -382,10 +382,7 @@ class ControlPanel(PlBase.Plugin):
                     bnch = props.setdefault(propid, Bunch(obcount=0,
                                                           sched_time=0.0))
                     info = self.model.completed_obs[ob_key]
-                    # 2021-01-11 EJ
-                    # Added extra overhead charge
-                    bnch.sched_time += (info['acct_time'] *
-                                        common.extra_overhead_factor)
+                    bnch.sched_time += info['acct_time']
                     bnch.obcount += 1
 
             sdlr.set_apriori_program_info(props)

@@ -110,45 +110,23 @@ def main(options, args):
 
 if __name__ == "__main__":
 
-    usage = "usage: %prog [options] [file] ..."
-    from optparse import OptionParser
-    optprs = OptionParser(usage=usage, version=('%prog'))
+    from argparse import ArgumentParser
+    argprs = ArgumentParser(description="Query PROMS DB")
 
-    optprs.add_option("--debug", dest="debug", default=False,
-                      action="store_true",
-                      help="Enter the pdb debugger on main()")
-
-    optprs.add_option("-i", "--id", dest="id",
+    argprs.add_option("-i", "--id", dest="id",
                       default=False,
                       help="User ID (e-mail)")
 
-    optprs.add_option("-p", "--passwd", dest="passwd",
+    argprs.add_option("-p", "--passwd", dest="passwd",
                       default=False,
                       help="User Password")
 
-    optprs.add_option("--dblog", dest="dblog", action="store_true",
+    argprs.add_option("--dblog", dest="dblog", action="store_true",
                       default=False,
                       help="Log DB commands")
 
-    optprs.add_option("--profile", dest="profile", action="store_true",
-                      default=False,
-                      help="Run the profiler on main()")
-    log.addlogopts(optprs)
+    log.addlogopts(argprs)
 
-    (options, args) = optprs.parse_args(sys.argv[1:])
+    (options, args) = argprs.parse_known_args(sys.argv[1:])
 
-    # Are we debugging this?
-    if options.debug:
-        import pdb
-
-        pdb.run('main(options, args)')
-
-    # Are we profiling this?
-    elif options.profile:
-        import profile
-
-        print("%s profile:" % sys.argv[0])
-        profile.run('main(options, args)')
-
-    else:
-        main(options, args)
+    main(options, args)

@@ -24,7 +24,7 @@ from .util import qsort
 max_rank = 10.0
 
 # time (sec) beyond which we breakout a slew into it's own OB
-slew_breakout_limit = 30.0
+slew_breakout_limit = 60.0 * 60.0
 
 
 class Scheduler(Callback.Callbacks):
@@ -42,7 +42,14 @@ class Scheduler(Callback.Callbacks):
         self.schedule_recs = []
         self.programs = dict()
         self.apriori_info = dict()
-        self.sch_params = Bunch.Bunch(limit_filter=None, allow_delay=True)
+        self.sch_params = Bunch.Bunch(limit_filter=None, allow_delay=True,
+                                      slew_breakout_limit=slew_breakout_limit)
+
+        # for schedule_all() method
+        self.schedules = []
+        self.completed = []
+        self.uncompleted = []
+        self.unschedulable = []
 
         # FOR SCALING PURPOSES ONLY, define maximums
         # (see cmp_res() )
@@ -206,7 +213,7 @@ class Scheduler(Callback.Callbacks):
             The object representing the observing site
 
         oblist : list of `~qplan.entity.OB` objects
-            A list of observation block obejcts that *may* be observable
+            A list of observation block objects that *may* be observable
 
         props : dict
             A dict of information about proposals
@@ -280,10 +287,7 @@ class Scheduler(Callback.Callbacks):
                 ob_id = self._ob_code(ob)
                 # check whether this proposal has exceeded its allotted time
                 # if we schedule this OB
-                #obtime = (ob.time_stop - ob.time_start).total_seconds()
-                obtime = ob.total_time
-                # NOTE: 2021-01-11 EJ  Added extra overhead charge
-                acct_time = ob.acct_time * common.extra_overhead_factor
+                acct_time = ob.acct_time
                 prop_total = props[str(ob.program)].sched_time + acct_time
                 if prop_total > props[str(ob.program)].total_time:
                     self.logger.debug("rejected %s (%s) because it would exceed program allotted time" % (
@@ -322,9 +326,8 @@ class Scheduler(Callback.Callbacks):
         dur = ob.total_time / 60.0
 
         # a derived ob to setup the overall OB
-        ob_change_sec = 1.0
-        _xx, s_slot, slot = slot.split(slot.start_time, ob_change_sec)
-        new_ob = qsim.setup_ob(ob, ob_change_sec)
+        new_ob = ob.setup_ob()
+        _xx, s_slot, slot = slot.split(slot.start_time, new_ob.total_time)
         s_slot.set_ob(new_ob)
         schedule.insert_slot(s_slot)
 
@@ -332,7 +335,7 @@ class Scheduler(Callback.Callbacks):
         if res.filterchange:
             _xx, f_slot, slot = slot.split(slot.start_time,
                                            res.filterchange_sec)
-            new_ob = qsim.filterchange_ob(ob, res.filterchange_sec)
+            new_ob = ob.filterchange_ob(res.filterchange_sec)
             f_slot.set_ob(new_ob)
             schedule.insert_slot(f_slot)
 
@@ -340,17 +343,17 @@ class Scheduler(Callback.Callbacks):
         if res.delay_sec > 0.0:
             _xx, d_slot, slot = slot.split(slot.start_time,
                                            res.delay_sec)
-            new_ob = qsim.delay_ob(ob, res.delay_sec)
+            new_ob = ob.delay_ob(res.delay_sec)
             d_slot.set_ob(new_ob)
             schedule.insert_slot(d_slot)
 
         # is there a calibration target?
-        if ob.calib_tgtcfg is not None:
+        if getattr(ob, 'calib_tgtcfg', None) is not None:
             # TODO: add overhead?
             time_add_sec = res.calibration_sec + res.slew_sec
             _xx, c_slot, slot = slot.split(slot.start_time,
                                            time_add_sec)
-            new_ob = qsim.calibration_ob(ob, time_add_sec)
+            new_ob = ob.calibration_ob(time_add_sec)
             c_slot.set_ob(new_ob)
             schedule.insert_slot(c_slot)
 
@@ -365,7 +368,7 @@ class Scheduler(Callback.Callbacks):
                 time_add_sec = 30.0 + slew_sec
                 _xx, c_slot, slot = slot.split(slot.start_time,
                                                time_add_sec)
-                new_ob = qsim.calibration30_ob(ob, time_add_sec)
+                new_ob = ob.calibration30_ob(time_add_sec)
                 c_slot.set_ob(new_ob)
                 schedule.insert_slot(c_slot)
 
@@ -374,15 +377,15 @@ class Scheduler(Callback.Callbacks):
         else:
             slew_sec = res.slew_sec
 
-        ## # if a long slew is required, insert a separate OB for that
-        ## self.logger.debug("slew time for selected object is %.1f sec (deltas: %f, %f)" % (
-        ##     res.slew_sec, res.delta_az, res.delta_alt))
-        ## if res.slew_sec > slew_breakout_limit:
-        ##     _xx, s_slot, slot = slot.split(slot.start_time,
-        ##                                    res.slew_sec)
-        ##     new_ob = qsim.longslew_ob(res.prev_ob, ob, res.slew_sec)
-        ##     s_slot.set_ob(new_ob)
-        ##     schedule.insert_slot(s_slot)
+        # if a long slew is required, insert a separate OB for that
+        self.logger.debug("slew time for selected object is %.1f sec" % (
+            res.slew_sec))
+        if res.slew_sec > self.sch_params.slew_breakout_limit:
+            _xx, s_slot, slot = slot.split(slot.start_time,
+                                           res.slew_sec)
+            new_ob = ob.longslew_ob(res.prev_ob, res.slew_sec)
+            s_slot.set_ob(new_ob)
+            schedule.insert_slot(s_slot)
 
         # this is the actual science target ob
         self.logger.debug("assigning %s(%.2fm) to %s" % (
@@ -392,14 +395,17 @@ class Scheduler(Callback.Callbacks):
         schedule.insert_slot(a_slot)
 
         # a derived ob to shutdown the overall OB
-        ob_stop_sec = 1.0
-        _xx, q_slot, slot = slot.split(slot.start_time, ob_stop_sec)
-        new_ob = qsim.teardown_ob(ob, ob_stop_sec)
+        new_ob = ob.teardown_ob()
+        _xx, q_slot, slot = slot.split(slot.start_time, new_ob.total_time)
         q_slot.set_ob(new_ob)
         schedule.insert_slot(q_slot)
 
     def schedule_all(self):
 
+        self.schedules = []
+        self.completed = []
+        self.uncompleted = []
+        self.unschedulable = []
         self.make_callback('schedule-cleared')
 
         # -- Define fillable slots --
@@ -459,7 +465,6 @@ class Scheduler(Callback.Callbacks):
 
         self.logger.info("preparing to schedule")
         oblist = list(schedulable)
-        self.schedules = []
 
         # build a lookup table of programs -> OBs
         props = {}
@@ -482,8 +487,7 @@ class Scheduler(Callback.Callbacks):
             ob_key = (pgmname, ob.name)
             props[pgmname].obs.append(ob_key)
             props[pgmname].obcount += 1
-            # 2021-01-11 EJ  New policy charges overhead to the client
-            obtime_w_overhead = ob.acct_time * common.extra_overhead_factor
+            obtime_w_overhead = ob.acct_time
             total_ob_time += obtime_w_overhead
 
         unscheduled_obs = list(oblist)
@@ -560,8 +564,9 @@ class Scheduler(Callback.Callbacks):
         pct = 0.0
         if num_obs > 0:
             pct = float(num_obs - len(unscheduled_obs)) / float(num_obs)
-        out_f.write("%5.2f %% of OBs scheduled\n" % (pct*100.0))
+        out_f.write("%5.2f %% of schedulable OBs scheduled\n" % (pct*100.0))
 
+        self.unschedulable = unschedulable
         if len(unschedulable) > 0:
             out_f.write("\n")
             out_f.write("%d OBs are not schedulable:\n" % (len(unschedulable)))
@@ -581,16 +586,16 @@ class Scheduler(Callback.Callbacks):
                 uncompleted.append(bnch)
 
         # sort by rank
-        completed = sorted(completed,
-                           key=lambda bnch: max_rank - bnch.pgm.rank)
-        uncompleted = sorted(uncompleted,
-                             key=lambda bnch: max_rank - bnch.pgm.rank)
+        self.completed = sorted(completed,
+                                key=lambda bnch: max_rank - bnch.pgm.rank)
+        self.uncompleted = sorted(uncompleted,
+                                  key=lambda bnch: max_rank - bnch.pgm.rank)
 
         self.make_callback('schedule-completed',
-                           completed, uncompleted, self.schedules)
+                           self.completed, self.uncompleted, self.schedules)
 
         out_f.write("Completed programs\n")
-        for bnch in completed:
+        for bnch in self.completed:
             ex_time_hrs = bnch.sched_time / 3600.0
             tot_time_hrs = bnch.total_time / 3600.0
             out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs\n" % (
@@ -601,7 +606,7 @@ class Scheduler(Callback.Callbacks):
         out_f.write("\n")
 
         out_f.write("Uncompleted programs\n")
-        for bnch in uncompleted:
+        for bnch in self.uncompleted:
             ex_time_hrs = bnch.sched_time / 3600.0
             tot_time_hrs = bnch.total_time / 3600.0
             pct = ex_time_hrs / tot_time_hrs * 100.0
@@ -684,8 +689,7 @@ class Scheduler(Callback.Callbacks):
             ob_id = self._ob_code(ob)
             # check whether this proposal has exceeded its allotted time
             # if we schedule this OB
-            # 2021-01-11 EJ  New policy charges overhead to the client
-            acct_time = ob.acct_time * common.extra_overhead_factor
+            acct_time = ob.acct_time
             key = str(ob.program)
             prop_total = props[key].sched_time + acct_time
             if prop_total > props[key].total_time:
