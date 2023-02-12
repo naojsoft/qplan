@@ -1881,7 +1881,8 @@ class OBListFile(QueueFile):
                 if rec.has_key('comment'):
                     comment = rec.comment.strip()
 
-                ob = entity.HSC_OB(program=program,
+                ob = entity.HSC_OB(id=code,
+                                   program=program,
                                    target=tgtcfg,
                                    inscfg=inscfg,
                                    envcfg=envcfg,

@@ -364,7 +364,7 @@ class OB(PersistentEntity):
 
     @property
     def key(self):
-        return dict(program=self.program.proposal, name=self.id)
+        return dict(program=self.program.proposal, name=self.name)
 
     def has_calib(self):
         return False
