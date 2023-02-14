@@ -837,6 +837,14 @@ class HSCConfiguration(InstrumentConfiguration):
     def check_filter_installed(self, installed_filters):
         return self.filter in installed_filters
 
+    def calc_num_exp(self):
+        num_exp = self.num_exp - (self.num_exp - self.stop) - self.skip
+        return num_exp
+
+    def calc_on_src_time(self):
+        num_exp = self.calc_num_exp()
+        return num_exp * self.exp_time
+
     def import_record(self, rec):
         code = rec.get('code', '').strip()
         self.insname = 'HSC'
@@ -905,6 +913,7 @@ class PPCConfiguration(InstrumentConfiguration):
         self.resolution = resolution
         self.guiding = guiding
         self.exp_time = float(exp_time)
+        self.num_exp = 1
         self.pa = pa
         self.comment = comment
 
@@ -913,6 +922,9 @@ class PPCConfiguration(InstrumentConfiguration):
 
     def check_filter_installed(self, installed_filters):
         return True
+
+    def calc_num_exp(self):
+        return self.num_exp
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
@@ -954,6 +966,7 @@ class PFSConfiguration(InstrumentConfiguration):
         self.mode = 'SPEC'
         self.resolution = resolution
         self.exp_time = float(exp_time)
+        self.num_exp = 1
         self.comment = comment
 
     # These two shouldn't be needed because we never schedule PFS OBs
@@ -964,6 +977,9 @@ class PFSConfiguration(InstrumentConfiguration):
 
     def check_filter_installed(self, installed_filters):
         raise Exception("Not valid for a PFS OB")
+
+    def calc_num_exp(self):
+        return self.num_exp
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
