@@ -157,16 +157,17 @@ class Report(PlBase.Plugin):
 
             # buffer for OPE output
             out_f = StringIO()
+            out = converter._mk_out(out_f)
 
             # write preamble
-            converter.write_ope_header(out_f, targets)
+            converter.write_ope_header(out, targets)
 
             # convert each OB
             for ob in oblist:
-                converter.ob_to_ope(ob, out_f)
+                converter.ob_to_ope(ob, out)
 
             # write postscript
-            converter.write_ope_trailer(out_f)
+            converter.write_ope_trailer(out)
 
             # here's the OPE file
             ope_buf = out_f.getvalue()
@@ -271,8 +272,8 @@ class Report(PlBase.Plugin):
             ndate, filters))
         out_f.write("Queue prepared at: %s\n" % (
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-        out_f.write("%-16.16s  %-8.8s  %-10.10s %12.12s  %5.5s  %5.5s %7.7s %-10.10s %-6.6s  %4.4s  %4.4s  %3.3s  %s\n" % (
-            'Date', 'ObsBlk', 'Code', 'Program', 'Grade', 'Rank', 'Time',
+        out_f.write("%-16.16s  %-10.10s %12.12s  %5.5s  %5.5s %7.7s %-10.10s %-6.6s  %4.4s  %4.4s  %3.3s  %s\n" % (
+            'Date', 'ObsBlk', 'Program', 'Grade', 'Rank', 'Time',
             'Target', 'Filter', 'See', 'Tran', 'AM', 'Comment'))
 
         scored_sum = 0.0
@@ -290,8 +291,8 @@ class Report(PlBase.Plugin):
                     key = (ob.target.ra, ob.target.dec)
                     targets[key] = ob.target
 
-                out_f.write("%-16.16s  %-8.8s  %-10.10s %12.12s  %5.5s  %5.2f %7.2f %-10.10s %-6.6s  %4.2f  %4.2f  %3.1f  %s\n" % (
-                    date, str(ob), ob.name, ob.program, ob.program.grade, ob.program.rank,
+                out_f.write("%-16.16s  %-10.10s %12.12s  %5.5s  %5.2f %7.2f %-10.10s %-6.6s  %4.2f  %4.2f  %3.1f  %s\n" % (
+                    date, ob.name, ob.program, ob.program.grade, ob.program.rank,
                     ob.total_time / 60, ob.target.name,
                     ob.inscfg.filter, ob.envcfg.seeing, ob.envcfg.transparency,
                     ob.envcfg.airmass, comment))
@@ -300,7 +301,7 @@ class Report(PlBase.Plugin):
                 if ob.program.grade.upper() in ('A', 'B'):
                     scored_sum += float(ob.program.rank) * (ob.total_time / 60)
             else:
-                out_f.write("%-16.16s  %-8.8s\n" % (date, str(ob)))
+                out_f.write("%-16.16s  %-10.10s\n" % (date, str(ob)))
 
         out_f.write("\n")
         time_avail = (schedule.stop_time - schedule.start_time).total_seconds() / 60.0
@@ -340,53 +341,14 @@ class Report(PlBase.Plugin):
         raise KeyError(obkey)
 
     def _get_obs(self, use_selection=False):
-
-        buf = self.tw.get_text()
-        try:
-            if not use_selection:
-                selected = buf
-            else:
-                w = self.tw.get_widget()
-                cursor = w.textCursor()
-                start, end = cursor.selectionStart(), cursor.selectionEnd()
-
-                # back up to beginning of line if selection doesn't
-                # start from a line
-                if (start > 0) and (buf[start-1] != '\n'):
-                    while buf[start-1] != '\n':
-                        start -= 1
-                        if start == 0:
-                            break
-
-                # find the end of line if selection doesn't
-                # end on a line
-                length, end = len(buf), end - 1
-                if end >= length:
-                    end = length
-                else:
-                    while buf[end] != '\n':
-                        end += 1
-                        if end >= length:
-                            end = length
-                            break
-
-                selected = buf[start:end]
-
-            # get the selected OBs
-            oblist = []
-            for line in selected.split('\n'):
-                match = re.match(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s+(ob\w+)',
-                                 line)
-                if match:
-                    obkey = match.group(1)
-                    ob = self.get_ob(obkey)
-                    oblist.append(ob)
-
-            return oblist
-
-        except Exception as e:
-            self.logger.error("Error selecting OBs: %s" % (str(e)))
-            return []
+        # NOTE: use_selection must be False
+        assert use_selection is False
+        ob_list = []
+        for slot in self.cur_schedule.slots:
+            ob = slot.ob
+            if ob is not None:
+                ob_list.append(ob)
+        return ob_list
 
     def _get_targets(self, oblist):
         targets = set([])

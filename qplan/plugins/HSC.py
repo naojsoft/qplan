@@ -88,9 +88,8 @@ class Converter(BaseConverter):
 
         d.update(dict(tgtstr=tgtstr))
 
-    def write_ope_header(self, out_f, targets):
+    def write_ope_header(self, out, targets):
 
-        out = self._mk_out(out_f)
         self._tgts = {}
 
         # prepare list of targets
@@ -158,14 +157,11 @@ Z=7.00
                  )
         out(preamble % d)
 
-    def write_ope_trailer(self, out_f):
-        out = self._mk_out(out_f)
+    def write_ope_trailer(self, out):
         out("\n#######################################")
         out("\n#CLASSICAL_MODE $DEF_CMNTOOL\n")
 
-    def out_setup_ob(self, ob, out_f):
-        out = self._mk_out(out_f)
-
+    def out_setup_ob(self, ob, out):
         out("\n#######################################")
         d = dict(obid=str(ob), obname=ob.orig_ob.name,
                  propid=ob.program.propid,
@@ -187,16 +183,14 @@ Z=7.00
         cmd_str = '''Start_OB $DEF_CMNTOOL OB_ID="%(obname)s" PROPOSAL="%(proposal)s" PROP_ID="%(propid)s" OBSERVER="%(observer)s" PROP_PI="%(pi)s"''' % d
         out(cmd_str)
 
-    def out_teardown_ob(self, ob, out_f):
-        out = self._mk_out(out_f)
+    def out_teardown_ob(self, ob, out):
         # write out any comments
         out("\n## %s" % (ob.comment))
 
         cmd_str = '''Stop_OB $DEF_CMNTOOL\n'''
         out(cmd_str)
 
-    def out_focusobe(self, ob, out_f):
-        out = self._mk_out(out_f)
+    def out_focusobe(self, ob, out):
         out("\n# focusing after filter change")
 
         d = {}
@@ -205,8 +199,7 @@ Z=7.00
         cmd_str = '''FOCUSOBE $DEF_IMAGE %(tgtstr)s DELTA_Z=0.05 DELTA_DEC=5 EXPTIME=10 Z=3.75''' % d
         out(cmd_str)
 
-    def out_filterchange(self, ob, out_f):
-        out = self._mk_out(out_f)
+    def out_filterchange(self, ob, out):
         out("\n# %s" % (ob.comment))
 
         d = dict(filter=self.get_filtername(ob.inscfg.filter))
@@ -216,23 +209,21 @@ Z=7.00
         cmd_str = '''FilterChange2 $DEF_TOOLS FILTER="%(filter)s" MIRROR=OPEN''' % d
         out(cmd_str)
 
-    def ob_to_ope(self, ob, out_f):
-
-        out = self._mk_out(out_f)
+    def ob_to_ope(self, ob, out):
 
         # special cases: filter change, long slew, calibrations, etc.
         if ob.derived:
             if ob.comment.startswith('Setup OB'):
-                self.out_setup_ob(ob, out_f)
+                self.out_setup_ob(ob, out)
                 return
 
             elif ob.comment.startswith('Teardown for'):
-                self.out_teardown_ob(ob, out_f)
+                self.out_teardown_ob(ob, out)
                 return
 
             elif ob.comment.startswith('Filter change'):
-                self.out_filterchange(ob, out_f)
-                self.out_focusobe(ob, out_f)
+                self.out_filterchange(ob, out)
+                self.out_focusobe(ob, out)
                 return
 
             elif ob.comment.startswith('Long slew'):
@@ -269,7 +260,7 @@ Z=7.00
 
             ## # Do we need this or will qplan make a filterchange OB for us?
             ## out("\n# Only execute this if you need to change the filter")
-            ## self.out_filterchange(ob, out_f)
+            ## self.out_filterchange(ob, out)
 
             out("\n# Take dome flats")
             d = dict(num_exp=ob.inscfg.num_exp, exptime=ob.inscfg.exp_time,

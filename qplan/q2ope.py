@@ -103,9 +103,9 @@ class BaseConverter(object):
         self.logger = logger
 
     def _mk_out(self, out_f):
-        def out(*args):
+        def __out(*args):
             print(*args, file=out_f)
-        return out
+        return __out
 
     def ra_to_funky(self, ra):
         return float(ra.replace(':', ''))
