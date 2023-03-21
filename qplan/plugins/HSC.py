@@ -235,8 +235,11 @@ Z=7.00
                 return
 
             elif ob.comment.startswith('Delay for'):
+                sleep_time = int(ob.total_time)
+                if sleep_time <= 0:
+                    return
                 out("\n# %s" % (ob.comment))
-                d = dict(sleep_time=int(ob.total_time))
+                d = dict(sleep_time=sleep_time)
                 cmd_str = '''EXEC OBS TIMER DURATION=%(sleep_time)d''' % d
                 out(cmd_str)
                 return
