@@ -31,6 +31,7 @@ from qplan import filetypes, misc, entity, common
 have_qdb = False
 try:
     from qplan import q_db, q_query
+    from qplan.util import qdb_update
     have_qdb = True
 
 except ImportError:
@@ -84,24 +85,16 @@ class ControlPanel(PlBase.Plugin):
 
     def connect_qdb(self):
 
-        if not os.path.exists(self.cfg_path):
-            raise ValueError("No queue database configuration in '{}'".format(self.cfg_path))
-        self.qdb = q_db.QueueDatabase(self.logger)
-
-        # Set up Queue database access
         try:
-            self.qdb.read_config(self.cfg_path)
-            self.qdb.connect()
+            self.qa = qdb_update.connect_qdb(self.cfg_path, self.logger)
+            self.qq = q_query.QueueQuery(self.qa)
         except Exception as e:
             errmsg = "Exception connecting to queue db: {}".format(e)
             self.logger.error(errmsg, exc_info=True)
             self.view.gui_do(self.view.show_error, errmsg,
                              raisetab=True)
-            self.qdb = None
-            return
-
-        self.qa = q_db.QueueAdapter(self.qdb)
-        self.qq = q_query.QueueQuery(self.qa)
+            self.qa = None
+            self.qq = None
 
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -343,7 +336,7 @@ class ControlPanel(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
         try:
             if use_db:
-                if self.qdb is None:
+                if self.qa is None:
                     self.connect_qdb()
 
             sdlr.set_weights(self.weights_qf.weights)
@@ -487,7 +480,7 @@ class ControlPanel(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
 
         try:
-            if self.qdb is None:
+            if self.qa is None:
                 self.connect_qdb()
         except Exception as e:
             self.logger.error('Unexpected error while connecting to queue database: %s' % str(e), exc_info=True)
@@ -521,7 +514,7 @@ class ControlPanel(PlBase.Plugin):
         sdlr = self.model.get_scheduler()
 
         try:
-            if self.qdb is None:
+            if self.qa is None:
                 self.connect_qdb()
 
         except Exception as e:
