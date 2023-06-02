@@ -294,7 +294,8 @@ class Report(PlBase.Plugin):
                 out_f.write("%-16.16s  %-10.10s %12.12s  %5.5s  %5.2f %7.2f %-10.10s %-6.6s  %4.2f  %4.2f  %3.1f  %s\n" % (
                     date, ob.name, ob.program, ob.program.grade, ob.program.rank,
                     ob.total_time / 60, ob.target.name,
-                    ob.inscfg.filter, ob.envcfg.seeing, ob.envcfg.transparency,
+                    getattr(ob.inscfg, 'filter', 'none'),
+                    ob.envcfg.seeing, ob.envcfg.transparency,
                     ob.envcfg.airmass, comment))
 
                 # this is Terai-san's scored sum request

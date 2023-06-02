@@ -1282,11 +1282,15 @@ def parse_date_time(dt_str, default_timezone):
 
 
 def normalize_radec_str(ra_str, dec_str):
-    if ra_str is None or ra_str == '':
+    if isinstance(ra_str, float):
+        ra_ang = Angle(ra_str, unit=units.deg)
+        ra = ra_ang.to_string(sep=':', precision=3, pad=True)
+    elif ra_str is None or ra_str == '':
         ra = ra_str
     else:
         ra_ang = Angle(ra_str, unit=units.hour)
         ra = ra_ang.to_string(sep=':', precision=3, pad=True)
+
     if dec_str is None or dec_str == '':
         dec = dec_str
     else:

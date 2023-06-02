@@ -166,8 +166,7 @@ class QueueFile(object):
                 writer.writerow(row)
 
     def parse_input(self):
-        # Override in subclass
-        pass
+        raise NotImplementedError("subclass should override this")
 
     def update(self, row, colHeader, value, parse_flag):
         # User has changed a value in the table, so update our "rows"
@@ -2119,6 +2118,150 @@ class ProgramFile(QueueFile):
                 self.error_count += 1
 
         return self.error_count - begin_error_count
+
+
+class PPCFile(QueueFile):
+    def __init__(self, input_dir, logger, propname, propdict,
+                 file_ext=None):
+        """Read in a PFS Pointing Center file.
+        """
+        # obs_info is the list of OB objects that will be used by the
+        # observing block scheduling functions.
+        self.name = propname
+        self.obs_info = []
+        self.proposal = propname.upper()
+        self.propdict = propdict
+        self.column_map = {
+            'ppc_code': 'ob_code',
+            'ra': 'ra',
+            'dec': 'dec',
+            'equinox': 'eq',
+            'pa': 'pa_deg',
+            'resolution': 'resolution',
+            'exp_time': 'exp_time',
+            'total_time': 'total_time',
+            'priority': 'priority',
+            'comment': 'comment',
+            }
+        super(PPCFile, self).__init__(input_dir, propname, logger,
+                                      file_ext)
+        self.find_filepath()
+        if self.file_ext in ['csv', 'ecsv']:
+            self.read_csv_file()
+        elif self.is_excel_file():
+            with open(self.filepath, 'rb') as excel_file:
+                self.file_obj = BytesIO(excel_file.read())
+            self.read_excel_file()
+        else:
+            raise UnknownFileFormatError('PPC file format %s is unknown' % self.file_ext)
+        self.process_input()
+
+    def parse_input(self):
+        """
+        Parse the programs from the input file.
+        """
+        self.queue_file.seek(0)
+        self.obs_info = []
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        # skip header
+        next(reader)
+
+        lineNum = 1
+        for row in reader:
+            try:
+                lineNum += 1
+                # skip comments
+                first_col_content = row[0].strip()
+                if first_col_content.lower() == 'comment' or \
+                   (len(first_col_content) > 0 and first_col_content[0] == '#'):
+                    continue
+                # skip blank lines
+                if len(first_col_content) == 0:
+                    continue
+
+                rec = self.parse_row(row, self.columnNames, self.column_map)
+
+                ob_code = rec.ob_code.strip()
+
+                program = self.propdict[self.proposal]
+
+                priority = 1.0
+                if rec.priority != None:
+                    priority = float(rec.priority)
+
+                # PPP provides exp_time, total_time in sec
+                exp_time = float(rec.exp_time)
+                total_time = float(rec.total_time)
+
+                comment = ''
+                if rec.has_key('comment'):
+                    comment = rec.comment.strip()
+                tgtcfg = entity.StaticTarget()
+                # should we add a "name" column for the field center?
+                rec.name = ob_code
+                tgtcfg.import_record(rec)
+                # fixed telescope configuration for PPC scheduling
+                telcfg = entity.TelescopeConfiguration(focus='p-opt2',
+                                                       dome='open')
+                inscfg = entity.PPCConfiguration(exp_time=exp_time,
+                                                 resolution=rec.resolution.lower(),
+                                                 pa=float(rec.pa_deg))
+                # right now there are no configuration limitations
+                envcfg = entity.EnvironmentConfiguration(seeing=999.0,
+                                                         airmass=2.0,
+                                                         transparency=0.0,
+                                                         moon_sep=0.0)
+                ob = entity.PPC_OB(id=ob_code,
+                                   program=program,
+                                   target=tgtcfg,
+                                   inscfg=inscfg,
+                                   envcfg=envcfg,
+                                   telcfg=telcfg,
+                                   priority=priority,
+                                   total_time=total_time,
+                                   acct_time=exp_time,
+                                   comment=comment)
+                self.obs_info.append(ob)
+
+            except Exception as e:
+                raise ValueError("Error reading line %d of ppc: %s" % (
+                    lineNum, str(e)))
+
+    def update_table(self, tbl_dct, parse_flag=False):
+        """Update items in the internal table representation (self.rows).
+        """
+
+        for row_key, col_dct in tbl_dct.items():
+
+            row_key = row_key.upper()
+            # locate row index for this row_key
+            # TODO: make more efficient!
+            found = False
+            for row_idx in range(0, len(self.rows)):
+                if self.rows[row_idx]['ob_code'].upper() == row_key:
+                    found = True
+                    break
+
+            if not found:
+                raise ValueError(f"Can't find entry for row_key={row_key}")
+
+            for col_key, col_val in col_dct.items():
+                # locate column header for this col_key
+                # TODO: make more efficient!
+                found = False
+                for col_hdr, ent_field in self.column_map.items():
+                    if ent_field == col_key:
+                        found = True
+                        break
+
+                if not found:
+                    raise ValueError(f"Can't find entry for col_key={col_key}")
+
+                # update the cell in the table representation
+                self.rows[row_idx][col_hdr] = col_val
+
+        if parse_flag:
+            self.parse()
 
 
 register_matplotlib_converters()

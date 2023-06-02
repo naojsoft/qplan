@@ -290,7 +290,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
         cur_filter = getattr(prev_ob.inscfg, 'filter', None)
 
     # calculate cost of filter exchange
-    if cur_filter != getattr(ob.inscfg, 'filter', None):
+    if hasattr(ob.inscfg, 'filter') and cur_filter != ob.inscfg.filter:
         # filter exchange necessary
         filterchange = True
         filterchange_sec = ob.inscfg.calc_filter_change_time()

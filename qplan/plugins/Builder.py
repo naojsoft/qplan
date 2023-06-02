@@ -108,7 +108,7 @@ class Builder(PlBase.Plugin):
         gr.add_widget(Widgets.Label('Filter'), 0, i)
         gr.add_widget(self.w.filter, 1, i)
         self.w.filter.set_text('g')
-        self.w.filter.set_tooltip("Currently installed filter for HSC")
+        self.w.filter.set_tooltip("Currently installed filter for instrument")
 
         i += 1
         self.w.fltr_exch = Widgets.CheckBox("Filter Exch")
@@ -295,7 +295,7 @@ class Builder(PlBase.Plugin):
                          prep="%.2f" % (rec.prep_sec / 60.0),
                          time="%.2f" % (rec.ob.total_time / 60.0),
                          target=rec.ob.target.name,
-                         filter=rec.ob.inscfg.filter,
+                         filter=getattr(rec.ob.inscfg, 'filter', None),
                          delay=rec.delay_sec / 60.0,
                          _group=good,
                          _rec=rec,
@@ -314,7 +314,7 @@ class Builder(PlBase.Plugin):
                              prep="%.2f" % (rec.prep_sec / 60.0),
                              time="%.2f" % (rec.ob.total_time / 60.0),
                              target=rec.ob.target.name,
-                             filter=rec.ob.inscfg.filter,
+                             filter=getattr(rec.ob.inscfg, 'filter', None),
                              delay=rec.delay_sec / 60.0,
                              _group=bad,
                              _rec=rec,
