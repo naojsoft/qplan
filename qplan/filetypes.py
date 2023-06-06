@@ -2145,6 +2145,7 @@ class PPCFile(QueueFile):
             }
         super(PPCFile, self).__init__(input_dir, propname, logger,
                                       file_ext)
+
         self.find_filepath()
         if self.file_ext in ['csv', 'ecsv']:
             self.read_csv_file()
@@ -2226,6 +2227,7 @@ class PPCFile(QueueFile):
             except Exception as e:
                 raise ValueError("Error reading line %d of ppc: %s" % (
                     lineNum, str(e)))
+
 
     def update_table(self, tbl_dct, parse_flag=False):
         """Update items in the internal table representation (self.rows).

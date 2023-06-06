@@ -47,6 +47,7 @@ class ControlPanel(PlBase.Plugin):
         self.weights_qf = None
         self.schedule_qf = None
         self.programs_qf = None
+        self.ppccfg_qf_dict = None
         self.ob_qf_dict = None
         self.tgtcfg_qf_dict = None
         self.envcfg_qf_dict = None
@@ -228,6 +229,7 @@ class ControlPanel(PlBase.Plugin):
         self.model.set_programs_qf(self.programs_qf)
 
         # read observing blocks
+        self.ppccfg_qf_dict = {}
         self.ob_qf_dict = {}
         self.tgtcfg_qf_dict = {}
         self.envcfg_qf_dict = {}
@@ -246,6 +248,8 @@ class ControlPanel(PlBase.Plugin):
                                        propname,
                                        self.programs_qf.programs_info,
                                        file_ext=self.input_fmt)
+
+            self.model.proposal_tab_names[propname] = ['OB', 'Targets', 'Environment', 'Instrument', 'Telescope']
 
             # Set telcfg
             telcfg_qf = pf.cfg['telcfg']
@@ -275,6 +279,51 @@ class ControlPanel(PlBase.Plugin):
 
         except Exception as e:
             errmsg = "error attempting to read phase 2 info for '%s'\n" % (
+                propname)
+            errmsg += "\n".join([e.__class__.__name__, str(e)])
+            try:
+                (type, value, tb) = sys.exc_info()
+                tb_str = "\n".join(traceback.format_tb(tb))
+            except Exception as e:
+                tb_str = "Traceback information unavailable."
+            errmsg += tb_str
+            self.logger.error(errmsg)
+            self.view.gui_do(self.view.show_error, errmsg,
+                             raisetab=True)
+            return False
+
+    def load_ppcfile(self, propname):
+        self.logger.info("attempting to read PPC info for '%s'" % (
+            propname))
+        try:
+            pf = filetypes.PPCFile(self.input_dir, self.logger,
+                                   propname,
+                                   self.programs_qf.programs_info,
+                                   #file_ext=self.input_fmt
+                                   file_ext='csv')
+
+            self.model.proposal_tab_names[propname] = ['PPC']
+
+            # Set ppccfg
+            ppccfg_qf = pf
+            self.ppccfg_qf_dict[propname] = ppccfg_qf
+            self.model.set_ppccfg_qf_dict(self.ppccfg_qf_dict)
+
+            # Finally, set OBs
+            oblist = pf.obs_info
+
+            # cache the information about the OBs so we don't have
+            # to reconstruct it over and over
+            _key_lst = [(propname, ob.name) for ob in oblist]
+            _key_dct = dict(zip(_key_lst, oblist))
+
+            info = Bunch(oblist=oblist, obkeys=_key_lst, obdict=_key_dct)
+            self.ob_info[propname] = info
+
+            return True
+
+        except Exception as e:
+            errmsg = "error attempting to load PPC info for '%s'\n" % (
                 propname)
             errmsg += "\n".join([e.__class__.__name__, str(e)])
             try:
@@ -323,6 +372,7 @@ class ControlPanel(PlBase.Plugin):
                     self.logger.info('skip flag for program %s is set - skipping all OB in this program' % propname)
                     continue
 
+                instruments = self.programs_qf.programs_info[propname].instruments
                 if propname not in self.ob_info:
                     # If we haven't read these OBs in already, read them now
                     if False:  # use_db
@@ -334,17 +384,25 @@ class ControlPanel(PlBase.Plugin):
                         oblist = list(self.qq.get_obs_by_proposal(propname))
 
                     else:
-                        if propname not in self.ob_qf_dict:
-                            if not self.load_program(propname):
-                                continue
-                        oblist = self.ob_qf_dict[propname].obs_info
+                        if 'HSC' in instruments:
+                            if propname not in self.ob_qf_dict:
+                                if not self.load_program(propname):
+                                    continue
+                            oblist = self.ob_qf_dict[propname].obs_info
+
+                        elif 'PFS' in instruments:
+                            if propname not in self.ob_info:
+                                if not self.load_ppcfile(propname):
+                                    continue
+                            oblist = self.ppccfg_qf_dict[propname].obs_info
 
                     # cache the information about the OBs so we don't have
                     # to reconstruct it over and over
                     _key_lst = [(propname, ob.name) for ob in oblist]
                     _key_dct = dict(zip(_key_lst, oblist))
 
-                    info = Bunch(oblist=oblist, obkeys=_key_lst, obdict=_key_dct)
+                    info = Bunch(oblist=oblist, obkeys=_key_lst,
+                                 obdict=_key_dct)
                     self.ob_info[propname] = info
 
                 info = self.ob_info[propname]

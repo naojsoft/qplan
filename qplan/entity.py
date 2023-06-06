@@ -1282,14 +1282,18 @@ def parse_date_time(dt_str, default_timezone):
 
 
 def normalize_radec_str(ra_str, dec_str):
-    if isinstance(ra_str, float):
-        ra_ang = Angle(ra_str, unit=units.deg)
-        ra = ra_ang.to_string(sep=':', precision=3, pad=True)
-    elif ra_str is None or ra_str == '':
+    if ra_str is None or ra_str == '':
         ra = ra_str
     else:
-        ra_ang = Angle(ra_str, unit=units.hour)
-        ra = ra_ang.to_string(sep=':', precision=3, pad=True)
+        # If ra is a float, assume that the angle is expressed in
+        # decimal degrees. Otherwise, parse ra as a sexagesimal value,
+        # i.e., HH:MM:SS.fff.
+        try:
+            ra_ang = Angle(float(ra_str), unit=units.deg)
+        except ValueError as e:
+            ra_ang = Angle(ra_str, unit=units.hour)
+
+        ra = ra_ang.to_string(unit=units.hour, sep=':', precision=3, pad=True)
 
     if dec_str is None or dec_str == '':
         dec = dec_str

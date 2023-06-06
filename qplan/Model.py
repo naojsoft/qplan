@@ -27,6 +27,8 @@ class QueueModel(Callback.Callbacks):
         self.weights_qf = None
         self.programs_qf = None
         self.schedule_qf = None
+        self.proposal_tab_names = {}
+        self.ppccfg_qf_dict = {}
         self.ob_qf_dict = {}
         self.tgtcfg_qf_dict = {}
         self.envcfg_qf_dict = {}
@@ -64,6 +66,9 @@ class QueueModel(Callback.Callbacks):
         #self.set_programs(self.programs_qf.programs_info)
         self.make_callback('programs-updated')
 
+    def set_ppccfg_qf_dict(self, ppccfg_dict):
+        self.ppccfg_qf_dict = ppccfg_dict
+
     def set_tgtcfg_qf_dict(self, tgtcfg_dict):
         self.tgtcfg_qf_dict = tgtcfg_dict
 
@@ -78,6 +83,9 @@ class QueueModel(Callback.Callbacks):
 
     def set_ob_qf_dict(self, obdict):
         self.ob_qf_dict = obdict
+
+    def update_ppccfg(self, proposal, row, colHeader, value, parse_flag):
+        self.ppccfg_qf_dict[proposal].update(row, colHeader, value, parse_flag)
 
     def update_oblist(self, proposal, row, colHeader, value, parse_flag):
         self.ob_qf_dict[proposal].update(row, colHeader, value, parse_flag)

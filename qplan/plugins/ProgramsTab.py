@@ -57,7 +57,11 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
                 # ControlPanel plugin so that we can call the
                 # load_program method to read in the program file.
                 control_panel_plugin = self.view.get_plugin('cp')
-                control_panel_plugin.load_program(proposal)
+                instruments = self.model.programs_qf.programs_info[proposal].instruments
+                if 'PFS' in instruments:
+                    control_panel_plugin.load_ppcfile(proposal)
+                else:
+                    control_panel_plugin.load_program(proposal)
 
             # Set the QueueModel.proposalForPropTab attribute so
             # that the ProposalTab object can get that value and
