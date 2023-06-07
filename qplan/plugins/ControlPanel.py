@@ -107,7 +107,7 @@ class ControlPanel(PlBase.Plugin):
         fr = Widgets.Frame("Files")
 
         captions = (('Inputs:', 'label', 'Input dir', 'entry'),
-                    ('Load Info', 'button'),
+                    ('Load Info', 'button', 'Load PPC', 'button'),
                     ('Update Database from Files', 'button'),
                     ('Check Database against Files', 'button'),
                     ('Build Schedule', 'button', 'Use QDB', 'checkbutton'),
@@ -120,6 +120,7 @@ class ControlPanel(PlBase.Plugin):
         b.input_dir.set_text(self.controller.input_dir)
         b.load_info.set_tooltip("Load data from phase 2 files")
         b.load_info.add_callback('activated', self.initialize_model_cb)
+        b.load_ppc.add_callback('activated', self.load_ppc_cb)
         b.update_database_from_files.set_tooltip("Update Gen2 queue database from changes to phase 2 files.\n"
                                                  "(Watch log to monitor completion of task)")
         b.check_database_against_files.set_tooltip("Check the Gen2 queue database against loaded progams and OBs.\n"
@@ -303,6 +304,29 @@ class ControlPanel(PlBase.Plugin):
             self.model.set_ppccfg_qf_dict(self.ppccfg_qf_dict)
 
             # Finally, set OBs
+            # # Set telcfg
+            # telcfg_qf = pf.cfg['telcfg']
+            # self.telcfg_qf_dict[propname] = telcfg_qf
+            # self.model.set_telcfg_qf_dict(self.telcfg_qf_dict)
+
+            # # Set inscfg
+            # inscfg_qf = pf.cfg['inscfg']
+            # self.inscfg_qf_dict[propname] = inscfg_qf
+            # self.model.set_inscfg_qf_dict(self.inscfg_qf_dict)
+
+            # # Set envcfg
+            # envcfg_qf = pf.cfg['envcfg']
+            # self.envcfg_qf_dict[propname] = envcfg_qf
+            # self.model.set_envcfg_qf_dict(self.envcfg_qf_dict)
+
+            # # Set targets
+            # tgtcfg_qf = pf.cfg['targets']
+            # self.tgtcfg_qf_dict[propname] = tgtcfg_qf
+            # self.model.set_tgtcfg_qf_dict(self.tgtcfg_qf_dict)
+
+            # Finally, set OBs
+            #self.ob_qf_dict[propname] = pf.cfg['ob']
+            #self.model.set_ob_qf_dict(self.ob_qf_dict)
             oblist = pf.obs_info
 
             # cache the information about the OBs so we don't have
@@ -329,6 +353,10 @@ class ControlPanel(PlBase.Plugin):
             self.view.gui_do(self.view.show_error, errmsg,
                              raisetab=True)
             return False
+
+    def load_ppc_cb(self, w):
+        proposal = 'S23A-QN600'
+        self.load_ppcfile(proposal)
 
     def update_scheduler(self, use_db=False, ignore_pgm_skip_flag=False,
                          limit_filter=None, allow_delay=True):

@@ -724,6 +724,7 @@ class WeightsFile(QueueFile):
         self.weights = Bunch.Bunch()
         self.column_map = {
             'slew': 'w_slew',
+            'rotator': 'w_rotator',
             'delay': 'w_delay',
             'filter': 'w_filterchange',
             'rank': 'w_rank',

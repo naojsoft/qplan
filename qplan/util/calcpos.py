@@ -170,18 +170,6 @@ class Observer(object):
         date = dt.replace(tzinfo=timezone)
         return date
 
-    ## def _observable(self, target, time_start, time_stop,
-    ##                el_min_deg, el_max_deg,
-    ##                airmass=None):
-    ##     c1 = self.calc(target, time_start)
-    ##     c2 = self.calc(target, time_stop)
-
-    ##     return ((el_min_deg <= c1.alt_deg <= el_max_deg) and
-    ##             (el_min_deg <= c2.alt_deg <= el_max_deg)
-    ##             and
-    ##             ((airmass is None) or ((c1.airmass <= airmass) and
-    ##                                    (c2.airmass <= airmass))))
-
     def observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
                    airmass=None, moon_sep=None):
@@ -672,7 +660,7 @@ class CalculationResult(object):
             parang = ephem.degrees(np.arctan2(sinp, cosp))
         else:
             if lat > 0.0:
-                parang = np.pi
+                parang = ephem.degrees(np.pi)
             else:
                 parang = 0.0
         return parang

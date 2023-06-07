@@ -799,10 +799,23 @@ class TelescopeConfiguration(object):
         self.dome = dome
         self.min_el = 15.0
         self.max_el = 89.0
+        self.min_az = -269.0
+        self.max_az = +269.0
+        # this depends on foci and instrument
+        # PFS: -174, +174
+        # HSC: -270, +270
+        self.min_rot = -270.0
+        self.max_rot = +270.0
         self.comment = comment
 
     def get_el_minmax(self):
         return (self.min_el, self.max_el)
+
+    def get_az_minmax(self):
+        return (self.min_az, self.max_az)
+
+    def get_rot_minmax(self):
+        return (self.min_rot, self.max_rot)
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
