@@ -54,6 +54,7 @@ class Scheduler(Callback.Callbacks):
         # FOR SCALING PURPOSES ONLY, define maximums
         # (see cmp_res() )
         self.max_slew = 20*60.0          # max slew (sec)
+        self.max_rot = 20*60.0           # max rotation (sec)
         self.max_rank = 10.0             # max rank
         self.max_delay = 60*60*10.0      # max wait for visibility (sec)
         self.max_filterchange = 35*60.0  # max filter exchange time (sec)
@@ -61,7 +62,8 @@ class Scheduler(Callback.Callbacks):
         # define weights (see cmp_res() method)
         self.weights = Bunch.Bunch(w_rank=0.3, w_delay=0.2,
                                    w_slew=0.2, w_priority=0.1,
-                                   w_filterchange = 0.3, w_qcp=0.0)
+                                   w_rotator=0.2,
+                                   w_filterchange=0.3, w_qcp=0.0)
 
         # For callbacks
         for name in ('schedule-cleared', 'schedule-added', 'schedule-completed',):
@@ -140,6 +142,12 @@ class Scheduler(Callback.Callbacks):
         t1 += wts.w_slew * r1_slew
         r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
         t2 += wts.w_slew * r2_slew
+
+        # rotation time factor
+        r1_rot = min(res1.rot_sec, self.max_rot) / self.max_rot
+        t1 += wts.w_rotator * r1_rot
+        r2_rot = min(res2.rot_sec, self.max_rot) / self.max_rot
+        t2 += wts.w_rotator * r2_rot
 
         # delay time factor
         r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay

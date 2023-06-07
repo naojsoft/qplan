@@ -5,6 +5,7 @@
 #
 from datetime import timedelta
 import time
+import math
 
 # Gen2 imports
 from ginga.misc import Bunch
@@ -61,6 +62,82 @@ def calc_slew_time(cur_alt_deg, cur_az_deg, to_alt_deg, to_az_deg):
     slew_sec = misc.calc_slew_time(delta_az, delta_alt)
     return slew_sec
 
+def calc_alternate_angle(ang_deg):
+    """calculates the alternative usable angle to the given one."""
+    #ang_deg = math.fmod(ang_deg, 360.0)
+    if ang_deg > 0:
+        _ang_deg = ang_deg - 360.0
+    elif ang_deg < 0:
+        _ang_deg = ang_deg + 360.0
+    else:
+        _ang_deg = 0.0
+    return _ang_deg
+
+def calc_rotation_choices(time_start, time_stop, site, target, pa_deg):
+
+    c1 = target.calc(site, time_start)
+    c2 = target.calc(site, time_stop)
+
+    # rotator_angle = parallactic_angle + position_angle
+    # parallactic angle becomes discontinuous at zenith, but since we
+    # have a restriction on elevation this shouldn't matter
+
+    # calculate direction of movement
+    # NOTE! parallactic angle seems to be returned in radians
+    #delta = c2.pang - c1.pang
+    delta = math.degrees(c2.pang) - math.degrees(c1.pang)
+
+    #rot1_start = c1.pang + pa_deg
+    rot1_start = math.degrees(c1.pang) + pa_deg
+    # calculate the other possible angle for this target
+    rot2_start = calc_alternate_angle(rot1_start)
+
+    rot1_stop = rot1_start + delta
+    rot2_stop = rot2_start + delta
+
+    # return both rotation moves
+    return (rot1_start, rot1_stop, rot2_start, rot2_stop)
+
+def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
+                          cur_rot_deg, min_rot, max_rot):
+    # TODO: check for an fmod(ang, 360) if necessary ?
+
+    rot1_ok = ((min_rot <= rot1_start <= max_rot) and
+               (min_rot <= rot1_stop <= max_rot))
+    rot2_ok = ((min_rot <= rot2_start <= max_rot) and
+               (min_rot <= rot2_stop <= max_rot))
+
+    if rot1_ok:
+        if not rot2_ok:
+            return rot1_start, rot1_stop
+
+        # figure out which rotation would be the shorter distance
+        # from the current location
+        delta1 = math.fabs(cur_rot_deg - rot1_start)
+        delta2 = math.fabs(cur_rot_deg - rot2_start)
+        if delta1 < delta2:
+            return rot1_start, rot1_stop
+        return rot2_start, rot2_stop
+
+    elif rot2_ok:
+        return rot2_start, rot2_stop
+    else:
+        return None, None
+
+def calc_rotation(time_start, time_stop, site, target, pa_deg,
+                  cur_rot_deg, min_rot, max_rot):
+
+    rot1_start, rot1_stop, rot2_start, rot2_stop = \
+        calc_rotation_choices(time_start, time_stop, site, target, pa_deg)
+
+    rot_start, rot_stop = \
+        calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
+                              cur_rot_deg, min_rot, max_rot)
+
+    if rot_start is None:
+        return None, None
+    delta = math.fabs(cur_rot_deg - rot_start)
+    return rot_start, delta
 
 def check_schedule_invariant_one(site, schedule, ob):
 
@@ -407,8 +484,9 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
                 return res
 
             # add slew time from calibration target to main target
-            c2 = ob.target.calc(site, start_time)
-            slew2_sec = calc_slew_time(c1.alt_deg, c1.az_deg, c2.alt_deg, c2.az_deg)
+            c2 = ob.target.calc(site, t_stop)  # was start_time
+            slew2_sec = calc_slew_time(c1.alt_deg, c1.az_deg,
+                                       c2.alt_deg, c2.az_deg)
             #print("slew time from calib tgt to ob target is %f sec" % (slew2_sec))
 
             prep_sec += slew2_sec
@@ -459,6 +537,9 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
         res.setvals(obs_ok=False,
                     reason="Not enough time in slot after all prep/delay")
         return res
+
+    # rot_deg = parallactic_angle + position_angle
+    #rot_pos11 =
 
     # check moon constraints between start and stop time
     if check_moon:

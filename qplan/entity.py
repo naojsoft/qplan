@@ -763,10 +763,23 @@ class TelescopeConfiguration(object):
         self.dome = dome
         self.min_el = 15.0
         self.max_el = 89.0
+        self.min_az = -269.0
+        self.max_az = +269.0
+        # this depends on foci and instrument
+        # PFS: -174, +174
+        # HSC: -270, +270
+        self.min_rot = -270.0
+        self.max_rot = +270.0
         self.comment = comment
 
     def get_el_minmax(self):
         return (self.min_el, self.max_el)
+
+    def get_az_minmax(self):
+        return (self.min_az, self.max_az)
+
+    def get_rot_minmax(self):
+        return (self.min_rot, self.max_rot)
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
@@ -1282,14 +1295,18 @@ def parse_date_time(dt_str, default_timezone):
 
 
 def normalize_radec_str(ra_str, dec_str):
-    if isinstance(ra_str, float):
-        ra_ang = Angle(ra_str, unit=units.deg)
-        ra = ra_ang.to_string(sep=':', precision=3, pad=True)
-    elif ra_str is None or ra_str == '':
+    if ra_str is None or ra_str == '':
         ra = ra_str
     else:
-        ra_ang = Angle(ra_str, unit=units.hour)
-        ra = ra_ang.to_string(sep=':', precision=3, pad=True)
+        # If ra is a float, assume that the angle is expressed in
+        # decimal degrees. Otherwise, parse ra as a sexagesimal value,
+        # i.e., HH:MM:SS.fff.
+        try:
+            ra_ang = Angle(float(ra_str), unit=units.deg)
+        except ValueError as e:
+            ra_ang = Angle(ra_str, unit=units.hour)
+
+        ra = ra_ang.to_string(unit=units.hour, sep=':', precision=3, pad=True)
 
     if dec_str is None or dec_str == '':
         dec = dec_str
