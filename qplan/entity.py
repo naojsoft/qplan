@@ -320,6 +320,9 @@ class Schedule(object):
             sch.append(slot.printed())
         return "\n".join(sch)
 
+    def __getitem__(self, index):
+        return self.slots[index]
+
     def __repr__(self):
         s = self.start_time.strftime("%Y-%m-%d %H:%M")
         return s
