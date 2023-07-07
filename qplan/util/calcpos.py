@@ -679,12 +679,11 @@ class CalculationResult(object):
         """Compute Moon altitude"""
         site.date = ephem.Date(self.date_utc)
         moon = ephem.Moon(site)
-        #moon.compute(site)
         moon_alt = math.degrees(float(moon.alt))
         # moon.phase is % of moon that is illuminated
         moon_pct = moon.moon_phase
         # calculate distance from target
-        moon_sep = ephem.separation(moon, body)
+        moon_sep = ephem.separation(body, moon)
         moon_sep = math.degrees(float(moon_sep))
         return (moon_alt, moon_pct, moon_sep)
 
