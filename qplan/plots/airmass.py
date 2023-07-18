@@ -201,7 +201,7 @@ class AirMassPlot(plots.Plot):
 
         # we don't know what date "site" is currently initialized to,
         # so get the date of the first target
-        localdate = lt_data[0].astimezone(tz)
+        localdate = lt_data[0]
 
         min_interval = 12  # hour/5min
         mt = lt_data[0:-1:min_interval]
@@ -258,9 +258,8 @@ class AirMassPlot(plots.Plot):
         # label axes
         title = 'Visibility for the night of {}'.format(localdate.strftime("%Y-%m-%d"))
         ax1.set_title(title)
-        # TODO: datautil.tzinfo does not seem to have a readable timezone name
-        #ax1.set_xlabel(tz.tzname(None))
-        ax1.set_xlabel('HST')
+        # label x-axis with a readable timezone name
+        ax1.set_xlabel(tz.tzname(localdate))
         ax1.set_ylabel('Altitude')
 
         # Plot moon trajectory and illumination
