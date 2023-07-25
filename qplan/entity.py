@@ -1291,17 +1291,21 @@ def normalize_radec_str(ra_str, dec_str):
         # If ra is a float, assume that the angle is expressed in
         # decimal degrees. Otherwise, parse ra as a sexagesimal value,
         # i.e., HH:MM:SS.fff.
-        try:
-            ra_ang = Angle(float(ra_str), unit=units.deg)
-        except ValueError as e:
+        if isinstance(ra_str, str) and ':' in ra_str:
             ra_ang = Angle(ra_str, unit=units.hour)
+        else:
+            ra_ang = Angle(float(ra_str), unit=units.deg)
 
         ra = ra_ang.to_string(unit=units.hour, sep=':', precision=3, pad=True)
 
     if dec_str is None or dec_str == '':
         dec = dec_str
     else:
-        dec_ang = Angle(dec_str, unit=units.deg)
+        if isinstance(dec_str, str) and ':' in dec_str:
+            dec_ang = Angle(dec_str, unit=units.deg)
+        else:
+            dec_ang = Angle(float(dec_str), unit=units.deg)
+
         dec = dec_ang.to_string(sep=':', precision=2, pad=True,
                                 alwayssign=True)
     return (ra, dec)
