@@ -527,6 +527,7 @@ class CalculationResult(object):
         # TODO: deprecate
         self.alt_deg = math.degrees(self.alt)
         self.az_deg = math.degrees(self.az)
+        self.will_be_visible = not self.body.neverup
 
         # properties
         self._ut = None
