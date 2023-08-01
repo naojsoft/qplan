@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from dateutil import tz
 import dateutil.parser
 
+import erfa
+
 # right now we just have pyephem...
 import ephem
 
@@ -44,8 +46,8 @@ class Observer(object):
     Observer
     """
     def __init__(self, name, timezone=None, longitude=None, latitude=None,
-                 elevation=None, pressure=None, temperature=None,
-                 date=None, description=None):
+                 elevation=None, pressure=None, temperature=None, humidity=None,
+                 date=None, wavelength=None, description=None):
         super(Observer, self).__init__()
         self.name = name
         self.timezone = timezone
@@ -54,7 +56,10 @@ class Observer(object):
         self.elevation = elevation
         self.pressure = pressure
         self.temperature = temperature
+        self.humidity = humidity
         self.date = date
+        self.wavelength = wavelength
+        self.description = description
         self.horizon = -1 * np.sqrt(2 * elevation / ephem.earth_radius)
         if timezone is None:
             # default to UTC
@@ -88,6 +93,12 @@ class Observer(object):
             date = datetime.utcnow().replace(tzinfo=self.tz_utc)
         site.date = ephem.Date(self.date_to_utc(date))
         return site
+
+    def set_humidity(self, humidity):
+        self.humidity = humidity
+
+    def set_wavelength(self, wavelength):
+        self.wavelength = wavelength
 
     def date_to_utc(self, date):
         """Convert a datetime to UTC.
@@ -515,6 +526,9 @@ class CalculationResult(object):
         self.date = observer.date_to_local(date)
         self.date_utc = observer.date_to_utc(self.date)
 
+        self.humidity = observer.humidity
+        self.wavelength = observer.wavelength
+
         # Can/should this calculation be postponed?
         self.site.date = ephem.Date(self.date_utc)
         self.body.compute(self.site)
@@ -539,7 +553,10 @@ class CalculationResult(object):
         self._moon_alt = None
         self._moon_pct = None
         self._moon_sep = None
+        self._atmos_disp = None
 
+        # Conversion factor for wavelengths (Angstrom -> micrometer)
+        self.angstrom_to_mm = 1. / 10000.
 
     @property
     def ut(self):
@@ -611,6 +628,12 @@ class CalculationResult(object):
             self._moon_sep = moon_sep
         return self._moon_sep
 
+    @property
+    def atmos_disp(self):
+        if self._atmos_disp is None:
+            self._atmos_disp = self.calc_atmos_disp(self.site)
+        return self._atmos_disp
+
     def julian_date(self, val):
         # val = radec.julianDate(val.timetuple())
         val = ephem.julian_date(val)
@@ -677,6 +700,40 @@ class CalculationResult(object):
         delta_alt = float(self.body.alt) - float(target.alt)
         return (delta_alt, delta_az)
 
+    def _calc_atmos_refco(self, bar_press_mbar, temp_degc, rh_pct, wl_mm):
+        """Compute atmospheric refraction coefficients (radians)"""
+        rh_frac = rh_pct / 100.0
+        refa, refb = erfa.refco(bar_press_mbar, temp_degc, rh_frac, wl_mm)
+        return (refa, refb)
+
+    def calc_atmos_disp(self, site):
+        """Compute atmospheric dispersion (radians)"""
+        bar_press_mbar = site.pressure
+        temp_degc = site.temperature
+        rh_pct = self.humidity
+        wl = self.wavelength
+        zd_rad = math.pi / 2. - self.alt
+        tzd = math.tan(zd_rad)
+        if wl is None:
+            raise ValueError('Wavelength is None')
+        else:
+            if isinstance(wl, dict):
+                atmos_disp_rad = {}
+                for k, w in wl.items():
+                    wl_mm = w * self.angstrom_to_mm
+                    refa, refb = self._calc_atmos_refco(bar_press_mbar, temp_degc, rh_pct, wl_mm)
+                    atmos_disp_rad[k] = (refa + refb * tzd * tzd) * tzd
+            elif isinstance(wl, list):
+                atmos_disp_rad = []
+                for w in wl:
+                    wl_mm = w * self.angstrom_to_mm
+                    refa, refb = self._calc_atmos_refco(bar_press_mbar, temp_degc, rh_pct, wl_mm)
+                    atmos_disp_rad.append((refa + refb * tzd * tzd) * tzd)
+            else:
+                wl_mm = wl * self.angstrom_to_mm
+                refa, refb = self._calc_atmos_refco(bar_press_mbar, temp_degc, rh_pct, wl_mm)
+                atmos_disp_rad  = (refa + refb * tzd * tzd) * tzd
+            return atmos_disp_rad
 
 Moon = SSBody('Moon', ephem.Moon())
 Sun = SSBody('Sun', ephem.Sun())
