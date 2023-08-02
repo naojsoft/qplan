@@ -5,7 +5,7 @@ import math
 
 # third-party imports
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from dateutil import tz
 import dateutil.parser
 
@@ -284,6 +284,13 @@ class Observer(object):
 
             date = ephem.Date(date)
         self.site.date = date
+
+    def get_last(self):
+        """Return the local apparent sidereal time."""
+        last = self.site.sidereal_time()
+        dt = dateutil.parser.parse(str(last))
+        return time(hour=dt.hour, minute=dt.minute, second=dt.second,
+                    microsecond=dt.microsecond)
 
     def sunset(self, date=None):
         """Returns sunset in observer's time."""
