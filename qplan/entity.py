@@ -635,8 +635,8 @@ class PPC_OB(OB):
 
     def setup_time(self):
         # how long approx to start OB
-        # 10 min for PFS fiber config?
-        total_time = 10.0 * 60.0
+        # we now assume that all overhead is accounted for in OB total_time
+        total_time = 1.0
         return total_time
 
     def setup_ob(self):

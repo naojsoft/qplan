@@ -2306,15 +2306,15 @@ class PPCFile(QueueFile):
         self.propdict = propdict
         self.column_map = {
             'ppc_code': 'ob_code',
-            'ra': 'ra',
-            'dec': 'dec',
-            'equinox': 'eq',
-            'pa': 'pa_deg',
-            'resolution': 'resolution',
-            'exp_time': 'exp_time',
-            'total_time': 'total_time',
-            'priority': 'priority',
-            'comment': 'comment',
+            'ppc_ra': 'ra',
+            'ppc_dec': 'dec',
+            'ppc_equinox': 'eq',
+            'ppc_pa': 'pa_deg',
+            'ppc_resolution': 'resolution',
+            'ppc_exptime': 'exp_time',
+            'ppc_totaltime': 'total_time',
+            'ppc_priority': 'priority',
+            'ppc_comment': 'comment',
             }
         super(PPCFile, self).__init__(input_dir, propname, logger,
                                       file_ext)
