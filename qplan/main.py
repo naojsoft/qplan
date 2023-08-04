@@ -59,6 +59,8 @@ plugins = [
           ptype='global', tab='Slew Chart', ws='sub2', start=True),
     Bunch(name='report', module='Report', klass='Report',
           ptype='global', tab='Report', ws='sub1', start=True),
+    Bunch(name='ppcreport', module='PPCReport', klass='PPCReport',
+          ptype='global', tab='PPC Report', ws='sub1', start=True),
     Bunch(name='airmasschart', module='AirMassChart', klass='AirMassChart',
           ptype='global', tab='Airmass Chart', ws='sub1', start=True),
     Bunch(name='schedule', module='Schedule', klass='Schedule',

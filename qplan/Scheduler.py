@@ -340,7 +340,9 @@ class Scheduler(Callback.Callbacks):
             schedule.insert_slot(f_slot)
 
         # if a delay is required, insert a separate OB for that
-        if res.delay_sec > 0.0:
+        # NOTE: sometimes very small delays are recorded--we basically
+        # ignore inserting any delay ob for anything less than 2 sec
+        if res.delay_sec > 2.0:
             _xx, d_slot, slot = slot.split(slot.start_time,
                                            res.delay_sec)
             new_ob = ob.delay_ob(res.delay_sec)
