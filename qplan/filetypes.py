@@ -17,7 +17,11 @@ from pandas.plotting import register_matplotlib_converters
 from ginga.misc import Bunch
 
 from . import entity
-from .cfg import HSC_cfg
+try:
+    from .cfg import HSC_cfg
+    have_HSC_cfg = True
+except (ImportError, FileNotFoundError) as e:
+    have_HSC_cfg = False
 from qplan.util.site import site_subaru
 import qplan.util.calcpos
 from .common import hsc_extra_overhead_factor
@@ -1524,20 +1528,26 @@ class InsCfgFile(QueueFile):
     def filterCheck(self, val, rec, row_num, col_name, progFile):
         iname = self.columnInfo[col_name]['iname']
         if self.insname == 'HSC':
-            if val in HSC_cfg.all_filters:
-                progFile.logger.debug('line %d, column %s of sheet %s: filter %s is ok' % (row_num, iname, self.name, rec.filter))
+            if have_HSC_cfg:
+                if val in HSC_cfg.all_filters:
+                    progFile.logger.debug('line %d, column %s of sheet %s: filter %s is ok' % (row_num, iname, self.name, rec.filter))
+                else:
+                    msg = 'Error while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, HSC_cfg.all_filters)
+                    progFile.logger.error(msg)
+                    progFile.errors[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
+                    progFile.error_count += 1
+                if val in HSC_cfg.semester_filters[self.semester]:
+                    progFile.logger.debug('line %d, column %s of sheet %s: filter %s is in semester %s list and is ok' % (row_num, iname, self.name, rec.filter, self.semester))
+                else:
+                    msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in semester %s list %s' % (row_num, iname, self.name, val, self.semester, HSC_cfg.semester_filters[self.semester])
+                    progFile.logger.warning(msg)
+                    progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
+                    progFile.warn_count += 1
             else:
-                msg = 'Error while checking line %d, column %s of sheet %s: filter %s not in list %s' % (row_num, iname, self.name, val, HSC_cfg.all_filters)
+                msg = 'Error while checking line %d, column %s of sheet %s: filter configuration file not available' % (row_num, iname, self.name)
                 progFile.logger.error(msg)
                 progFile.errors[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
                 progFile.error_count += 1
-            if val in HSC_cfg.semester_filters[self.semester]:
-                progFile.logger.debug('line %d, column %s of sheet %s: filter %s is in semester %s list and is ok' % (row_num, iname, self.name, rec.filter, self.semester))
-            else:
-                msg = 'Warning while checking line %d, column %s of sheet %s: filter %s not in semester %s list %s' % (row_num, iname, self.name, val, self.semester, HSC_cfg.semester_filters[self.semester])
-                progFile.logger.warning(msg)
-                progFile.warnings[self.name].append([row_num, [self.columnInfo['filter']['iname']], msg])
-                progFile.warn_count += 1
 
 class OBListFile(QueueFile):
     def __init__(self, input_dir, logger, propname, propdict,
