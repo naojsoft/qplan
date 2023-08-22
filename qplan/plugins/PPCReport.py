@@ -51,7 +51,7 @@ class PPCReport(PlBase.Plugin):
                                           selection='multiple',
                                           sortable=True,
                                           use_alt_row_color=True)
-        self.w.ppc_tbl.setup_table(self.columns, 1, 'name')
+        self.w.ppc_tbl.setup_table(self.columns, 1, 'datetime')
         self.w.ppc_tbl.set_optimal_column_widths()
         vbox.add_widget(self.w.ppc_tbl, stretch=1)
 
@@ -136,7 +136,7 @@ class PPCReport(PlBase.Plugin):
                 t_prog = slot.start_time + timedelta(0, ob.total_time)
                 row['comment'] = ob.comment
                 row['name'] = ob.name
-                row['datetime'] = t.strftime("%Y-%m-%d %H:%M")
+                row['datetime'] = t.strftime("%Y-%m-%d %H:%M:%S")
                 for name in ['ra', 'dec', 'priority', 'exp_time',
                              'total_time', 'pa']:
                     row[name] = ''
