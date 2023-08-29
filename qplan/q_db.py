@@ -142,6 +142,7 @@ mdb2py_tbl_map = {
     'exposure': entity.make_exposure,
     'executed_ob': entity.make_executed_ob,
     'program': entity.make_program,
+    'intensive_program': entity.make_intensive_program,
     'saved_state': entity.make_saved_state,
     'ob': lambda dct: None,
     }

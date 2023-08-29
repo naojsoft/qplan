@@ -1,9 +1,12 @@
 #
 #  E. Jeschke
 #
+from dateutil import tz
+
 from ginga.misc.Bunch import Bunch
 
 from qplan import entity, common
+from qplan.util import dates
 
 # MODULE FUNCTIONS
 
@@ -155,6 +158,17 @@ class QueueQuery(object):
         except Exception:
             raise NotFound("No program with propid '%s'" % (propid))
 
+    def get_intensive_program_auxinfo(self):
+        """
+        Look up intensive program auxilliary information.
+        """
+        tbl = self._qa.get_db_native_table('intensive_program')
+        all_recs = tbl.find()
+        intensives = self.cmake_iter('intensive_program', all_recs,
+                                     lambda rec: rec['proposal'],
+                                     entity.make_intensive_program)
+        return {str(i_pgm): i_pgm for i_pgm in intensives}
+
     def get_obs_by_proposal(self, proposal):
         """
         Get entire list of OBs from a proposal name.
@@ -254,7 +268,7 @@ class QueueQuery(object):
                                  ]}, {'ob_key': 1})
         return [tuple(rec['ob_key']) for rec in recs]
 
-    def get_do_not_execute_ob_info(self, proplst):
+    def get_do_not_execute_ob_info(self, proplst, tz_local):
         """
         Get the keys for OBs that should not be executed because they are
         either FQA==good or have an IQA==good/marginal.  `proplst` gives
@@ -268,23 +282,73 @@ class QueueQuery(object):
                                                      {'iqa':{'$in':['good', 'marginal']}
                                                       }]}
                                            ]}
-                                  ]}, {'ob_key': 1})
+                                  ]}, {'ob_key': 1, 'time_start': 1})
 
         # Painful reconstruction of time already accumulated running the
         # programs for executed OBs.  Needed to inform scheduler so that
         # it can correctly calculate when to stop allocating OBs for a
         # program that has reached its time limit.
+        recs = list(recs)
         dne_ob_keys = [tuple(rec['ob_key']) for rec in recs]
         props = {}
         ob_recs = self._ob_keys_to_obs(dne_ob_keys)
-        for rec in ob_recs:
-            proposal = rec['program']
-            bnch = props.setdefault(proposal, Bunch(obcount=0,
-                                                    sched_time=0.0))
-            bnch.sched_time += rec['acct_time']
+        for rec, ob_rec in zip(recs, ob_recs):
+            proposal = ob_rec['program']
+            if proposal in props:
+                bnch = props[proposal]
+            else:
+                bnch = Bunch(obcount=0, sched_time=0.0)
+                props[proposal] = bnch
+            bnch.sched_time += ob_rec['acct_time']
             bnch.obcount += 1
 
+            # record totals by semester as well as overall
+            time_start = rec['time_start'].replace(tzinfo=tz.UTC)
+            sem = dates.get_semester_by_datetime(time_start, tz_local)
+            sem_time_key = f"sched_time_{sem}"
+            sem_time = bnch.get(sem_time_key, 0.0)
+            bnch[sem_time_key] = sem_time + ob_rec['acct_time']
+            sem_count_key = f"obcount_{sem}"
+            sem_count = bnch.get(sem_count_key, 0)
+            bnch[sem_count_key] = sem_count + 1
+
         return dne_ob_keys, props
+
+    def get_fqa_ob_info(self, proplst, tz_local):
+        """
+        Get the keys for OBs that have a finalized FQA.  `proplst` gives
+        a set of proposals for which we want info.
+        """
+        tbl = self._qa.get_db_native_table('executed_ob')
+        recs = tbl.find({'$and':[ {'ob_key.0': {'$in': proplst}},
+                                  {'fqa': {'$in': ['good', 'bad']}},
+                                  ]}, {'ob_key': 1, 'time_start': 1,
+                                       'fqa': 1})
+
+        recs = list(recs)
+        fqa_ob_keys = [tuple(rec['ob_key']) for rec in recs]
+        props = {}
+        ob_recs = self._ob_keys_to_obs(fqa_ob_keys)
+        for rec, ob_rec in zip(recs, ob_recs):
+            proposal = ob_rec['program']
+            if proposal in props:
+                bnch = props[proposal]
+            else:
+                bnch = Bunch()
+                props[proposal] = bnch
+
+            # record totals by semester
+            time_start = rec['time_start'].replace(tzinfo=tz.UTC)
+            sem = dates.get_semester_by_datetime(time_start, tz_local)
+            fqa = rec['fqa']
+            sem_time_key = f"{fqa}_time_{sem}"
+            sem_time = bnch.get(sem_time_key, 0.0)
+            bnch[sem_time_key] = sem_time + ob_rec['acct_time']
+            sem_count_key = f"{fqa}_obcount_{sem}"
+            sem_count = bnch.get(sem_count_key, 0)
+            bnch[sem_count_key] = sem_count + 1
+
+        return fqa_ob_keys, props
 
     def get_schedulable_ob_keys(self):
         """

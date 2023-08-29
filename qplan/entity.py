@@ -115,6 +115,39 @@ class Program(PersistentEntity):
         return True
 
 
+class Intensive_Program(PersistentEntity):
+    """
+    Intensive_Program
+    Defines extra information necessary to schedule and track intensive
+    programs
+    """
+    def __init__(self, proposal, total_hours=0.0, semester_hours=[]):
+        super().__init__('intensive_program')
+
+        self.proposal = proposal
+        self.total_hours = total_hours
+        # a list of tuples of the form [('S21A', hours), ('S21B', hours), ...]
+        self.semester_hours = semester_hours
+
+    @property
+    def key(self):
+        return dict(proposal=self.proposal)
+
+    def __repr__(self):
+        return self.proposal
+
+    __str__ = __repr__
+
+    def equivalent(self, other):
+        if self.proposal != other.proposal:
+            return False
+        if self.total_hours != other.total_hours:
+            return False
+        if self.semester_hours != other.semester_hours:
+            return False
+        return True
+
+
 class SlotError(Exception):
     pass
 
@@ -1318,6 +1351,11 @@ def make_program(dct):
     pgm = Program(dct['proposal'])
     pgm.from_rec(dct)
     return pgm
+
+def make_intensive_program(dct):
+    int_pgm = Intensive_Program(dct['proposal'])
+    int_pgm.from_rec(dct)
+    return int_pgm
 
 def make_executed_ob(dct):
     ex_ob = Executed_OB()

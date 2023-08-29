@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 #
 # Scheduler.py -- Observing Queue Scheduler
 #
@@ -18,7 +17,7 @@ from . import misc
 from . import entity
 from . import common
 from . import qsim
-from .util import qsort
+from .util import qsort, dates
 
 # maximum rank for a program
 max_rank = 10.0
@@ -104,10 +103,21 @@ class Scheduler(Callback.Callbacks):
     def set_scheduling_params(self, params):
         self.sch_params.update(params)
 
-    def get_sched_time(self, prop, bnch):
+    def get_sched_time(self, prop, bnch, start_time):
         try:
+            pgm = self.programs[prop]
             info = self.apriori_info[prop]
-            bnch.update(info)
+            # get intensive program information
+            intensives = self.apriori_info.get('intensives', [])
+            if prop in intensives:
+                # intensive program: only update scheduled time by what
+                # has been observed this semester
+                sem = dates.get_semester_by_datetime(start_time, self.timezone)
+                bnch.update(dict(sched_time=info[f'sched_time_{sem}'],
+                                 obcount=info[f'obcount_{sem}']))
+            else:
+                # normal program
+                bnch.update(info)
 
         except KeyError:
             pass
@@ -471,14 +481,14 @@ class Scheduler(Callback.Callbacks):
         # build a lookup table of programs -> OBs
         props = {}
         total_program_time = 0.0
-        for key in self.programs:
-            total_time = self.programs[key].total_time
+        for propname in self.programs:
+            total_time = self.programs[propname].total_time
 
-            props[key] = Bunch.Bunch(pgm=self.programs[key], obs=[],
+            props[propname] = Bunch.Bunch(pgm=self.programs[propname], obs=[],
                                      obcount=0, sched_time=0.0,
                                      total_time=total_time)
             # get time already spent working on this program
-            self.get_sched_time(key, props[key])
+            self.get_sched_time(propname, props[propname], night_start)
 
             total_program_time += total_time
 

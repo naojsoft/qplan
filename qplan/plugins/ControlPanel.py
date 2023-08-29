@@ -415,8 +415,14 @@ class ControlPanel(PlBase.Plugin):
 
             # Remove keys for OBs that are already executed
             if use_db:
+                # get information on intensive programs
+                int_dct = self.qq.get_intensive_program_auxinfo()
+                intensive_programs = list(int_dct.keys())
+
                 self.logger.info("getting do not execute OB info")
-                dne_obs, props = self.qq.get_do_not_execute_ob_info(okprops)
+                dne_obs, props = self.qq.get_do_not_execute_ob_info(okprops,
+                                                                    sdlr.timezone)
+                props['intensives'] = intensive_programs
 
                 do_not_execute = set(dne_obs)
 
