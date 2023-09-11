@@ -24,7 +24,6 @@ except (ImportError, FileNotFoundError) as e:
     have_HSC_cfg = False
 from qplan.util.site import site_subaru
 import qplan.util.calcpos
-from .common import hsc_extra_overhead_factor
 
 # In moon_states, the dict keys are the allowable the Phase 1 Moon
 # illumination names. The dict values are the list of acceptable Moon
@@ -1575,6 +1574,7 @@ class OBListFile(QueueFile):
             'priority': 'priority',
             'on_src_time': 'on_src_time',
             'total_time': 'total_time',
+            'acct_time': 'acct_time',
             'extra_params': 'extra_params',
             'comment': 'comment',
             }
@@ -1901,13 +1901,10 @@ class OBListFile(QueueFile):
                                    priority=priority,
                                    name=code,
                                    total_time=float(rec.total_time),
-                                   # NOTE: As of S21B we are now charging the
-                                   # user for instrument overheads (used to be):
-                                   # acct_time=float(rec.on_src_time),
-                                   acct_time=(float(rec.total_time)
-                                              # NOTE: 2021-01-11 EJ  As of S22A,
-                                              # added extra overhead charge
-                                              * hsc_extra_overhead_factor),
+                                   # NOTE: 2023-09-11 EJ  As of S24A,
+                                   # overhead charge is explicitly stated
+                                   # in phase 2 for each OB
+                                   acct_time=float(rec.acct_time),
                                    comment=comment,
                                    extra_params=extra_params)
                 self.obs_info.append(ob)
