@@ -469,7 +469,14 @@ class QueueFile(object):
                     # the ob sheet.
                     found = False
                     for ob_row in progFile.cfg['ob'].rows:
-                        codes = (ob_row[n] for n in ob_col_name_list)
+                        codes = []
+                        # Ignore any column names in ob_col_name_list
+                        # that don't exist in the "ob" sheet.
+                        for n in ob_col_name_list:
+                            try:
+                                codes.append(ob_row[n])
+                            except KeyError as e:
+                                pass
                         if code in codes:
                             found = True
                             break
@@ -1575,6 +1582,7 @@ class OBListFile(QueueFile):
             'priority': 'priority',
             'on_src_time': 'on_src_time',
             'total_time': 'total_time',
+            'acct_time': 'acct_time',
             'extra_params': 'extra_params',
             'comment': 'comment',
             }
@@ -1589,6 +1597,7 @@ class OBListFile(QueueFile):
             'priority':   {'iname': 'Priority',   'type': float, 'constraint': None,                'prefilled': False, 'required': True},
             'on_src_time':{'iname': 'On-src Time','type': float, 'constraint': self.checkOnSrcTime, 'prefilled': True,  'required': True},
             'total_time': {'iname': 'Total Time', 'type': float, 'constraint': self.checkTotalTime, 'prefilled': True,  'required': True},
+            'acct_time':  {'iname': 'Acct Time',  'type': float, 'constraint': None,                 'prefilled': True,  'required': False},
             }
         super(OBListFile, self).__init__(input_dir, 'ob', logger, file_ext=file_ext)
 
@@ -1703,6 +1712,7 @@ class OBListFile(QueueFile):
                         progFile.errors[self.name].append([row_num, [iname], msg])
                         progFile.error_count += 1
 
+    # TODO: I think totalOnSrcTimeCheck is obsolete
     def totalOnSrcTimeCheck(self, progFile):
         # Add up the on-source time for all the observing blocks in
         # the file and check to see if the total is less than or equal
@@ -1751,6 +1761,49 @@ class OBListFile(QueueFile):
             progFile.warnings[self.name].append([None, [iname], msg])
             progFile.warn_count += 1
 
+    def getTotalTime(self, progfile, iname):
+
+        totalTime = None
+
+        # We don't need to look through the entire set of rows. We
+        # should be able to locate the string withing the first
+        # "max_search_rows".
+        max_search_rows = 50
+
+        self.stringio[self.name].seek(0)
+        queue_file = self.stringio[self.name]
+        reader = csv.reader(queue_file, **self.fmtparams)
+
+        # skip header
+        next(reader)
+
+        # Iterate through rows and look for the row that has a string
+        # that matches the iname value.
+        tt_row = None
+        tt_col = None
+        for i, row in enumerate(reader):
+            for j, item in enumerate(row):
+                if item == iname:
+                    tt_row = i
+                    tt_col = j
+                    break
+            if tt_row or i > max_search_rows:
+                break
+
+        if tt_row and tt_col:
+            row = next(reader)
+            totalTime_str = row[tt_col]
+            try:
+                totalTime = float(totalTime_str)
+            except ValueError as e:
+                msg = 'Error while checking sheet %s: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([None, [iname], msg])
+                progFile.error_count += 1
+
+        return totalTime
+
+    # TODO: I think totalTimeCheck is obsolete
     def totalTimeCheck(self, progFile, iname):
 
         # We don't need to look through the entire set of rows. We
@@ -1788,7 +1841,7 @@ class OBListFile(QueueFile):
             except ValueError as e:
                 msg = 'Error while checking sheet %s: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
                 progFile.logger.error(msg)
-                progFile.errorss[self.name].append([None, [iname], msg])
+                progFile.errors[self.name].append([None, [iname], msg])
                 progFile.error_count += 1
 
             ph1_allocated_time_str = progFile.cfg['proposal'].proposal_info['allocated_time']
@@ -1797,7 +1850,7 @@ class OBListFile(QueueFile):
             except ValueError as e:
                 msg = 'Error while checking sheet %s: Could not convert Phase 1 Allocated Time {} to a numerical value'.format(self.name, ph1_allocated_time_str)
                 progFile.logger.error(msg)
-                progFile.errorss[self.name].append([None, [iname], msg])
+                progFile.errors[self.name].append([None, [iname], msg])
                 progFile.error_count += 1
 
             ph1_allocated_time = round(ph1_allocated_time,1)
@@ -1890,6 +1943,16 @@ class OBListFile(QueueFile):
                 if rec.has_key('comment'):
                     comment = rec.comment.strip()
 
+                if rec.has_key('acct_time'):
+                    acct_time = float(rec.acct_time)
+                else:
+                    # NOTE: As of S21B we are now charging the
+                    # user for instrument overheads (used to be):
+                    # acct_time=float(rec.on_src_time),
+                    # NOTE: 2021-01-11 EJ  As of S22A,
+                    # added extra overhead charge
+                   acct_time = (float(rec.total_time) * hsc_extra_overhead_factor)
+
                 ob = entity.HSC_OB(id=code,
                                    program=program,
                                    target=tgtcfg,
@@ -1901,13 +1964,7 @@ class OBListFile(QueueFile):
                                    priority=priority,
                                    name=code,
                                    total_time=float(rec.total_time),
-                                   # NOTE: As of S21B we are now charging the
-                                   # user for instrument overheads (used to be):
-                                   # acct_time=float(rec.on_src_time),
-                                   acct_time=(float(rec.total_time)
-                                              # NOTE: 2021-01-11 EJ  As of S22A,
-                                              # added extra overhead charge
-                                              * hsc_extra_overhead_factor),
+                                   acct_time=acct_time,
                                    comment=comment,
                                    extra_params=extra_params)
                 self.obs_info.append(ob)
@@ -1925,10 +1982,11 @@ class ProgramFile(QueueFile):
         self.stringio = {}
         self.warn_count = 0
         self.error_count = 0
-        self.warnings = {}
+        self.name = 'program'
+        self.warnings = {self.name: []}
         for name in self.requiredSheets:
             self.warnings[name] = []
-        self.errors = {}
+        self.errors = {self.name: []}
         for name in self.requiredSheets:
             self.errors[name] = []
         dir_path = os.path.join(input_dir, propname)
@@ -1937,6 +1995,7 @@ class ProgramFile(QueueFile):
         self.cfg['envcfg'] = EnvCfgFile(dir_path, logger, file_ext)
         self.cfg['targets'] = TgtCfgFile(dir_path, logger, file_ext)
         self.cfg['proposal'] = ProposalFile(dir_path, logger, file_ext)
+        self.cfg['summary'] = SummaryFile(dir_path, logger, file_ext)
 
         if file_obj is None:
             # If we didn't get supplied with a file object, that means
@@ -1985,12 +2044,24 @@ class ProgramFile(QueueFile):
         # All sheets were read in. Set the configuration objects to
         # have the BytesIO version of the input data
         for name, cfg in self.cfg.items():
-            cfg.stringio[name] = self.stringio[name]
+            if name in self.requiredSheets:
+                cfg.stringio[name] = self.stringio[name]
+            else:
+                try:
+                    cfg.stringio[name] = self.stringio[name]
+                except KeyError as e:
+                    pass
 
         # Check to make sure all sheets have the required columns
         error_incr = 0
         for name, cfg in self.cfg.items():
-            error_incr += cfg.validate_column_names(self)
+            if name in self.requiredSheets:
+                error_incr += cfg.validate_column_names(self)
+            else:
+                try:
+                    error_incr += cfg.validate_column_names(self)
+                except KeyError as e:
+                    pass
         if error_incr > 0:
             return
 
@@ -1998,7 +2069,13 @@ class ProgramFile(QueueFile):
         # of the sheets
         error_incr = 0
         for name, cfg in self.cfg.items():
-            error_incr += cfg.checkCodesUnique(self)
+            if name in self.requiredSheets:
+                error_incr += cfg.checkCodesUnique(self)
+            else:
+                try:
+                    error_incr += cfg.checkCodesUnique(self)
+                except KeyError as e:
+                    pass
         if error_incr > 0:
             return
 
@@ -2039,7 +2116,13 @@ class ProgramFile(QueueFile):
         # sheets, so process their input now.
         for name, cfg in self.cfg.items():
             if name != 'proposal':
-                cfg.process_input()
+                if name in self.requiredSheets:
+                    cfg.process_input()
+                else:
+                    try:
+                        cfg.process_input()
+                    except KeyError as e:
+                        pass
 
         # Start working on the "ob" sheet. First, set up the
         # OBListFile object.
@@ -2085,22 +2168,29 @@ class ProgramFile(QueueFile):
         # versa.
         self.cfg['ob'].calibCheck(self)
 
-        # Compare the total required time on the"ob" sheet to the
-        # allocated time on the "proposal" sheet. This is for all
-        # semesters from S21A onward. It is not an error if the "Total
-        # On-src Time" string isn't found in the file, at least while
-        # we are transitioning to the S21A-style files.
-        found = self.cfg['ob'].totalTimeCheck(self, 'Total Required Time')
+        # Check the "ob" sheet to see if we can find the "Total
+        # Required Time" (for S21A onward) or, failing that, the
+        # "Total On-src Time" (for S20B and before).
+        totalTimeSheetName = 'ob'
+        totalTimeName = 'Total Required Time'
+        totalTimeValue = self.cfg[totalTimeSheetName].getTotalTime(self, totalTimeName)
+        if totalTimeValue is None:
+            totalTimeName = 'Total On-src Time'
+            totalTimeValue = self.cfg[totalTimeSheetName].getTotalTime(self, totalTimeName)
 
-        if not found:
-            # Compute the sum of the on-source time of all the
-            # observing blocks and compare the result to the allocated
-            # time on the "proposal" sheet. This is for semesters
-            # prior to S21A. It is not an error if the "Total On-src
-            # Time" string isn't found in the file. Once we are fully
-            # into the S21A semester and don't have to read in S20B
-            # and earlier files, this method call can be deleted.
-            self.cfg['ob'].totalTimeCheck(self, 'Total On-src Time')
+        # If we didn't find the information we were looking for on the
+        # "ob" sheet, check to see if there is a "summary" sheet and
+        # use that to get the requested time value.
+        if not totalTimeValue:
+            totalTimeSheetName = 'summary'
+            if totalTimeSheetName in self.stringio:
+                totalTimeName = 'Total Accounting Time'
+                totalTimeValue = float(self.cfg[totalTimeSheetName].summary_info[totalTimeName])
+
+        # Compare the total required time  to the
+        # allocated time on the "proposal" sheet.
+        if totalTimeValue:
+            self.checkTotalTime(totalTimeSheetName, totalTimeName, totalTimeValue)
 
         # We have checked the "ob" sheet, so process it now.
         self.cfg['ob'].process_input()
@@ -2128,6 +2218,74 @@ class ProgramFile(QueueFile):
                 self.error_count += 1
 
         return self.error_count - begin_error_count
+
+    def checkTotalTime(self, sheetName, iname, totalTime):
+
+        ph1_allocated_time = float(self.cfg['proposal'].proposal_info['allocated_time'])
+
+        # Round totalTime and ph1_allocated_time to nearest 0.1 second
+        # to avoid roundoff errors when comparing the two values.
+        totalTime = round(totalTime, 1)
+        ph1_allocated_time = round(ph1_allocated_time, 1)
+
+        # Compare totalTime to ph1_allocated_time and report
+        # warning if totalTime is greater than ph1_allocated_time
+        if totalTime < ph1_allocated_time:
+            msg = 'Warning while checking sheet {}: {} of {} seconds is less than the Phase 1 allocated value of {} seconds'.format(sheetName, iname, totalTime, ph1_allocated_time)
+            self.logger.warning(msg)
+            self.warnings[self.name].append([None, [iname], msg])
+            self.warn_count += 1
+        elif totalTime == ph1_allocated_time:
+            self.logger.debug('Sheet {}: {} of {} seconds is equal to the Phase 1 allocated value of {} seconds and is ok'.format(sheetName, iname, totalTime, ph1_allocated_time))
+        else:
+            msg = 'Warning while checking sheet {}: {} of {} seconds is greater than the Phase 1 allocated value of {} seconds'.format(sheetName, iname, totalTime, ph1_allocated_time)
+            self.logger.warning(msg)
+            self.warnings[self.name].append([None, [iname], msg])
+            self.warn_count += 1
+
+class SummaryFile(QueueFile):
+    def __init__(self, input_dir, logger, file_ext=None):
+        self.name = 'summary'
+        self.summary_info = {}
+        self.column_map = {
+            'quantity': 'quantity',
+            'time_(seconds)': 'time_(seconds)',
+            }
+        self.columnInfo = {
+            'quantity':       {'iname': 'Quantity',       'type': str, 'constraint': None, 'prefilled': True, 'required': True},
+            'time_(seconds)': {'iname': 'Time (seconds)', 'type': str, 'constraint': None, 'prefilled': True, 'required': True},
+            }
+        super(SummaryFile, self).__init__(input_dir, 'summary', logger, file_ext)
+
+    def parse_input(self):
+        """
+        Read the summary information from a CSV file.
+        """
+        self.queue_file.seek(0)
+        reader = csv.reader(self.queue_file, **self.fmtparams)
+        # skip header
+        next(reader)
+
+        lineNum = 1
+        for row in reader:
+            try:
+                lineNum += 1
+
+                # skip comments and 'default' line
+                if row[0].lower() in ('comment', 'default'):
+                    continue
+                # skip blank lines
+                if len(row[0].strip()) == 0:
+                    continue
+
+                rec = self.parse_row(row, self.columnNames,
+                                     self.column_map)
+                self.summary_info[rec['quantity']] = rec['time_(seconds)']
+            except Exception as e:
+                raise ValueError("Error reading line %d of summary from file %s: %s" % (
+                    lineNum, self.filepath, str(e)))
+
+        self.logger.info(f'summary_info is {self.summary_info}')
 
 class PFS_ProgramsFile(QueueFile):
     def __init__(self, input_dir, logger, file_ext=None):
