@@ -693,7 +693,7 @@ class Scheduler(Callback.Callbacks):
                                      obcount=0, sched_time=0.0,
                                      total_time=total_time)
             # get time already spent working on this program
-            self.get_sched_time(key, props[key])
+            self.get_sched_time(key, props[key], slot.start_time)
 
         #print(props)
         for idx, res in enumerate(list(good)):
