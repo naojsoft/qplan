@@ -169,13 +169,14 @@ class AirMassPlot(plots.Plot):
         if canvas is not None:
             canvas.draw()
 
-    def plot_altitude(self, site, tgt_data, tz, plot_moon_distance=False,
+    def plot_altitude(self, site, tgt_data, tz, current_time=None,
+                      plot_moon_distance=False,
                       show_target_legend=False):
-        self._plot_altitude(self.fig, site, tgt_data, tz,
+        self._plot_altitude(self.fig, site, tgt_data, tz, current_time=current_time,
                             plot_moon_distance=plot_moon_distance,
                             show_target_legend=show_target_legend)
 
-    def _plot_altitude(self, figure, site, tgt_data, tz,
+    def _plot_altitude(self, figure, site, tgt_data, tz, current_time=None,
                        plot_moon_distance=False,
                        show_target_legend=False):
         """
@@ -184,7 +185,11 @@ class AirMassPlot(plots.Plot):
         """
         # set major ticks to hours
         majorTick = mpl_dt.HourLocator(tz=tz)
-        majorFmt = mpl_dt.DateFormatter('%Hh', tz=tz)
+        # Set the major format of the x-axis to display the time in
+        # hours followed by an "h", e.g., "19h". ConciseDateFormatter
+        # also puts the date at the left end of the x-axis.
+        f = ['%Y', '%b', '%d', '%Hh', '%H:%M', '%S.%f']
+        majorFmt = mpl_dt.ConciseDateFormatter(majorTick, tz=tz, formats=f)
         # set minor ticks to 15 min intervals
         minorTick = mpl_dt.MinuteLocator(list(range(0, 59, 15)), tz=tz)
 
@@ -200,8 +205,12 @@ class AirMassPlot(plots.Plot):
         lt_data = [t.ut.astimezone(tz) for t in tgt_data[0].history]
 
         # we don't know what date "site" is currently initialized to,
-        # so get the date of the first target
-        localdate = lt_data[0]
+        # so get the date of the first target. Also get the end date
+        # so that we can include it in the plot title.
+        localdate_start = lt_data[0]
+        localdate_end = lt_data[-1]
+        localdate_start_str = localdate_start.strftime('%Y-%b-%d %Hh')
+        localdate_end_str = localdate_end.strftime('%Y-%b-%d %Hh')
 
         min_interval = 12  # hour/5min
         mt = lt_data[0:-1:min_interval]
@@ -256,11 +265,11 @@ class AirMassPlot(plots.Plot):
         ax1.grid(True, color='#999999')
 
         # label axes
-        title = 'Visibility for the night of {}'.format(localdate.strftime("%Y-%m-%d"))
+        title = f'Visibility from {localdate_start_str} to {localdate_end_str} {tz.tzname(localdate_start)}'
         ax1.set_title(title)
         # label x-axis with a readable timezone name
-        ax1.set_xlabel(tz.tzname(localdate))
-        ax1.set_ylabel('Altitude')
+        ax1.set_xlabel(tz.tzname(localdate_start))
+        ax1.set_ylabel('Altitude (deg)')
 
         # Plot moon trajectory and illumination
         moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
@@ -299,17 +308,25 @@ class AirMassPlot(plots.Plot):
         min_alt, max_alt = 30.0, 75.0
         self._plot_limits(ax1, min_alt, max_alt)
 
-        self._plot_twilight(ax1, site, localdate, tz,
+        # Add yesterday's and today's twilight to the plot.
+        self._plot_twilight(ax1, site, localdate_start-timedelta(1), tz,
+                            show_legend=show_target_legend)
+        self._plot_twilight(ax1, site, localdate_start, tz,
                             show_legend=show_target_legend)
 
-        # plot current hour
-        lo = datetime.now(tz)
+        # plot current hour. If current_time wasn't supplied, use
+        # computer time and specified time zone. Otherwise use
+        # specified current_time in specified time zone.
+        if current_time is None:
+            lo = datetime.now(tz)
+        else:
+            lo = current_time.astimezone(tz)
         hi = lo + timedelta(0, 3600.0)
         if lt_data[0] < lo < lt_data[-1]:
             self._plot_current_time(ax1, lo, hi)
 
         # drawing the line of middle of the night
-        self._middle_night(ax1, site, localdate)
+        self._middle_night(ax1, site, localdate_start)
 
         # plot moon's position at midnight
         #self._moon_position(ax1, site)
