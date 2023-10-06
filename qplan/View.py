@@ -39,6 +39,8 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         self.plugin_lst = []
         self._plugin_sort_method = self.get_plugin_menuname
 
+        self.add_callback('shutdown', self.shutdown_cb)
+
     def build_toplevel(self, layout, layout_file=None):
         self.layout_file = layout_file
         self.font = self.get_font('fixedFont', 12)
@@ -56,10 +58,10 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
         for win in self.ds.toplevels:
             # add delete/destroy callbacks
-            win.add_callback('close', self.quit)
+            win.add_callback('close', self.close_cb)
             win.set_title("Queue Planner")
             root = win
-        self.ds.add_callback('all-closed', self.quit)
+        #self.ds.add_callback('all-closed', self.quit)
 
         self.w.root = root
 
@@ -83,7 +85,7 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         filemenu.add_separator()
 
         item = filemenu.add_name("Quit")
-        item.add_callback('activated', lambda w: self.quit())
+        item.add_callback('activated', self.close_cb)
 
         # create a Plugins pulldown menu, and add it to the menu bar
         pluginmenu = menubar.add_name("Plugins")
@@ -93,12 +95,34 @@ class Viewer(GwMain.GwMain, Widgets.Application):
         self.w.status = Widgets.StatusBar()
         holder.add_widget(self.w.status, stretch=1)
 
-    def window_close(self, *args):
+    def close_cb(self, app):
+        # confirm close with a dialog here
+        q_quit = Widgets.Dialog(title="Confirm Quit", modal=False,
+                                parent=self.w.root,
+                                buttons=[("Cancel", False), ("Confirm", True)])
+        # necessary so it doesn't get garbage collected right away
+        self.w.quit_dialog = q_quit
+        vbox = q_quit.get_content_area()
+        vbox.set_margins(4, 4, 4, 4)
+        vbox.add_widget(Widgets.Label("Do you really want to quit?"))
+        q_quit.add_callback('activated', self._confirm_quit_cb)
+        q_quit.add_callback('close', lambda w: self._confirm_quit_cb(w, False))
+        q_quit.show()
+
+    def _confirm_quit_cb(self, w, tf):
+        self.w.quit_dialog.delete()
+        self.w.quit_dialog = None
+        if not tf:
+            return
+
+        self.quit()
+
+    def shutdown_cb(self, app):
         """Quit the application.
         """
         self.quit()
 
-    def quit(self, *args):
+    def quit(self):
         """Quit the application.
         """
         self.logger.info("Attempting to shut down the application...")

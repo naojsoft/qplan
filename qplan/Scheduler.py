@@ -418,6 +418,7 @@ class Scheduler(Callback.Callbacks):
         self.completed = []
         self.uncompleted = []
         self.unschedulable = []
+        self.props = {}
         self.make_callback('schedule-cleared')
 
         # -- Define fillable slots --
@@ -479,14 +480,15 @@ class Scheduler(Callback.Callbacks):
         oblist = list(schedulable)
 
         # build a lookup table of programs -> OBs
-        props = {}
+        props = self.props
         total_program_time = 0.0
         for propname in self.programs:
             total_time = self.programs[propname].total_time
 
-            props[propname] = Bunch.Bunch(pgm=self.programs[propname], obs=[],
-                                     obcount=0, sched_time=0.0,
-                                     total_time=total_time)
+            props[propname] = Bunch.Bunch(pgm=self.programs[propname],
+                                          obs=[], unschedulable=[],
+                                          obcount=0, sched_time=0.0,
+                                          total_time=total_time)
             # get time already spent working on this program
             self.get_sched_time(propname, props[propname], night_start)
 
@@ -559,8 +561,9 @@ class Scheduler(Callback.Callbacks):
                         targets[key] = ob.target
                         if self.remove_scheduled_obs:
                             unscheduled_obs.remove(ob)
-                        ob_key = (str(ob.program), ob.name)
-                        props[str(ob.program)].obs.remove(ob_key)
+                        pgmname = str(ob.program)
+                        ob_key = (pgmname, ob.name)
+                        props[pgmname].obs.remove(ob_key)
 
             waste = res.time_waste_sec / 60.0
             total_waste += waste
@@ -586,13 +589,17 @@ class Scheduler(Callback.Callbacks):
             ##                                             ob2.program.proposal))
 
             for ob in unschedulable:
-                out_f.write("%s (%s)\n" % (ob.name, ob.program.proposal))
+                pgmname = str(ob.program)
+                props[pgmname].unschedulable.append(ob)
+                out_f.write("%s (%s)\n" % (ob.name, pgmname))
             out_f.write("\n")
 
+        self.unschedulable = unschedulable
         completed, uncompleted = [], []
-        for key in self.programs:
-            bnch = props[key]
-            if bnch.sched_time >= bnch.total_time:
+        for pgmname in self.programs:
+            bnch = props[pgmname]
+            if (bnch.sched_time >= bnch.total_time or
+                len(bnch.obs + bnch.unschedulable) == 0):
                 completed.append(bnch)
             else:
                 uncompleted.append(bnch)
@@ -606,30 +613,37 @@ class Scheduler(Callback.Callbacks):
         self.make_callback('schedule-completed',
                            self.completed, self.uncompleted, self.schedules)
 
-        out_f.write("Completed programs\n")
-        for bnch in self.completed:
-            ex_time_hrs = bnch.sched_time / 3600.0
-            tot_time_hrs = bnch.total_time / 3600.0
-            out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs\n" % (
-                str(bnch.pgm), bnch.pgm.rank,
-                bnch.obcount-len(bnch.obs), bnch.obcount,
-                ex_time_hrs, tot_time_hrs))
+        if len(self.completed) == 0:
+            out_f.write("No completed programs\n")
+        else:
+            out_f.write("Completed programs\n")
+            for bnch in self.completed:
+                ex_time_hrs = bnch.sched_time / 3600.0
+                tot_time_hrs = bnch.total_time / 3600.0
+                out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs\n" % (
+                    str(bnch.pgm), bnch.pgm.rank,
+                    bnch.obcount-len(bnch.obs + bnch.unschedulable), bnch.obcount,
+                    ex_time_hrs, tot_time_hrs))
 
         out_f.write("\n")
 
-        out_f.write("Uncompleted programs\n")
-        for bnch in self.uncompleted:
-            ex_time_hrs = bnch.sched_time / 3600.0
-            tot_time_hrs = bnch.total_time / 3600.0
-            pct = ex_time_hrs / tot_time_hrs * 100.0
-            uncompleted_s = str(list(map(lambda ob_key: ob_key[1],
-                                         props[str(bnch.pgm)].obs)))
+        if len(self.uncompleted) == 0:
+            out_f.write("No uncompleted programs\n")
+        else:
+            out_f.write("Uncompleted programs\n")
+            for bnch in self.uncompleted:
+                ex_time_hrs = bnch.sched_time / 3600.0
+                tot_time_hrs = bnch.total_time / 3600.0
+                pct = ex_time_hrs / tot_time_hrs * 100.0
+                uncompleted_s = str(list(map(lambda ob_key: ob_key[1],
+                                             props[str(bnch.pgm)].obs)))
 
-            out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs  %5.2f%%  %s\n" % (
-                str(bnch.pgm), bnch.pgm.rank,
-                bnch.obcount-len(bnch.obs), bnch.obcount,
-                ex_time_hrs, tot_time_hrs, pct,
-                uncompleted_s))
+                out_f.write("%-12.12s   %5.2f  %d/%d  %.2f/%.2f hrs  %5.2f%%  %s\n" % (
+                    str(bnch.pgm), bnch.pgm.rank,
+                    bnch.obcount-len(bnch.obs), bnch.obcount,
+                    ex_time_hrs, tot_time_hrs, pct,
+                    uncompleted_s))
+
         out_f.write("\n")
         out_f.write("Total time: avail=%8.2f sched=%8.2f unsched=%8.2f min\n" % (total_avail, (total_avail - total_waste), total_waste))
         self.summary_report = out_f.getvalue()
