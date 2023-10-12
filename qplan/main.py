@@ -258,6 +258,7 @@ class QueuePlanner(object):
 
         # Raise window
         w = qplanner.w.root
+        w.set_title(f"QPlan v{__version__}")
         w.show()
 
         server_started = False
