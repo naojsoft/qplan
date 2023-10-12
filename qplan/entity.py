@@ -824,6 +824,12 @@ class TelescopeConfiguration(object):
         code = rec.get('code', '').strip()
         self.focus = rec['focus'].upper()
         self.dome = rec['dome'].lower()
+        self.min_el_deg = rec.get('min_el_deg', 30.0)
+        self.max_el_deg = rec.get('max_el_deg', 85.0)
+        self.min_az_deg = rec.get('min_az_deg', -269.0)
+        self.max_az_deg = rec.get('max_az_deg', 269.0)
+        self.min_rot_deg = rec.get('min_rot_deg', -269.0)
+        self.max_rot_deg = rec.get('max_rot_deg', 269.0)
         self.comment = rec['comment'].strip()
         return code
 
@@ -832,9 +838,17 @@ class TelescopeConfiguration(object):
             return False
         if self.dome != other.dome:
             return False
-        if not np.isclose(self.min_el, other.min_el):
+        if not np.isclose(self.min_el_deg, other.min_el_deg):
             return False
-        if not np.isclose(self.max_el, other.max_el):
+        if not np.isclose(self.max_el_deg, other.max_el_deg):
+            return False
+        if not np.isclose(self.min_az_deg, other.min_az_deg):
+            return False
+        if not np.isclose(self.max_az_deg, other.max_az_deg):
+            return False
+        if not np.isclose(self.min_rot_deg, other.min_rot_deg):
+            return False
+        if not np.isclose(self.max_rot_deg, other.max_rot_deg):
             return False
         if self.comment != other.comment:
             return False
