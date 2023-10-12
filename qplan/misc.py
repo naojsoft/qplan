@@ -51,7 +51,7 @@ def make_slots(start_time, night_length_mn, min_slot_length_sc):
 
 
 def calc_slew_time_delta(delta_az_deg, delta_el_deg, delta_rot_deg,
-                         rate_az=0.5, rate_el=0.5, rate_rot=0.5):
+                         rate_az=0.5, rate_el=0.5, rate_rot=1.5):
     """Calculate slew time given a delta in azimuth, elevation and
     rotator rotation.
 
