@@ -10,8 +10,6 @@ from dateutil import tz
 import dateutil.parser
 
 import erfa
-
-# right now we just have pyephem...
 import ephem
 
 # Constants
@@ -589,6 +587,10 @@ class CalculationResult(object):
                                                float(self.site.lat),
                                                self.az)
         return self._pang
+
+    @property
+    def pang_deg(self):
+        return np.degrees(self.pang)
 
     @property
     def airmass(self):

@@ -103,11 +103,19 @@ class Builder(PlBase.Plugin):
         self.w.el.set_tooltip("Current elevation of telescope")
 
         i += 1
+        self.w.rot = Widgets.TextEntry()
+        self.w.rot.set_length(8)
+        gr.add_widget(Widgets.Label('Rot'), 0, i)
+        gr.add_widget(self.w.rot, 1, i)
+        self.w.rot.set_text('0.0')
+        self.w.rot.set_tooltip("Current value of rotator")
+
+        i += 1
         self.w.filter = Widgets.TextEntry()
         self.w.filter.set_length(5)
         gr.add_widget(Widgets.Label('Filter'), 0, i)
         gr.add_widget(self.w.filter, 1, i)
-        self.w.filter.set_text('g')
+        self.w.filter.set_text('none')
         self.w.filter.set_tooltip("Currently installed filter for instrument")
 
         i += 1
@@ -256,6 +264,7 @@ class Builder(PlBase.Plugin):
         data.cur_filter = self.w.filter.get_text().strip()
         data.cur_az = float(self.w.az.get_text().strip())
         data.cur_el = float(self.w.el.get_text().strip())
+        data.cur_rot = float(self.w.rot.get_text().strip())
         data.seeing = float(self.w.seeing.get_text().strip())
         data.transparency = float(self.w.trans.get_text().strip())
 
@@ -366,6 +375,7 @@ class Builder(PlBase.Plugin):
         # update first row in schedule sheet. Also, update start time.
         try:
             result = {'FITS.HSC.FILTER': 0, 'TSCS.AZ': 0, 'TSCS.EL': 0,
+                      'TSCS.ROTPOS': 0,
                       'FITS.HSC.SEEING': 0, 'FITS.HSC.TRANSPARENCY': 0}
             self.stobj.fetch(result)
             #print(result)
@@ -373,7 +383,9 @@ class Builder(PlBase.Plugin):
             self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
             return
 
-        self.logger.info('From Gen2 current HSC filter %s Az %f El %f' % (result['FITS.HSC.FILTER'], result['TSCS.AZ'], result['TSCS.EL']))
+        self.logger.info('From Gen2 current HSC filter %s Az %f El %f Rot %f' % (
+            result['FITS.HSC.FILTER'], result['TSCS.AZ'], result['TSCS.EL'],
+            result['TSCS.ROTPOS']))
 
         cur_filter = result['FITS.HSC.FILTER']
         if cur_filter not in (STATNONE, STATERROR, '0'):
@@ -401,6 +413,11 @@ class Builder(PlBase.Plugin):
             cur_el = '%8.2f' % result['TSCS.EL']
             cur_el = cur_el.strip()
             self.w.el.set_text(cur_el)
+
+        if result['TSCS.ROTPOS'] not in (STATNONE, STATERROR):
+            cur_rot = '%8.2f' % result['TSCS.ROTPOS']
+            cur_rot = cur_rot.strip()
+            self.w.rot.set_text(cur_rot)
 
         # Compensate for Subaru's funky az reading
         az, el = (float(cur_az) - 180.0) % 360.0, float(cur_el)

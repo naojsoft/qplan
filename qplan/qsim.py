@@ -5,14 +5,12 @@
 #
 from datetime import timedelta
 import time
-import math
 
 # Gen2 imports
 from ginga.misc import Bunch
 
 # local imports
 from . import misc
-#import constraints
 from . import entity
 
 
@@ -24,9 +22,10 @@ minimum_slot_size = 60.0
 #minimum_slot_size = 10.0
 
 # telescope parked position
-#parked_az_deg = -90.0
-parked_az_deg = 270.0
+parked_az_deg = -90.0
+#parked_az_deg = 270.0
 parked_alt_deg = 90.0
+parked_rot_deg = 0.0
 
 # Subaru defines a dark night as one that is 2-3 days before or
 # after a new moon (0%).  Since a half moon (50%) occurs just 7 days
@@ -54,90 +53,6 @@ def obs_to_slots(logger, slots, site, obs, check_moon=False, check_env=False):
                     ob, ob_id, res.reason))
 
     return obmap
-
-def calc_slew_time(cur_alt_deg, cur_az_deg, to_alt_deg, to_az_deg):
-
-    delta_alt, delta_az = to_alt_deg - cur_alt_deg, to_az_deg - cur_az_deg
-
-    slew_sec = misc.calc_slew_time(delta_az, delta_alt)
-    return slew_sec
-
-def calc_alternate_angle(ang_deg):
-    """calculates the alternative usable angle to the given one."""
-    #ang_deg = math.fmod(ang_deg, 360.0)
-    if ang_deg > 0:
-        _ang_deg = ang_deg - 360.0
-    elif ang_deg < 0:
-        _ang_deg = ang_deg + 360.0
-    else:
-        _ang_deg = 0.0
-    return _ang_deg
-
-def calc_rotation_choices(time_start, time_stop, site, target, pa_deg):
-
-    c1 = target.calc(site, time_start)
-    c2 = target.calc(site, time_stop)
-
-    # rotator_angle = parallactic_angle + position_angle
-    # parallactic angle becomes discontinuous at zenith, but since we
-    # have a restriction on elevation this shouldn't matter
-
-    # calculate direction of movement
-    # NOTE! parallactic angle seems to be returned in radians
-    #delta = c2.pang - c1.pang
-    delta = math.degrees(c2.pang) - math.degrees(c1.pang)
-
-    #rot1_start = c1.pang + pa_deg
-    rot1_start = math.degrees(c1.pang) + pa_deg
-    # calculate the other possible angle for this target
-    rot2_start = calc_alternate_angle(rot1_start)
-
-    rot1_stop = rot1_start + delta
-    rot2_stop = rot2_start + delta
-
-    # return both rotation moves
-    return (rot1_start, rot1_stop, rot2_start, rot2_stop)
-
-def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
-                          cur_rot_deg, min_rot, max_rot):
-    # TODO: check for an fmod(ang, 360) if necessary ?
-
-    rot1_ok = ((min_rot <= rot1_start <= max_rot) and
-               (min_rot <= rot1_stop <= max_rot))
-    rot2_ok = ((min_rot <= rot2_start <= max_rot) and
-               (min_rot <= rot2_stop <= max_rot))
-
-    if rot1_ok:
-        if not rot2_ok:
-            return rot1_start, rot1_stop
-
-        # figure out which rotation would be the shorter distance
-        # from the current location
-        delta1 = math.fabs(cur_rot_deg - rot1_start)
-        delta2 = math.fabs(cur_rot_deg - rot2_start)
-        if delta1 < delta2:
-            return rot1_start, rot1_stop
-        return rot2_start, rot2_stop
-
-    elif rot2_ok:
-        return rot2_start, rot2_stop
-    else:
-        return None, None
-
-def calc_rotation(time_start, time_stop, site, target, pa_deg,
-                  cur_rot_deg, min_rot, max_rot):
-
-    rot1_start, rot1_stop, rot2_start, rot2_stop = \
-        calc_rotation_choices(time_start, time_stop, site, target, pa_deg)
-
-    rot_start, rot_stop = \
-        calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
-                              cur_rot_deg, min_rot, max_rot)
-
-    if rot_start is None:
-        return None, None
-    delta = math.fabs(cur_rot_deg - rot_start)
-    return rot_start, delta
 
 def check_schedule_invariant_one(site, schedule, ob):
 
@@ -193,13 +108,14 @@ def check_night_visibility_one(site, schedule, ob):
         res.setvals(obs_ok=True, reason="Dome is closed and this matches OB")
         return res
 
-    min_el, max_el = ob.telcfg.get_el_minmax()
+    min_el_deg, max_el_deg = ob.telcfg.get_el_minmax()
 
     # is this target visible during this night, and when?
     (obs_ok, t_start, t_stop) = site.observable(ob.target,
                                                 schedule.start_time,
                                                 schedule.stop_time,
-                                                min_el, max_el, ob.total_time,
+                                                min_el_deg, max_el_deg,
+                                                ob.total_time,
                                                 airmass=ob.envcfg.airmass,
                                                 moon_sep=ob.envcfg.moon_sep)
 
@@ -207,29 +123,6 @@ def check_night_visibility_one(site, schedule, ob):
         res.setvals(obs_ok=False,
                     reason="Time or visibility of target")
         return res
-
-    tgt_cal = getattr(ob, 'calib_tgtcfg', None)
-    if tgt_cal is not None:
-        obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
-        obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
-        if obj2 != obj1:
-            # is calibration target visible during this night, and when?
-            (obs_ok2, t_start2, t_stop2) = site.observable(tgt_cal,
-                                                           schedule.start_time,
-                                                           schedule.stop_time,
-                                                           min_el, max_el,
-                                                           ob.total_time,
-                                                           airmass=ob.envcfg.airmass,
-                                                           moon_sep=ob.envcfg.moon_sep)
-
-            if not obs_ok2:
-                res.setvals(obs_ok=False,
-                            reason="Time or visibility of calibration target")
-                return res
-
-            t_start = max(t_start, t_start2)
-            # assume we will take the calibration first
-            #t_stop = min(t_stop, t_stop2)
 
     res.setvals(obs_ok=obs_ok, start_time=t_start, stop_time=t_stop)
     return res
@@ -246,15 +139,12 @@ def check_night_visibility(site, schedule, oblist):
 
     return good, bad, results
 
-def check_moon_cond(site, start_time, stop_time, ob, res):
+def check_moon_cond(cr_start, cr_stop, ob, res):
     """Check whether the moon is at acceptable darkness for this OB
     and an acceptable distance from the target.
     """
-    c1 = ob.target.calc(site, start_time)
-    c2 = ob.target.calc(site, stop_time)
-
     # is this a dark night? check moon illumination
-    is_dark_night = c1.moon_pct <= dark_night_moon_pct_limit
+    is_dark_night = cr_start.moon_pct <= dark_night_moon_pct_limit
 
     desired_moon_sep = ob.envcfg.moon_sep
 
@@ -262,18 +152,18 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
     # and consider this a dark night
     moon_is_down = False
     horizon_deg = 0.0   # change as necessary
-    if (c1.moon_alt < horizon_deg) and (c2.moon_alt < horizon_deg):
+    if (cr_start.moon_alt < horizon_deg) and (cr_stop.moon_alt < horizon_deg):
         #print("moon is down, dark night conditions")
         moon_is_down = True
 
     # if observer specified a moon phase, check it now
     if ob.envcfg.moon == 'dark':
         ## print("moon pct=%f moon alt=%f moon_sep=%f" % (
-        ##       c1.moon_pct, c1.moon_alt, c1.moon_sep))
+        ##       cr_start.moon_pct, cr_start.moon_alt, cr_start.moon_sep))
         if not (is_dark_night or moon_is_down):
             res.setvals(obs_ok=False,
                         reason="Moon illumination=%f not acceptable (alt 1=%.2f 2=%.2f" % (
-                c1.moon_pct, c1.moon_alt, c2.moon_alt))
+                cr_start.moon_pct, cr_start.moon_alt, cr_stop.moon_alt))
             return False
 
     # NOTE: change in HSC queue policy regarding override (2021/02...EJ)
@@ -289,18 +179,18 @@ def check_moon_cond(site, start_time, stop_time, ob, res):
     # TODO: do we need to check this at the end of the exposure as well?
     # If so, then we may need to do it in observable() method
     if desired_moon_sep is not None:
-        if ((c1.moon_sep < desired_moon_sep) or
-            (c2.moon_sep < desired_moon_sep)):
+        if ((cr_start.moon_sep < desired_moon_sep) or
+            (cr_stop.moon_sep < desired_moon_sep)):
             res.setvals(obs_ok=False,
                         reason="Moon-target separation (%f,%f < %f) not acceptable" % (
-                c1.moon_sep, c2.moon_sep, desired_moon_sep))
+                cr_start.moon_sep, cr_stop.moon_sep, desired_moon_sep))
             return False
 
     # moon looks good!
     return True
 
 
-def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
+def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
                limit_filter=None, allow_delay=True):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
@@ -326,6 +216,7 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
                     reason="Slot start time is after OB upper time limit")
         return res
 
+    # NOTE: these are now checked pre-scheduling for unschedulable OBs
     ## # check if instrument will be installed
     ## if not (ob.inscfg.insname in slot.data.instruments):
     ##     res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
@@ -354,24 +245,20 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
         return res
 
     filterchange = False
-    cur_filter = None
     filterchange_sec = 0.0
 
-    # get immediately previous ob and filter
-    if (prev_slot is None) or (prev_slot.ob is None):
-        prev_ob = None
+    # get current filter
+    if schedule is None:
         cur_filter = getattr(slot.data, 'cur_filter', None)
 
     else:
-        prev_ob = prev_slot.ob
-        cur_filter = getattr(prev_ob.inscfg, 'filter', None)
+        cur_filter = schedule.data.get('cur_filter', None)
 
     # calculate cost of filter exchange
     if hasattr(ob.inscfg, 'filter') and cur_filter != ob.inscfg.filter:
         # filter exchange necessary
         filterchange = True
         filterchange_sec = ob.inscfg.calc_filter_change_time()
-    #print("filter change time for new ob is %f sec" % (filterchange_sec))
 
     # for adding up total preparation time for new OB
     prep_sec = filterchange_sec + ob.setup_time()
@@ -382,23 +269,22 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
             ob.telcfg.dome, slot.data.dome))
         return res
 
-    start_time = slot.start_time + timedelta(0, prep_sec)
+    start_time = slot.start_time + timedelta(seconds=prep_sec)
 
     if slot.data.dome == 'closed':
         # <-- dome closed
 
-        stop_time = start_time + timedelta(0, ob.total_time)
+        stop_time = start_time + timedelta(seconds=ob.total_time)
 
         # Check whether OB will fit in this slot
         if slot.stop_time < stop_time:
             res.setvals(obs_ok=False, reason="Not enough time in slot")
             return res
 
-        res.setvals(obs_ok=True, prev_ob=prev_ob,
-                    prep_sec=prep_sec, slew_sec=0.0, slew2_sec=0.0,
+        res.setvals(obs_ok=True,
+                    prep_sec=prep_sec, slew_sec=0.0,
                     filterchange=filterchange,
                     filterchange_sec=filterchange_sec,
-                    calibration_sec=0.0,
                     start_time=start_time, stop_time=stop_time,
                     delay_sec=0.0)
         return res
@@ -421,77 +307,24 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
                     slot.data.transparency, ob.envcfg.transparency))
                 return res
 
-    # Calculate cost of slew to this target
-    # Assume that we want to do the calibration target first
-    target = getattr(ob, 'calib_tgtcfg', None)
-    if target is None:
-        # No calibration target specified--go with OB main target
-        target = ob.target
-
-    if prev_ob is None:
-        # no previous target--calculate cost from ...
-        if slot.data.cur_az is not None:
-            # ... current telescope position
-            cur_alt_deg, cur_az_deg = slot.data.cur_el, slot.data.cur_az
-        else:
-            # ... parked position
-            cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
-
+    # get telescope position as left at the end of the previous slot
+    if slot.data.cur_az is not None:
+        # ... current telescope position
+        cur_alt_deg, cur_az_deg = slot.data.cur_el, slot.data.cur_az
+        cur_rot_deg = slot.data.cur_rot
+    elif schedule.data.cur_az is not None:
+        # ... current telescope position
+        cur_alt_deg, cur_az_deg = schedule.data.cur_el, schedule.data.cur_az
+        cur_rot_deg = schedule.data.cur_rot
     else:
-        # assume telescope is at previous target
-        c0 = prev_ob.target.calc(site, start_time)
-        cur_alt_deg, cur_az_deg = c0.alt_deg, c0.az_deg
+        # ... parked position
+        cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
+        cur_rot_deg = parked_rot_deg
 
-    c1 = target.calc(site, start_time)
-
-    slew_sec = calc_slew_time(cur_alt_deg, cur_az_deg, c1.alt_deg, c1.az_deg)
-    #print("first slew time for new ob is %f sec" % (slew_sec))
-
-    prep_sec += slew_sec
-    # adjust on-target start time
-    start_time += timedelta(0, slew_sec)
-
-    min_el, max_el = ob.telcfg.get_el_minmax()
-
-    # Is there a calibration target?  If so, then calculate in
-    # calibration exposure and slew to main OB target
-    calibration_sec = 0.0
-    slew2_sec = 0.0
-    tgt_cal = getattr(ob, 'calib_tgtcfg', None)
-    if tgt_cal is not None:
-        # TODO: take overheads into account?
-        c_i = ob.calib_inscfg
-        calibration_sec = c_i.exp_time * c_i.num_exp
-
-        prep_sec += calibration_sec
-        # adjust on-target start time
-        start_time += timedelta(0, calibration_sec)
-
-        # is calibration target the same as science target?
-        obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
-        obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
-        if obj2 != obj1:
-            # no!
-            # find the time that calibration target begins to be visible
-            (obs_ok, t_start, t_stop) = site.observable(tgt_cal,
-                                                        start_time, slot.stop_time,
-                                                        min_el, max_el, calibration_sec,
-                                                        airmass=ob.envcfg.airmass,
-                                                        moon_sep=ob.envcfg.moon_sep)
-            if not obs_ok:
-                res.setvals(obs_ok=False,
-                    reason="Time or visibility of separate calibration target")
-                return res
-
-            # add slew time from calibration target to main target
-            c2 = ob.target.calc(site, t_stop)  # was start_time
-            slew2_sec = calc_slew_time(c1.alt_deg, c1.az_deg,
-                                       c2.alt_deg, c2.az_deg)
-            #print("slew time from calib tgt to ob target is %f sec" % (slew2_sec))
-
-            prep_sec += slew2_sec
-            # adjust on-target start time
-            start_time += timedelta(0, slew2_sec)
+    # get limits for telescope movements from telescope configuration
+    min_el_deg, max_el_deg = ob.telcfg.get_el_minmax()
+    min_az_deg, max_az_deg = ob.telcfg.get_az_minmax()
+    min_rot_deg, max_rot_deg = ob.telcfg.get_rot_minmax()
 
     # Check whether OB will fit in this slot
     ## delta = (slot.stop_time - start_time).total_seconds()
@@ -502,7 +335,8 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
     # TODO: figure out the best place to split the slot
     (obs_ok, t_start, t_stop) = site.observable(ob.target,
                                                 start_time, slot.stop_time,
-                                                min_el, max_el, ob.total_time,
+                                                min_el_deg, max_el_deg,
+                                                ob.total_time,
                                                 airmass=ob.envcfg.airmass,
                                                 moon_sep=ob.envcfg.moon_sep)
 
@@ -525,8 +359,48 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
             delay_sec))
         return res
 
-    stop_time = (t_start + timedelta(0, ob.total_time) +
-                 timedelta(0, ob.teardown_time()))
+    # Calculate cost of slew to this target
+    start_time = t_start
+    c1 = site.calc(ob.target, start_time)
+    stop_time = start_time + timedelta(seconds=ob.total_time)
+    c2 = site.calc(ob.target, stop_time)
+    pa_deg = ob.inscfg.pa
+
+    tm = misc.calc_rotation_choices(c1, c2, pa_deg)
+
+    # calculate optimal azimuth position
+    az_start, az_stop = misc.calc_optimal_rotation(tm.az1_start_deg,
+                                                   tm.az1_stop_deg,
+                                                   tm.az2_start_deg,
+                                                   tm.az2_stop_deg,
+                                                   cur_az_deg,
+                                                   min_az_deg, max_az_deg)
+    if az_start is None or az_stop is None:
+        res.setvals(obs_ok=False, reason="Azimuth would go past limit")
+        return res
+
+    # calculate optimal rotator position
+    rot_start, rot_stop = misc.calc_optimal_rotation(tm.rot1_start_deg,
+                                                     tm.rot1_stop_deg,
+                                                     tm.rot2_start_deg,
+                                                     tm.rot2_stop_deg,
+                                                     cur_rot_deg,
+                                                     min_rot_deg, max_rot_deg)
+    if rot_start is None or rot_stop is None:
+        res.setvals(obs_ok=False, reason="Rotator would go past limit")
+        return res
+
+    # calculate slewing time to new target
+    slew_sec = misc.calc_slew_time(cur_alt_deg, cur_az_deg, cur_rot_deg,
+                                   c1.alt_deg, az_start, rot_start)
+
+    prep_sec += slew_sec
+    # adjust on-target start time
+    start_time += timedelta(seconds=slew_sec)
+
+    # TODO: I think this should only be on-source time
+    stop_time = (t_start + timedelta(seconds=ob.total_time) +
+                 timedelta(seconds=ob.teardown_time()))
 
     if ob.envcfg.upper_time_limit is not None:
         t_stop = min(ob.envcfg.upper_time_limit, t_stop)
@@ -538,22 +412,20 @@ def check_slot(site, prev_slot, slot, ob, check_moon=True, check_env=True,
                     reason="Not enough time in slot after all prep/delay")
         return res
 
-    # rot_deg = parallactic_angle + position_angle
-    #rot_pos11 =
-
     # check moon constraints between start and stop time
     if check_moon:
-        obs_ok = check_moon_cond(site, t_start, stop_time, ob, res)
+        obs_ok = check_moon_cond(c1, c2, ob, res)
     else:
         obs_ok = True
 
-    res.setvals(obs_ok=obs_ok, prev_ob=prev_ob,
+    res.setvals(obs_ok=obs_ok,
                 prep_sec=prep_sec, slew_sec=slew_sec,
-                slew2_sec=slew2_sec,
                 filterchange=filterchange,
                 filterchange_sec=filterchange_sec,
-                calibration_sec=calibration_sec,
                 start_time=t_start, stop_time=stop_time,
+                az_start=az_start, az_stop=az_stop,
+                alt_start=c1.alt_deg, alt_stop=c2.alt_deg,
+                rot_start=rot_start, rot_stop=rot_stop,
                 delay_sec=delay_sec)
     return res
 

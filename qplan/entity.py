@@ -789,7 +789,10 @@ class HSCTarget(StaticTarget):
 
 class TelescopeConfiguration(object):
 
-    def __init__(self, focus=None, dome=None, comment=''):
+    def __init__(self, focus=None, dome=None, comment='',
+                 min_el_deg=15.0, max_el_deg=85.0,
+                 min_az_deg=-269.0, max_az_deg=+269.0,
+                 min_rot_deg=-269.0, max_rot_deg=+269.0):
         super().__init__()
         self.focus = focus
         if dome is None:
@@ -797,25 +800,25 @@ class TelescopeConfiguration(object):
         else:
             dome = dome.lower()
         self.dome = dome
-        self.min_el = 15.0
-        self.max_el = 89.0
-        self.min_az = -269.0
-        self.max_az = +269.0
+        self.min_el_deg = min_el_deg
+        self.max_el_deg = max_el_deg
+        self.min_az_deg = min_az_deg
+        self.max_az_deg = max_az_deg
         # this depends on foci and instrument
         # PFS: -174, +174
-        # HSC: -270, +270
-        self.min_rot = -270.0
-        self.max_rot = +270.0
+        # HSC: -269, +269
+        self.min_rot_deg = min_rot_deg
+        self.max_rot_deg = max_rot_deg
         self.comment = comment
 
     def get_el_minmax(self):
-        return (self.min_el, self.max_el)
+        return (self.min_el_deg, self.max_el_deg)
 
     def get_az_minmax(self):
-        return (self.min_az, self.max_az)
+        return (self.min_az_deg, self.max_az_deg)
 
     def get_rot_minmax(self):
-        return (self.min_rot, self.max_rot)
+        return (self.min_rot_deg, self.max_rot_deg)
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()

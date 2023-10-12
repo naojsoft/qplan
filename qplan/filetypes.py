@@ -507,6 +507,7 @@ class ScheduleFile(QueueFile):
             'cur_filter': 'cur_filter',
             'cur_az': 'cur_az',
             'cur_el': 'cur_el',
+            'cur_rot': 'cur_rot',
             'skip': 'skip',
             'note': 'note',
             }
@@ -573,6 +574,11 @@ class ScheduleFile(QueueFile):
             cur_el = rec.get('cur_el', None)
             if cur_el is not None:
                 cur_el = float(cur_el)
+            cur_rot = rec.get('cur_rot', None)
+            if cur_rot is not None:
+                cur_rot = float(cur_rot)
+            else:
+                cur_rot = 0.0
 
             skip = False
             if rec.has_key('skip'):
@@ -581,8 +587,8 @@ class ScheduleFile(QueueFile):
             # data record of current conditions
             # All OBs for this schedule slot should end up pointing to this
             # static record
-            data = Bunch.Bunch(filters=filters,
-                               cur_filter=cur_filter, cur_az=cur_az, cur_el=cur_el,
+            data = Bunch.Bunch(filters=filters, cur_filter=cur_filter,
+                               cur_az=cur_az, cur_el=cur_el, cur_rot=cur_rot,
                                seeing=seeing, transparency=transparency,
                                dome=dome, categories=categories,
                                instruments=instruments)
@@ -2545,7 +2551,9 @@ class PPCFile(QueueFile):
                 tgtcfg.import_record(rec)
                 # fixed telescope configuration for PPC scheduling
                 telcfg = entity.TelescopeConfiguration(focus='p-opt2',
-                                                       dome='open')
+                                                       dome='open',
+                                                       min_rot_deg=-174.0,
+                                                       max_rot_deg=+174.0)
                 inscfg = entity.PPCConfiguration(exp_time=exp_time,
                                                  resolution=rec.resolution.lower(),
                                                  pa=float(rec.pa_deg))

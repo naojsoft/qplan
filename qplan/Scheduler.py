@@ -61,7 +61,6 @@ class Scheduler(Callback.Callbacks):
         # define weights (see cmp_res() method)
         self.weights = Bunch.Bunch(w_rank=0.3, w_delay=0.2,
                                    w_slew=0.2, w_priority=0.1,
-                                   w_rotator=0.2,
                                    w_filterchange=0.3, w_qcp=0.0)
 
         # For callbacks
@@ -153,12 +152,6 @@ class Scheduler(Callback.Callbacks):
         r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
         t2 += wts.w_slew * r2_slew
 
-        # rotation time factor
-        r1_rot = min(res1.rot_sec, self.max_rot) / self.max_rot
-        t1 += wts.w_rotator * r1_rot
-        r2_rot = min(res2.rot_sec, self.max_rot) / self.max_rot
-        t2 += wts.w_rotator * r2_rot
-
         # delay time factor
         r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay
         t1 += wts.w_delay * r1_delay
@@ -196,10 +189,10 @@ class Scheduler(Callback.Callbacks):
         ##     self._ob_code(res1.ob), t1, self._ob_code(res2.ob), t2))
         return res
 
-    def eval_slot(self, prev_slot, slot, site, oblist):
+    def eval_slot(self, schedule, slot, site, oblist):
 
         # evaluate each OB against this slot
-        results = map(lambda ob: qsim.check_slot(site, prev_slot, slot, ob,
+        results = map(lambda ob: qsim.check_slot(site, schedule, slot, ob,
                                                  limit_filter=self.sch_params.limit_filter,
                                                  allow_delay=self.sch_params.allow_delay),
                            oblist)
@@ -281,13 +274,10 @@ class Scheduler(Callback.Callbacks):
             # assign filters and other configuration details to new slot
             slot.data = schedule.data
 
-            # get the previous slot to this one
-            prev_slot = schedule.get_previous(slot)
-
             # evaluate this slot against the available OBs
             # with knowledge of the previous slot
             self.logger.debug("considering slot %s" % (slot))
-            good, bad = self.eval_slot(prev_slot, slot, site, oblist)
+            good, bad = self.eval_slot(schedule, slot, site, oblist)
 
             # remove OBs that can't work in the slot and explain why
             for res in bad:
@@ -367,43 +357,13 @@ class Scheduler(Callback.Callbacks):
             d_slot.set_ob(new_ob)
             schedule.insert_slot(d_slot)
 
-        # is there a calibration target?
-        if getattr(ob, 'calib_tgtcfg', None) is not None:
-            # TODO: add overhead?
-            time_add_sec = res.calibration_sec + res.slew_sec
-            _xx, c_slot, slot = slot.split(slot.start_time,
-                                           time_add_sec)
-            new_ob = ob.calibration_ob(time_add_sec)
-            c_slot.set_ob(new_ob)
-            schedule.insert_slot(c_slot)
-
-            slew_sec = res.slew2_sec
-
-            # if calibration target is not the same as the science target
-            # then insert a 30 sec additional calibration on the science tgt
-            tgt_cal = ob.calib_tgtcfg
-            obj1 = (ob.target.ra, ob.target.dec, ob.target.equinox)
-            obj2 = (tgt_cal.ra, tgt_cal.dec, tgt_cal.equinox)
-            if obj2 != obj1:
-                time_add_sec = 30.0 + slew_sec
-                _xx, c_slot, slot = slot.split(slot.start_time,
-                                               time_add_sec)
-                new_ob = ob.calibration30_ob(time_add_sec)
-                c_slot.set_ob(new_ob)
-                schedule.insert_slot(c_slot)
-
-                # we're already at the target
-                slew_sec = 0.0
-        else:
-            slew_sec = res.slew_sec
-
         # if a long slew is required, insert a separate OB for that
+        slew_sec = res.slew_sec
         self.logger.debug("slew time for selected object is %.1f sec" % (
-            res.slew_sec))
-        if res.slew_sec > self.sch_params.slew_breakout_limit:
-            _xx, s_slot, slot = slot.split(slot.start_time,
-                                           res.slew_sec)
-            new_ob = ob.longslew_ob(res.prev_ob, res.slew_sec)
+            slew_sec))
+        if slew_sec > self.sch_params.slew_breakout_limit:
+            _xx, s_slot, slot = slot.split(slot.start_time, slew_sec)
+            new_ob = ob.longslew_ob(res.prev_ob, slew_sec)
             s_slot.set_ob(new_ob)
             schedule.insert_slot(s_slot)
 
@@ -419,6 +379,11 @@ class Scheduler(Callback.Callbacks):
         _xx, q_slot, slot = slot.split(slot.start_time, new_ob.total_time)
         q_slot.set_ob(new_ob)
         schedule.insert_slot(q_slot)
+
+        # remember "current values" in schedule for evaluating next slot
+        cur_filter = getattr(ob.inscfg, 'filter', None)
+        schedule.data.setvals(cur_az=res.az_stop, cur_el=res.alt_stop,
+                              cur_rot=res.rot_stop, cur_filter=cur_filter)
 
     def schedule_all(self):
 
@@ -564,7 +529,6 @@ class Scheduler(Callback.Callbacks):
                 if ob != None:
                     if not ob.derived:
                         # not an OB generated to serve another OB
-                        # TODO: what about calib_tgtcfg ?
                         key = (ob.target.ra, ob.target.dec)
                         targets[key] = ob.target
                         if self.remove_scheduled_obs:
