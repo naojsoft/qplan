@@ -88,7 +88,7 @@ class Observer(object):
             site.horizon = self.horizon
         site.epoch = 2000.0
         if date is None:
-            date = datetime.utcnow().replace(tzinfo=self.tz_utc)
+            date = datetime.now(tz=self.tz_utc)
         site.date = ephem.Date(self.date_to_utc(date))
         return site
 

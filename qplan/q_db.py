@@ -3,6 +3,7 @@
 #
 
 from datetime import datetime
+from dateutil import tz
 
 # third-party imports
 import yaml
@@ -131,7 +132,7 @@ class QueueTable(object):
 
         doc = pyobj.to_rec()
         # record time of last update for this entity
-        doc['_save_tstamp'] = datetime.utcnow()
+        doc['_save_tstamp'] = datetime.now(tz=tz.UTC)
         self.tbl.update_one(pyobj.key, {'$set': doc}, upsert=True)
 
 
