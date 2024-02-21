@@ -71,16 +71,16 @@ class ControlPanel(PlBase.Plugin):
 
         self.spec_weights = Bunch(name='weightstab', module='WeightsTab',
                                   klass='WeightsTab', ptype='global',
-                                  hidden=True,
-                                  ws='report', tab='Weights', start=True)
+                                  hidden=True, enabled=True,
+                                  workspace='report', tab='Weights', start=True)
         self.spec_schedule = Bunch(name='scheduletab', module='ScheduleTab',
                                    klass='ScheduleTab', ptype='global',
-                                   hidden=True,
-                                   ws='report', tab='Schedule', start=True)
+                                   hidden=True, enabled=True,
+                                   workspace='report', tab='Schedule', start=True)
         self.spec_programs = Bunch(name='programstab', module='ProgramsTab',
                                    klass='ProgramsTab', ptype='global',
-                                   hidden=True,
-                                   ws='report', tab='Programs', start=True)
+                                   hidden=True, enabled=True,
+                                   workspace='report', tab='Programs', start=True)
 
 
     def connect_qdb(self):

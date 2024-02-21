@@ -79,8 +79,9 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
             self.view.reload_plugin(proposal)
         else:
             spec = Bunch(module='ProposalTab', klass='ProposalTab',
-                         ws='report', tab=proposal, name=proposal,
-                         start=False, ptype='global', hidden=True)
+                         workspace='report', tab=proposal, name=proposal,
+                         start=False, ptype='global', hidden=True,
+                         enabled=True)
             self.view.load_plugin(proposal, spec)
 
         self.view.start_plugin(proposal)

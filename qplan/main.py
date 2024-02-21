@@ -56,33 +56,47 @@ default_layout = ['seq', {},
 
 plugins = [
     Bunch(name='slewchart', module='SlewChart', klass='SlewChart',
-          ptype='global', tab='Slew Chart', ws='sub2', start=True),
+          ptype='global', tab='Slew Chart', workspace='sub2', start=True,
+          enabled=True),
     Bunch(name='report', module='Report', klass='Report',
-          ptype='global', tab='Report', ws='sub1', start=True),
+          ptype='global', tab='Report', workspace='sub1', start=True,
+          enabled=True),
     Bunch(name='ppcreport', module='PPCReport', klass='PPCReport',
-          ptype='global', tab='PPC Report', ws='sub1', start=True),
+          ptype='global', tab='PPC Report', workspace='sub1', start=True,
+          enabled=True),
     Bunch(name='airmasschart', module='AirMassChart', klass='AirMassChart',
-          ptype='global', tab='Airmass Chart', ws='sub1', start=True),
+          ptype='global', tab='Airmass Chart', workspace='sub1', start=True,
+          enabled=True),
     Bunch(name='schedule', module='Schedule', klass='Schedule',
-          ptype='global', tab='Schedule', ws='left', start=True),
+          ptype='global', tab='Schedule', workspace='left', start=True,
+          enabled=True),
     Bunch(name='builder', module='Builder', klass='Builder',
-          ptype='global', tab='Builder', ws='report', start=True),
+          ptype='global', tab='Builder', workspace='report', start=True,
+          enabled=True),
     Bunch(name='logger', module='Logger', klass='Logger',
-          ptype='global', tab='Log', ws='report', start=True),
+          ptype='global', tab='Log', workspace='report', start=True,
+          enabled=True),
     Bunch(name='cp', module='ControlPanel', klass='ControlPanel',
-          ptype='global', tab='Control Panel', ws='right', start=True),
+          ptype='global', tab='Control Panel', workspace='right', start=True,
+          enabled=True),
     Bunch(name='night_activity', module='SumChart', klass='NightSumChart',
-          ptype='global', tab='Night Activity Chart', ws='sub1', start=True),
+          ptype='global', tab='Night Activity Chart', workspace='sub1',
+          start=True, enabled=True),
     Bunch(name='night_sched', module='SumChart', klass='SchedSumChart',
-          ptype='global', tab='Schedules Chart', ws='sub1', start=True),
+          ptype='global', tab='Schedules Chart', workspace='sub1', start=True,
+          enabled=True),
     Bunch(name='proposals', module='SumChart', klass='ProposalSumChart',
-          ptype='global', tab='Proposals Chart', ws='sub1', start=True),
+          ptype='global', tab='Proposals Chart', workspace='sub1', start=True,
+          enabled=True),
     Bunch(name='semester', module='SumChart', klass='SemesterSumChart',
-          ptype='global', tab='Semester Chart', ws='sub1', start=True),
+          ptype='global', tab='Semester Chart', workspace='sub1', start=True,
+          enabled=True),
     Bunch(name='errors', module='Errors', klass='Errors',
-          ptype='global', tab='Errors', ws='right', start=True),
+          ptype='global', tab='Errors', workspace='right', start=True,
+          enabled=True),
     Bunch(name='command', module='Command', klass='Command',
-          ptype='global', tab='Command', ws='right', start=False),
+          ptype='global', tab='Command', workspace='right', start=False,
+          enabled=True),
     ]
 
 
@@ -227,7 +241,7 @@ class QueuePlanner(object):
 
         layout_file = None
         if not options.norestore and settings.get('save_layout', False):
-            layout_file = os.path.join(basedir, 'layout')
+            layout_file = os.path.join(basedir, 'layout.json')
 
         # Build desired layout
         qplanner.build_toplevel(default_layout, layout_file=layout_file)
