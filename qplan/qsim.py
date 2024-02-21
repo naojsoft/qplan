@@ -395,11 +395,11 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
                                    c1.alt_deg, az_start, rot_start)
 
     prep_sec += slew_sec
-    # adjust on-target start time
+    # adjust on-target start time to account for slewing/rotator
     start_time += timedelta(seconds=slew_sec)
 
-    # TODO: I think this should only be on-source time
-    stop_time = (t_start + timedelta(seconds=ob.total_time) +
+    # calculate necessary stop time for exposures plus overheads
+    stop_time = (start_time + timedelta(seconds=ob.total_time) +
                  timedelta(seconds=ob.teardown_time()))
 
     if ob.envcfg.upper_time_limit is not None:
@@ -422,7 +422,7 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
                 prep_sec=prep_sec, slew_sec=slew_sec,
                 filterchange=filterchange,
                 filterchange_sec=filterchange_sec,
-                start_time=t_start, stop_time=stop_time,
+                start_time=start_time, stop_time=stop_time,
                 az_start=az_start, az_stop=az_stop,
                 alt_start=c1.alt_deg, alt_stop=c2.alt_deg,
                 rot_start=rot_start, rot_stop=rot_stop,

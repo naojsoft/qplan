@@ -23,7 +23,7 @@ from .util import qsort, dates
 max_rank = 10.0
 
 # time (sec) beyond which we breakout a slew into it's own OB
-slew_breakout_limit = 60.0 * 60.0
+slew_breakout_limit = 3.0 * 60.0
 
 
 class Scheduler(Callback.Callbacks):
@@ -357,20 +357,23 @@ class Scheduler(Callback.Callbacks):
             d_slot.set_ob(new_ob)
             schedule.insert_slot(d_slot)
 
-        # if a long slew is required, insert a separate OB for that
         slew_sec = res.slew_sec
+        remaining_time = slew_sec + ob.total_time
+
+        # if a long slew is required, insert a separate OB for that
         self.logger.debug("slew time for selected object is %.1f sec" % (
             slew_sec))
         if slew_sec > self.sch_params.slew_breakout_limit:
             _xx, s_slot, slot = slot.split(slot.start_time, slew_sec)
-            new_ob = ob.longslew_ob(res.prev_ob, slew_sec)
+            new_ob = ob.longslew_ob(slew_sec)
             s_slot.set_ob(new_ob)
             schedule.insert_slot(s_slot)
+            remaining_time = ob.total_time
 
         # this is the actual science target ob
         self.logger.debug("assigning %s(%.2fm) to %s" % (
             self._ob_code(ob), dur, slot))
-        _xx, a_slot, slot = slot.split(slot.start_time, ob.total_time)
+        _xx, a_slot, slot = slot.split(slot.start_time, remaining_time)
         a_slot.set_ob(ob)
         schedule.insert_slot(a_slot)
 

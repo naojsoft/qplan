@@ -456,16 +456,10 @@ class OB(PersistentEntity):
 
         return True
 
-    def longslew_ob(self, prev_ob, total_time):
-        if prev_ob is None:
-            klass = self.inscfg.__class__
-            inscfg = klass()
-        else:
-            #inscfg = prev_ob.inscfg
-            inscfg = self.inscfg
+    def longslew_ob(self, total_time):
         new_ob = OB(program=self.program, target=self.target,
                     telcfg=self.telcfg,
-                    inscfg=inscfg, envcfg=self.envcfg,
+                    inscfg=self.inscfg, envcfg=self.envcfg,
                     total_time=total_time, derived=True,
                     comment="Long slew for {}".format(self))
         return new_ob
@@ -647,6 +641,15 @@ class HSC_OB(OB):
                         total_time=total_time, derived=True,
                         #extra_params=self.extra_params,
                         comment="30 sec calibration for {}".format(self))
+        return new_ob
+
+    def longslew_ob(self, total_time):
+        new_ob = HSC_OB(program=self.program, target=self.target,
+                        telcfg=self.telcfg, inscfg=self.inscfg,
+                        envcfg=self.envcfg,
+                        total_time=total_time, derived=True,
+                        extra_params=self.extra_params,
+                        comment="Long slew for {}".format(self))
         return new_ob
 
 
