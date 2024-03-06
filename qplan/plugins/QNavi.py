@@ -68,6 +68,7 @@ class QNavi(PlBase.Plugin):
         self.timer_interval = 30.0
         self.timer = self.view.make_timer()
         self.timer.add_callback('expired', self._timer_cb)
+        self.gui_up = False
 
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -160,6 +161,7 @@ class QNavi(PlBase.Plugin):
 
         vbox.add_widget(hbox, stretch=1)
         container.add_widget(vbox, stretch=1)
+        self.gui_up = True
 
     def start(self):
         builder = self.view.get_plugin('builder')
@@ -400,6 +402,8 @@ class QNavi(PlBase.Plugin):
 
     def _plan_loaded_cb(self, model, plan_name):
         self.cur_plan = plan_name
+        if not self.gui_up:
+            return
         self.w.cur_plan.set_text(plan_name)
         self.tree1.clear()
 

@@ -71,7 +71,7 @@ plugins = [
           ptype='global', tab='Schedule', workspace='left', start=True,
           enabled=True),
     Bunch(name='qnavi', module='QNavi', klass='QNavi',
-          ptype='global', tab='QNavi', workspaces='report', start=True,
+          ptype='global', tab='QNavi', workspace='report', start=False,
           enabled=True),
     Bunch(name='builder', module='Builder', klass='Builder',
           ptype='global', tab='Builder', workspace='report', start=True,

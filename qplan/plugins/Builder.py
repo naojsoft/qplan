@@ -8,7 +8,7 @@ import os
 from collections import OrderedDict
 from datetime import timedelta, datetime
 
-# 3rd party imports
+# ginga imports
 from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
 
@@ -44,7 +44,9 @@ class Builder(PlBase.Plugin):
                                    gen2_status_pass=None)
         self.settings.load(onError='silent')
 
-        self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
+        # TEMP
+        t_ = prefs.get_settings('general')
+        self.use_qc_plans = t_.get('use_qc_plans', False)
 
     def build_gui(self, container):
         vbox = Widgets.VBox()
@@ -182,15 +184,18 @@ class Builder(PlBase.Plugin):
         btn.add_callback('activated', self.find_executable_obs_cb)
         vbx2.add_widget(btn, stretch=0)
 
-        btn = Widgets.Button("Load Plan")
-        btn.set_tooltip("Load a queue coordinator plan")
-        btn.add_callback('activated', self.load_plan_cb)
-        vbx2.add_widget(btn, stretch=0)
+        if self.use_qc_plans:
+            btn = Widgets.Button("Load Plan")
+            btn.set_tooltip("Load a queue coordinator plan")
+            btn.add_callback('activated', self.load_plan_cb)
+            vbx2.add_widget(btn, stretch=0)
 
-        fr = Widgets.Frame()
-        self.plan_lbl = Widgets.Label("(no plan)")
-        fr.set_widget(self.plan_lbl)
-        vbx2.add_widget(fr, stretch=0)
+            fr = Widgets.Frame()
+            self.plan_lbl = Widgets.Label("(no plan)")
+            fr.set_widget(self.plan_lbl)
+            vbx2.add_widget(fr, stretch=0)
+
+            self.model.add_callback('qc-plan-loaded', self._plan_loaded_cb)
 
         # add stretch spacer
         vbx2.add_widget(Widgets.Label(''), stretch=1)
@@ -339,6 +344,7 @@ class Builder(PlBase.Plugin):
             return
 
         info = dcts[0]['_rec']
+        #print(info)
 
         schedule = sdlr.slot_to_schedule(self.slot, info)
 
@@ -372,6 +378,7 @@ class Builder(PlBase.Plugin):
                       'TSCS.ROTPOS': 0,
                       'FITS.HSC.SEEING': 0, 'FITS.HSC.TRANSPARENCY': 0}
             self.stobj.fetch(result)
+            #print(result)
         except Exception as e:
             self.logger.error('Unexpected error in update_current_conditions_cb: %s' % str(e))
             return
