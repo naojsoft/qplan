@@ -1,8 +1,6 @@
 #
 # plots.py -- does matplotlib plots needed for queue tools
 #
-#  E. Jeschke
-#
 # Some code based on "Observer" module by Daniel Magee
 #   Copyright (c) 2008 UCO/Lick Observatory.
 #
@@ -70,7 +68,8 @@ class AirMassPlot(plots.Plot):
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = [info.ut.astimezone(tz) for info in tgt_data[0].history]
+        # convert to desired time zone for plot
+        lt_data = [t.astimezone(tz) for t in tgt_data[0].history['ut']]
 
         # we don't know what date "site" is currently initialized to,
         # so find out the date of the first target
@@ -82,7 +81,7 @@ class AirMassPlot(plots.Plot):
 
         # plot targets airmass vs. time
         for i, info in enumerate(tgt_data):
-            am_data = numpy.array([t.airmass for t in info.history])
+            am_data = info.history['airmass']
             am_min = numpy.argmin(am_data)
             am_data_dots = am_data
             color = self.colors[i % len(self.colors)]
@@ -100,7 +99,7 @@ class AirMassPlot(plots.Plot):
 
             if plot_moon_distance:
                 am_interval = am_data[0:-1:min_interval]
-                moon_sep = numpy.array([tgt.moon_sep for tgt in info.history])
+                moon_sep = info.history['moon_sep']
                 moon_sep = moon_sep[0:-1:min_interval]
 
                 # plot moon separations
@@ -118,7 +117,8 @@ class AirMassPlot(plots.Plot):
 
         # legend target list
         if show_target_legend:
-            self.fig.legend(legend, targets, 'upper right', fontsize=9, framealpha=0.5,
+            self.fig.legend(legend, targets, loc='upper right',
+                            fontsize=9, framealpha=0.5,
                             frameon=True, ncol=1, bbox_to_anchor=[0.3, 0.865, .7, 0.1])
 
         ax1.set_ylim(2.02, 0.98)
@@ -146,8 +146,8 @@ class AirMassPlot(plots.Plot):
 
         # Plot moon altitude and degree scale
         ax2 = ax1.twinx()
-        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
-        #moon_illum = site.moon_phase()
+        moon_data = tgt_data[0].history['moon_alt']
+        #moon_illum = site.moon_illumination()
         ax2.plot_date(lt_data, moon_data, '#666666', linewidth=2.0,
                       alpha=0.5, aa=True, tz=tz)
         ax2.set_ylabel('Moon Altitude (deg)', color='#666666')
@@ -202,10 +202,10 @@ class AirMassPlot(plots.Plot):
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = [t.ut.astimezone(tz) for t in tgt_data[0].history]
+        # convert to desired time zone for plot
+        lt_data = [t.astimezone(tz) for t in tgt_data[0].history['ut']]
 
-        # we don't know what date "site" is currently initialized to,
-        # so get the date of the first target. Also get the end date
+        # get the date of the first target. Also get the end date
         # so that we can include it in the plot title.
         localdate_start = lt_data[0]
         localdate_end = lt_data[-1]
@@ -218,7 +218,7 @@ class AirMassPlot(plots.Plot):
 
         # plot targets elevation vs. time
         for i, info in enumerate(tgt_data):
-            alt_data = numpy.array([t.alt_deg for t in info.history])
+            alt_data = info.history['alt_deg']
             alt_min = numpy.argmin(alt_data)
             alt_data_dots = alt_data
             color = self.colors[i % len(self.colors)]
@@ -230,12 +230,13 @@ class AirMassPlot(plots.Plot):
             #ax1.fill(xs, ys, facecolor=self.colors[i], alpha=0.2)
             legend.extend(lg)
 
-            targets.append("{0} {1} {2}".format(info.target.name, info.target.ra,
+            targets.append("{0} {1} {2}".format(info.target.name,
+                                                info.target.ra,
                                                 info.target.dec))
 
             if plot_moon_distance:
                 alt_interval = alt_data[0:-1:min_interval]
-                moon_sep = numpy.array([tgt.moon_sep for tgt in info.history])
+                moon_sep = info.history['moon_sep']
                 moon_sep = moon_sep[0:-1:min_interval]
 
                 # plot moon separations
@@ -253,7 +254,8 @@ class AirMassPlot(plots.Plot):
 
         # legend target list
         if show_target_legend:
-            self.fig.legend(legend, targets, 'upper right', fontsize=9, framealpha=0.5,
+            self.fig.legend(legend, targets,
+                            loc='upper right', fontsize=9, framealpha=0.5,
                             frameon=True, ncol=1, bbox_to_anchor=[0.3, 0.865, .7, 0.1])
 
         ax1.set_ylim(0.0, 90.0)
@@ -272,9 +274,9 @@ class AirMassPlot(plots.Plot):
         ax1.set_ylabel('Altitude (deg)')
 
         # Plot moon trajectory and illumination
-        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
+        moon_data = tgt_data[0].history['moon_alt']
         illum_time = lt_data[moon_data.argmax()]
-        moon_illum = site.moon_phase(date=illum_time)
+        moon_illum = site.moon_illumination(date=illum_time)
         moon_color = '#666666'
         moon_name = "Moon (%.2f %%)" % (moon_illum*100)
         ax1.plot_date(lt_data, moon_data, moon_color, linewidth=2.0,
@@ -370,8 +372,9 @@ class AirMassPlot(plots.Plot):
             nautical_twi = "Nautical Twi {}".format(et12.strftime("%H:%M:%S"))
             astro_twi = "Astronomical Twi {}".format(et18.strftime("%H:%M:%S"))
 
-            self.fig.legend((ss, ct, nt, at), (sunset, civil_twi, nautical_twi, astro_twi),
-                            'upper left', fontsize=7, framealpha=0.5,
+            self.fig.legend((ss, ct, nt, at),
+                            (sunset, civil_twi, nautical_twi, astro_twi),
+                            loc='lower left', fontsize=7, framealpha=0.5,
                             bbox_to_anchor=[0.045, -0.02, .7, 0.113])
 
         # plot morning twilight 6/12/18 degrees
@@ -398,8 +401,9 @@ class AirMassPlot(plots.Plot):
             nautical_twi = "Nautical Twi {}".format(mt12.strftime("%H:%M:%S"))
             astro_twi = "Astronomical Twi {}".format(mt18.strftime("%H:%M:%S"))
 
-            self.fig.legend((sr, ct, nt, at), (sunrise, civil_twi, nautical_twi, astro_twi),
-                            fontsize=7, framealpha=0.5,
+            self.fig.legend((sr, ct, nt, at),
+                            (sunrise, civil_twi, nautical_twi, astro_twi),
+                            loc='lower right', fontsize=7, framealpha=0.5,
                             bbox_to_anchor=[-0.043, -0.02, .7, 0.113])
 
     def _plot_current_time(self, ax, lo, hi):
