@@ -378,11 +378,14 @@ class Observer(object):
         ##     moonset = None
         return moonset
 
-    def moon_phase(self, date=None):
+    def moon_illumination(self, date=None):
         """Returns moon percentage of illumination."""
         self._set_site_date(date)
         self.moon.compute(self.site)
         return self.moon.moon_phase
+
+    # TO BE DEPRECATED
+    moon_phase = moon_illumination
 
     def night_center(self, date=None):
         """Returns night center in observer's time."""
@@ -517,23 +520,19 @@ class CalculationResult(object):
         self.site = observer.site
         self.body = body
         self.date = observer.date_to_local(date)
-        self.date_utc = observer.date_to_utc(self.date)
+        date_utc = observer.date_to_utc(self.date)
 
         self.humidity = observer.humidity
         self.wavelength = observer.wavelength
 
         # Can/should this calculation be postponed?
-        self.site.date = ephem.Date(self.date_utc)
+        self.site.date = ephem.Date(date_utc)
         self.body.compute(self.site)
 
-        self.lt = self.date
-        self.ra = self.body.ra
-        self.dec = self.body.dec
         self.alt = float(self.body.alt)
         self.az = float(self.body.az)
-        # TODO: deprecate
-        self.alt_deg = math.degrees(self.alt)
-        self.az_deg = math.degrees(self.az)
+        self.ra = self.body.ra
+        self.dec = self.body.dec
         self.will_be_visible = not self.body.neverup
 
         # properties
@@ -550,6 +549,26 @@ class CalculationResult(object):
 
         # Conversion factor for wavelengths (Angstrom -> micrometer)
         self.angstrom_to_mm = 1. / 10000.
+
+    @property
+    def ra_deg(self):
+        return math.degrees(self.ra)
+
+    @property
+    def dec_deg(self):
+        return math.degrees(self.dec)
+
+    @property
+    def alt_deg(self):
+        return math.degrees(self.alt)
+
+    @property
+    def az_deg(self):
+        return math.degrees(self.az)
+
+    @property
+    def lt(self):
+        return self.date
 
     @property
     def ut(self):
@@ -677,7 +696,7 @@ class CalculationResult(object):
 
     def calc_moon(self, site, body):
         """Compute Moon altitude"""
-        site.date = ephem.Date(self.date_utc)
+        site.date = ephem.Date(self.ut)
         moon = ephem.Moon(site)
         #moon.compute(site)
         moon_alt = math.degrees(float(moon.alt))
