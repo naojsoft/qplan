@@ -152,7 +152,7 @@ class TestCalcpos_Almanac:
         moon_illum_calc = observer.moon_illumination()
         assert np.isclose(moon_illum_calc, expected, atol=1.0), \
             Exception("moon illumination differs: {} vs. {}".format(
-                moon_illum_calc, moon_illumination)
+                moon_illum_calc, expected)
             )
 
     @pytest.mark.parametrize(
