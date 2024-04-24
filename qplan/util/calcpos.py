@@ -164,9 +164,17 @@ class Observer(object):
         if timezone is None:
             timezone = self.tz_local
 
-        dt = dateutil.parser.parse(date_str)
-        date = dt.replace(tzinfo=timezone)
-        return date
+        if isinstance(date_str, datetime):
+            # user actually passed a datetime object
+            dt = date_str
+        else:
+            dt = dateutil.parser.parse(date_str)
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone)
+        else:
+            dt = dt.astimezone(timezone)
+        return dt
 
     def observable(self, target, time_start, time_stop,
                    el_min_deg, el_max_deg, time_needed,
@@ -271,8 +279,13 @@ class Observer(object):
             date = ephem.Date(date)
         self.site.date = date
 
-    def get_last(self):
+    def get_last(self, date=None):
         """Return the local apparent sidereal time."""
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+        self._set_site_date(date)
         last = self.site.sidereal_time()
         dt = dateutil.parser.parse(str(last))
         return time(hour=dt.hour, minute=dt.minute, second=dt.second,
@@ -537,8 +550,12 @@ class CalculationResult(object):
 
         # properties
         self._ut = None
+        self._jd = None
+        self._mjd = None
         self._gmst = None
+        self._gast = None
         self._lmst = None
+        self._last = None
         self._ha = None
         self._pang = None
         self._am = None
@@ -549,6 +566,10 @@ class CalculationResult(object):
 
         # Conversion factor for wavelengths (Angstrom -> micrometer)
         self.angstrom_to_mm = 1. / 10000.
+
+    @property
+    def name(self):
+        return self.body.name
 
     @property
     def ra_deg(self):
@@ -577,13 +598,34 @@ class CalculationResult(object):
         return self._ut
 
     @property
+    def jd(self):
+        """Return the Julian Date."""
+        if self._jd is None:
+            self._jd = ephem.julian_date(self.ut)
+        return self._jd
+
+    @property
+    def mjd(self):
+        """Return the Mean Julian Date."""
+        if self._mjd is None:
+            self._mjd = self.jd - 2400000.5
+        return self._mjd
+
+    @property
     def gmst(self):
         if self._gmst is None:
-            jd = self.julian_date(self.ut)
+            jd = self.jd
             T = (jd - 2451545.0)/36525.0
             gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
             self._gmst = ephem.degrees(gmstdeg*np.pi/180.0)
-        return self._gmst
+        return self._gmst.norm
+
+    @property
+    def gast(self):
+        if self._gast is None:
+            gast = ephem.degrees(self.last - self.site.long)
+            self._gast = gast.norm
+        return self._gast
 
     @property
     def lmst(self):
@@ -591,6 +633,13 @@ class CalculationResult(object):
             lmst = ephem.degrees(self.gmst + self.site.long)
             self._lmst = lmst.norm
         return self._lmst
+
+    @property
+    def last(self):
+        """Compute Local Apparent Sidereal Time"""
+        if self._last is None:
+            self._last = self.site.sidereal_time()
+        return self._last
 
     @property
     def ha(self):
@@ -601,10 +650,10 @@ class CalculationResult(object):
     @property
     def pang(self):
         if self._pang is None:
-            self._pang = self.calc_parallactic(float(self.dec),
-                                               float(self.ha),
-                                               float(self.site.lat),
-                                               self.az)
+            self._pang = self._calc_parallactic(float(self.dec),
+                                                float(self.ha),
+                                                float(self.site.lat),
+                                                self.az)
         return self._pang
 
     @property
@@ -614,66 +663,34 @@ class CalculationResult(object):
     @property
     def airmass(self):
         if self._am is None:
-            self._am = self.calc_airmass(self.alt)
+            self._am = self._calc_airmass(self.alt)
         return self._am
 
     @property
     def moon_alt(self):
         if self._moon_alt is None:
-            moon_alt, moon_pct, moon_sep = self.calc_moon(self.site, self.body)
-            self._moon_alt = moon_alt
-            self._moon_pct = moon_pct
-            self._moon_sep = moon_sep
+            self._calc_moon()
         return self._moon_alt
 
     @property
     def moon_pct(self):
         if self._moon_pct is None:
-            moon_alt, moon_pct, moon_sep = self.calc_moon(self.site, self.body)
-            self._moon_alt = moon_alt
-            self._moon_pct = moon_pct
-            self._moon_sep = moon_sep
+            self._calc_moon()
         return self._moon_pct
 
     @property
     def moon_sep(self):
         if self._moon_sep is None:
-            moon_alt, moon_pct, moon_sep = self.calc_moon(self.site, self.body)
-            self._moon_alt = moon_alt
-            self._moon_pct = moon_pct
-            self._moon_sep = moon_sep
+            self._calc_moon()
         return self._moon_sep
 
     @property
     def atmos_disp(self):
         if self._atmos_disp is None:
-            self._atmos_disp = self.calc_atmos_disp(self.site)
+            self._atmos_disp = self._calc_atmos_disp(self.site)
         return self._atmos_disp
 
-    def julian_date(self, val):
-        # val = radec.julianDate(val.timetuple())
-        val = ephem.julian_date(val)
-        return val
-
-    def calc_GMST(self, date):
-        """Compute Greenwich Mean Sidereal Time"""
-        jd = self.julian_date(date)
-        T = (jd - 2451545.0)/36525.0
-        gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
-        gmst = ephem.degrees(gmstdeg*np.pi/180.0)
-        return gmst
-
-    def calc_LMST(self, date, longitude):
-        """Compute Local Mean Sidereal Time"""
-        gmst = self.calc_GMST(date)
-        lmst = ephem.degrees(gmst + longitude)
-        return lmst.norm
-
-    def calc_HA(self, lmst, ra):
-        """Compute Hour Angle"""
-        return lmst - ra
-
-    def calc_parallactic(self, dec, ha, lat, az):
+    def _calc_parallactic(self, dec, ha, lat, az):
         """Compute parallactic angle"""
         if np.cos(dec) != 0.0:
             sinp = -1.0*np.sin(az)*np.cos(lat)/np.cos(dec)
@@ -686,7 +703,7 @@ class CalculationResult(object):
                 parang = 0.0
         return parang
 
-    def calc_airmass(self, alt):
+    def _calc_airmass(self, alt):
         """Compute airmass"""
         if alt < ephem.degrees('03:00:00'):
             alt = ephem.degrees('03:00:00')
@@ -694,18 +711,16 @@ class CalculationResult(object):
         xp = 1.0 + sz*(0.9981833 - sz*(0.002875 + 0.0008083*sz))
         return xp
 
-    def calc_moon(self, site, body):
-        """Compute Moon altitude"""
-        site.date = ephem.Date(self.ut)
-        moon = ephem.Moon(site)
+    def _calc_moon(self):
+        self.site.date = ephem.Date(self.ut)
+        moon = ephem.Moon(self.site)
         #moon.compute(site)
-        moon_alt = math.degrees(float(moon.alt))
+        self._moon_alt = math.degrees(float(moon.alt))
         # moon.phase is % of moon that is illuminated
-        moon_pct = moon.moon_phase
+        self._moon_pct = moon.moon_phase
         # calculate distance from target
-        moon_sep = ephem.separation(moon, body)
-        moon_sep = math.degrees(float(moon_sep))
-        return (moon_alt, moon_pct, moon_sep)
+        moon_sep = ephem.separation(moon, self.body)
+        self._moon_sep = math.degrees(float(moon_sep))
 
     def calc_separation_alt_az(self, body):
         """Compute deltas for azimuth and altitude from another target"""
@@ -722,7 +737,7 @@ class CalculationResult(object):
         refa, refb = erfa.refco(bar_press_mbar, temp_degc, rh_frac, wl_mm)
         return (refa, refb)
 
-    def calc_atmos_disp(self, site):
+    def _calc_atmos_disp(self, site):
         """Compute atmospheric dispersion (radians)"""
         bar_press_mbar = site.pressure
         temp_degc = site.temperature
@@ -750,6 +765,23 @@ class CalculationResult(object):
                 refa, refb = self._calc_atmos_refco(bar_press_mbar, temp_degc, rh_pct, wl_mm)
                 atmos_disp_rad  = (refa + refb * tzd * tzd) * tzd
             return atmos_disp_rad
+
+    def get_dict(self, columns=None):
+        if columns is None:
+            return dict(name=self.name, ra=self.ra, ra_deg=self.ra_deg,
+                        dec=self.dec, dec_deg=self.dec_deg, az=self.az,
+                        az_deg=self.az_deg, alt=self.alt, alt_deg=self.alt_deg,
+                        lt=self.lt, ut=self.ut, jd=self.jd, mjd=self.mjd,
+                        gast=self.gast, gmst=self.gmst, last=self.last,
+                        lmst=self.lmst, ha=self.ha, pang=self.pang,
+                        pang_deg=self.pang_deg, airmass=self.airmass,
+                        moon_alt=self.moon_alt, moon_pct=self.moon_pct,
+                        moon_sep=self.moon_sep,
+                        atmos_disp_observing=self.atmos_disp['observing'],
+                        atmos_disp_guiding=self.atmos_disp['guiding'])
+        else:
+            return {colname: getattr(self, colname) for colname in columns}
+
 
 Moon = SSBody('Moon', ephem.Moon())
 Sun = SSBody('Sun', ephem.Sun())
