@@ -2294,86 +2294,6 @@ class SummaryFile(QueueFile):
 
         self.logger.info(f'summary_info is {self.summary_info}')
 
-class PFS_ProgramsFile(QueueFile):
-    def __init__(self, input_dir, logger, file_ext=None):
-        # programs_info is the dictionary of Program objects that will
-        # be used by the observing block scheduling functions.
-        self.name = 'summary'
-        self.programs_info = {}
-        self.column_map = {
-            'proposal_id': 'proposal',
-            'reviewer_score': 'rank',
-            'grade': 'grade',
-            'onptg_hour': 'hours',
-            }
-        super(PFS_ProgramsFile, self).__init__(input_dir, 'summary', logger, file_ext)
-
-        self.find_filepath()
-        if self.file_ext == 'csv':
-            self.read_csv_file()
-        elif self.is_excel_file():
-            with open(self.filepath, 'rb') as excel_file:
-                self.file_obj = BytesIO(excel_file.read())
-            self.read_excel_file()
-        else:
-            raise UnknownFileFormatError('PFS Programs file format %s is unknown' % self.file_ext)
-
-        self.process_input()
-
-    def parse_input(self):
-        """
-        Parse the PFS programs summary from the input file.
-        """
-        self.queue_file.seek(0)
-        old_info = self.programs_info
-        self.programs_info = {}
-        reader = csv.reader(self.queue_file, **self.fmtparams)
-        # skip header
-        next(reader)
-
-        lineNum = 1
-        for row in reader:
-            try:
-                lineNum += 1
-                # skip comments
-                if row[0].lower() == 'comment':
-                    continue
-                # skip blank lines
-                if len(row[0].strip()) == 0:
-                    continue
-
-                rec = self.parse_row(row, self.columnNames,
-                                     self.column_map)
-
-                ### To aid in testing "qreport" Flask application,
-                ### set PI to "Masafumi YAGI"
-                pi = 'Masafumi YAGI'
-
-                ## For now, hard-code propid to 'o24016'
-                propid = 'o24016'
-
-                key = rec.proposal.upper()
-                pgm = entity.Program(key,
-                                     pi=pi,
-                                     rank=float(rec.rank),
-                                     propid=propid,
-                                     grade=rec.grade.upper(),
-                                     instruments=['PFS',],
-                                     hours=float(rec.hours))
-
-                # update existing old program record if it exists
-                # since OBs may be pointing to it
-                if key in old_info:
-                    new_pgm = pgm
-                    pgm = old_info[key]
-                    pgm.__dict__.update(new_pgm.__dict__)
-
-                self.programs_info[key] = pgm
-
-            except Exception as e:
-                raise ValueError("Error reading line %d of programs: %s" % (
-                    lineNum, str(e)))
-
 class PFS_ProgramFile(QueueFile):
     def __init__(self, input_dir, logger, propname, propdict, file_ext=None, file_obj=None):
         super(PFS_ProgramFile, self).__init__(input_dir, propname, logger, file_ext)
@@ -2385,9 +2305,9 @@ class PFS_ProgramFile(QueueFile):
             'ra': 'ra',
             'dec': 'dec',
             'epoch': 'eq',
-            'effective_exptime': 'exp_time',
+            'exptime': 'exp_time',
             'priority': 'priority',
-            'is_medium_resolution': 'is_medium_resolution',
+            'resolution': 'resolution',
             }
         self.tgt_cfgs = {}
         self.ins_cfgs = {}
@@ -2446,11 +2366,7 @@ class PFS_ProgramFile(QueueFile):
 
                 self.tgt_cfgs[code] = target
 
-                if rec.is_medium_resolution.lower() == 'true':
-                    resolution = 'medium'
-                else:
-                    resolution = 'low'
-                inscfg = entity.PFSConfiguration(exp_time=rec.exp_time, resolution=resolution)
+                inscfg = entity.PFSConfiguration(exp_time=rec.exp_time, resolution=rec.resolution)
                 self.ins_cfgs[code] = inscfg
 
                 telcfg = entity.TelescopeConfiguration(focus='PFS')

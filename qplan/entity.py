@@ -1278,6 +1278,10 @@ class PFS_Exposure(PersistentEntity):
         self.exp_id = ''
         self.ob_key = ob_key
 
+        # The effective exposure time will be populated from data in
+        # the "qaDB".
+        self.effective_exptime = None
+
         # environment data at the time of exposure
         # TODO: should this end up being a list of tuples of measurements
         # taken at different times during the exposure?

@@ -18,10 +18,7 @@ def main(options, args):
     elif options.inst_name == 'HSC':
         input_fmt = 'xlsx'
 
-    if options.inst_name == 'PFS':
-        programsFile = filetypes.PFS_ProgramsFile(options.input_dir, logger, file_ext=input_fmt)
-    elif options.inst_name == 'HSC':
-        programsFile = filetypes.ProgramsFile(options.input_dir, logger, file_ext=input_fmt)
+    programsFile = filetypes.ProgramsFile(options.input_dir, logger, file_ext=input_fmt)
     logger.info(f'programsFile.programs_info {programsFile.programs_info}')
 
     ob_qf_dict = {}
@@ -64,7 +61,7 @@ def main(options, args):
 
 if __name__ == "__main__":
 
-    argprs = argparse.ArgumentParser(description='Read PFS queue files and update queue database')
+    argprs = argparse.ArgumentParser(description='Read Phase 2 queue files and update queue database')
 
     argprs.add_argument("--inst", dest="inst_name", default="PFS", choices=['HSC', 'PFS'],
                         metavar="INSTRUMENT NAME",
