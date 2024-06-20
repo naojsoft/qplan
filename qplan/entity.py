@@ -147,6 +147,84 @@ class Intensive_Program(PersistentEntity):
             return False
         return True
 
+class ProgramStats(PersistentEntity):
+    """
+    ProgramStats
+    Contains calculation results and statistics of a program.
+    Gathering those calculation results and statistics can
+    be time-consuming so we compute and update them on a regular
+    basis to make it more efficient to display results to users.
+    """
+    def __init__(self, proposal, table_name='', semester='',
+                 category='', grade=None, partner=None, pi='', propid=None, intensive=False, obsdate=None,
+                 status='', total_hour=0, error=None,
+                 alloc_count=0, compl_count=0, bad_count=0, bad_hour=0):
+        super().__init__(table_name)
+
+        self.proposal = proposal
+        self.semester = semester
+        self.category = category
+        self.grade = grade
+        self.partner = partner
+        self.pi = pi
+        self.propid = propid
+        self.intensive = intensive
+        self.obsdate = obsdate
+        self.alloc_count = alloc_count
+        self.compl_count = compl_count
+        self.bad_count = bad_count
+        self.bad_hour = bad_hour
+
+    @property
+    def key(self):
+        return dict(proposal=self.proposal)
+
+    def __repr__(self):
+        return self.proposal
+
+    __str__ = __repr__
+
+class HSC_ProgramStats(ProgramStats):
+    def __init__(self, proposal, semester='',
+                 category='', grade=None, partner=None, pi='', propid=None, intensive=False, obsdate=None,
+                 status='', error=None,
+                 alloc_hour=0, alloc_count=0, compl_count=0, bad_count=0, bad_hour=0,
+                 moon_phase='', moon_sep_max=0.0, moon_sep_min=0.0,
+                 trans_max=0.0, trans_min=0.0):
+        super().__init__(proposal, 'hsc_program_stats', semester,
+                         category, grade, partner, pi, intensive, obsdate,
+                         status, error,
+                         alloc_count, compl_count, bad_count, bad_hour)
+
+        self.alloc_hour = alloc_hour
+        self.compl_hour = compl_hour
+        self.compl_rate = compl_rate
+        self.moon_phase = moon_phase
+        self.moon_sep_max = moon_sep_max
+        self.moon_sep_min = moon_sep_min
+        self.seeing_max = seeing_max
+        self.seeing_min = seeing_min
+        self.trans_max = trans_max
+        self.trans_min = trans_min
+
+class PFS_ProgramStats(ProgramStats):
+    def __init__(self, proposal, semester,
+                 category='', grade=None, partner=None, pi='', propid=None, intensive=False, obsdate=None,
+                 status='', error=None,
+                 alloc_count=0, compl_count=0, bad_count=0, bad_hour=0,
+                 inprogress_count=0, compl_rate_hours=0, compl_rate_obs=0,
+                 fiber_hour_alloc=0, fiber_hour_compl=0, total_hour=0):
+        super().__init__(proposal, 'pfs_program_stats', semester,
+                         category, grade, partner, pi, intensive, obsdate,
+                         status, error,
+                         alloc_count, compl_count, bad_count, bad_hour)
+
+        self.inprogress_count = inprogress_count
+        self.compl_rate_hours = compl_rate_hours
+        self.compl_rate_obs = compl_rate_obs
+        self.fiber_hour_alloc = fiber_hour_alloc
+        self.fiber_hour_compl = fiber_hour_compl
+        self.total_hour = total_hour
 
 class SlotError(Exception):
     pass
@@ -726,7 +804,6 @@ class PFS_OB(OB):
         self.kind = 'pfs_ob'
         self.name = id
 
-
 class BaseTarget(object):
     pass
 
@@ -1027,13 +1104,14 @@ class PPCConfiguration(InstrumentConfiguration):
 class PFSConfiguration(InstrumentConfiguration):
     """PFS Observing Block Instrument Configuration"""
 
-    def __init__(self, exp_time=15, resolution='low',
+    def __init__(self, exp_time=15, resolution='low', qa_reference_arm='r',
                  comment=''):
         super().__init__()
 
         self.insname = 'PFS'
         self.mode = 'SPEC'
         self.resolution = resolution
+        self.qa_reference_arm = qa_reference_arm
         self.exp_time = float(exp_time)
         self.num_exp = 1
         self.comment = comment
@@ -1054,6 +1132,7 @@ class PFSConfiguration(InstrumentConfiguration):
         code = rec.get('code', '').strip()
         self.insname = 'PFS'
         self.resolution = rec['resolution']
+        self.qa_reference_arm = rec['qa_reference_arm']
         self.exp_time = float(rec['exp_time'])
         self.comment = rec['comment'].strip()
         return code
@@ -1200,6 +1279,38 @@ class Executed_OB(PersistentEntity):
         if self.time_stop is not None:
             self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
 
+class PFS_Executed_OB_Stats(PersistentEntity):
+    """
+    PFS_Executed_OB_Stats
+    Contains calculation results and statistics of a PFS Executed_OB.
+    Gathering those calculation results and statistics can
+    be time-consuming so we compute and update them on a regular
+    basis to make it more efficient to display results to users.
+    """
+    def __init__(self, ob_key=None, completion_rate=0, cum_eff_exp_time_r=0, cum_eff_exp_time_b=0, cum_eff_exp_time_n=0, cum_eff_exp_time_m=0, cum_eff_exp_time=0, cum_exec_time=0, charged_time=0):
+        super().__init__('pfs_executed_ob_stats')
+
+        self.ob_key = ob_key
+        now = datetime.now(tz=tz.UTC)
+        self.completion_rate = completion_rate
+        self.cum_eff_exp_time_r = cum_eff_exp_time_r
+        self.cum_eff_exp_time_b = cum_eff_exp_time_b
+        self.cum_eff_exp_time_n = cum_eff_exp_time_n
+        self.cum_eff_exp_time_m = cum_eff_exp_time_m
+        self.cum_eff_exp_time = cum_eff_exp_time
+        self.cum_exec_time = cum_exec_time
+        self.charged_time = charged_time
+
+    @property
+    def key(self):
+        return dict(ob_key=self.ob_key)
+
+    def from_rec(self, dct):
+        super().from_rec(dct)
+
+        # comes in as a list from MongoDB, but we want a tuple
+        self.ob_key = tuple(self.ob_key)
+
 class HSC_Exposure(PersistentEntity):
     """
     Describes the result of executing one dither position or one exposure
@@ -1280,7 +1391,11 @@ class PFS_Exposure(PersistentEntity):
 
         # The effective exposure time will be populated from data in
         # the "qaDB".
-        self.effective_exptime = None
+        self.nominal_exptime = None
+        self.effective_exptime_r = None
+        self.effective_exptime_b = None
+        self.effective_exptime_n = None
+        self.effective_exptime_m = None
 
         # environment data at the time of exposure
         # TODO: should this end up being a list of tuples of measurements
@@ -1389,6 +1504,21 @@ def make_program(dct):
     pgm.from_rec(dct)
     return pgm
 
+def make_program_stats(dct):
+    pgm_stats = ProgramStats(dct['proposal'])
+    pgm_stats.from_rec(dct)
+    return pgm_stats
+
+def make_hsc_program_stats(dct):
+    pgm_stats = HSC_ProgramStats(dct['proposal'], 'hsc_program_stats')
+    pgm_stats.from_rec(dct)
+    return pgm_stats
+
+def make_pfs_program_stats(dct):
+    pgm_stats = PFS_ProgramStats(dct['proposal'], 'pfs_program_stats')
+    pgm_stats.from_rec(dct)
+    return pgm_stats
+
 def make_intensive_program(dct):
     int_pgm = Intensive_Program(dct['proposal'])
     int_pgm.from_rec(dct)
@@ -1398,6 +1528,11 @@ def make_executed_ob(dct):
     ex_ob = Executed_OB()
     ex_ob.from_rec(dct)
     return ex_ob
+
+def make_pfs_executed_ob_stats(dct):
+    ex_ob_stats = PFS_Executed_OB_Stats()
+    ex_ob_stats.from_rec(dct)
+    return ex_ob_stats
 
 def make_exposure(dct):
     insname = dct.get('insname', None)

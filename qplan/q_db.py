@@ -142,7 +142,11 @@ class QueueTable(object):
 mdb2py_tbl_map = {
     'exposure': entity.make_exposure,
     'executed_ob': entity.make_executed_ob,
+    'pfs_executed_ob_stats': entity.make_pfs_executed_ob_stats,
     'program': entity.make_program,
+    'program_stats': entity.make_program_stats,
+    'hsc_program_stats': entity.make_hsc_program_stats,
+    'pfs_program_stats': entity.make_pfs_program_stats,
     'intensive_program': entity.make_intensive_program,
     'saved_state': entity.make_saved_state,
     'ob': lambda dct: None,

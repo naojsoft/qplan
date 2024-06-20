@@ -84,6 +84,16 @@ class QueueQuery(object):
         return self.cmake1('program', proposal, {'proposal': proposal},
                            entity.make_program)
 
+    def get_hsc_program_stats(self, proposal):
+        proposal = proposal.upper()
+        return self.cmake1('hsc_program_stats', proposal, {'proposal': proposal},
+                           entity.make_hsc_program_stats)
+
+    def get_pfs_program_stats(self, proposal):
+        proposal = proposal.upper()
+        return self.cmake1('pfs_program_stats', proposal, {'proposal': proposal},
+                           entity.make_pfs_program_stats)
+
     def _ob_keys_to_obs(self, ob_keys):
         ob_map = self.partition_ob_keys_by_program(ob_keys)
         if len(ob_map) == 0:
@@ -190,6 +200,18 @@ class QueueQuery(object):
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
                                entity.make_executed_ob)
 
+    def get_pfs_executed_ob_stats_by_proposal(self, proposal):
+        """
+        Get PFS executed OB Stats from a proposal name.
+        """
+        proposal = proposal.upper()
+        tbl = self._qa.get_db_native_table('pfs_executed_ob_stats')
+        recs = tbl.find({'ob_key.0': proposal})
+
+        return self.cmake_iter('pfs_executed_ob_stats', recs,
+                               lambda rec: tuple(rec['ob_key']),
+                               entity.make_pfs_executed_ob_stats)
+
     def get_exposures_by_date(self, fromdate, todate):
         """
         Get exposure by date.
@@ -223,6 +245,13 @@ class QueueQuery(object):
         return self.cmake_iter('executed_ob', recs,
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
                                entity.make_executed_ob)
+
+    def get_pfs_executed_ob_stats_by_ob_key(self, ob_key):
+        """
+        Get PFS executed OB stats by OB key.
+        """
+        return self.cmake1('pfs_executed_ob_stats', ob_key, {'ob_key': ob_key},
+                           entity.make_pfs_executed_ob_stats)
 
     def get_exposures_from_executed_obs(self, ex_obs):
         """
