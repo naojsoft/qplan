@@ -147,6 +147,42 @@ class Intensive_Program(PersistentEntity):
             return False
         return True
 
+class ProgramStats(PersistentEntity):
+    """
+    ProgramStats
+    Contains calculation results and statistics of a program.
+    Gathering those calculation results and statistics can
+    be time-consuming so we compute and update them on a regular
+    basis to make it more efficient to display results to users.
+    """
+    def __init__(self, proposal,
+                 good_ob_count=0, good_ob_acct_time=0,
+                 bad_ob_count=0, bad_ob_acct_time=0,
+                 total_ob_count=0, total_exec_ob_count=0,
+                 total_exec_time=0, total_charged_time=0,
+                 completion_rate_obs=0):
+        super().__init__('program_stats')
+
+        self.proposal = proposal
+        now = datetime.now(tz=tz.UTC)
+        self.good_ob_count = good_ob_count
+        self.good_ob_acct_time = good_ob_acct_time
+        self.bad_ob_count = bad_ob_count
+        self.bad_ob_acct_time = bad_ob_acct_time
+        self.total_ob_count = total_ob_count
+        self.total_exec_ob_count = total_exec_ob_count
+        self.total_exec_time = total_exec_time
+        self.total_charged_time = total_charged_time
+        self.completion_rate_obs = completion_rate_obs
+
+    @property
+    def key(self):
+        return dict(proposal=self.proposal)
+
+    def __repr__(self):
+        return self.proposal
+
+    __str__ = __repr__
 
 class SlotError(Exception):
     pass
@@ -726,7 +762,6 @@ class PFS_OB(OB):
         self.kind = 'pfs_ob'
         self.name = id
 
-
 class BaseTarget(object):
     pass
 
@@ -1027,13 +1062,14 @@ class PPCConfiguration(InstrumentConfiguration):
 class PFSConfiguration(InstrumentConfiguration):
     """PFS Observing Block Instrument Configuration"""
 
-    def __init__(self, exp_time=15, resolution='low',
+    def __init__(self, exp_time=15, resolution='low', qa_reference_arm='r',
                  comment=''):
         super().__init__()
 
         self.insname = 'PFS'
         self.mode = 'SPEC'
         self.resolution = resolution
+        self.qa_reference_arm = qa_reference_arm
         self.exp_time = float(exp_time)
         self.num_exp = 1
         self.comment = comment
@@ -1054,6 +1090,7 @@ class PFSConfiguration(InstrumentConfiguration):
         code = rec.get('code', '').strip()
         self.insname = 'PFS'
         self.resolution = rec['resolution']
+        self.qa_reference_arm = rec['qa_reference_arm']
         self.exp_time = float(rec['exp_time'])
         self.comment = rec['comment'].strip()
         return code
@@ -1200,6 +1237,32 @@ class Executed_OB(PersistentEntity):
         if self.time_stop is not None:
             self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
 
+class Executed_OB_Stats(PersistentEntity):
+    """
+    Executed_OB_Stats
+    Contains calculation results and statistics of an Executed_OB.
+    Gathering those calculation results and statistics can
+    be time-consuming so we compute and update them on a regular
+    basis to make it more efficient to display results to users.
+    """
+    def __init__(self, ob_key=None, completion_rate=0, cum_eff_exp_time=0):
+        super().__init__('executed_ob_stats')
+
+        self.ob_key = ob_key
+        now = datetime.now(tz=tz.UTC)
+        self.completion_rate = completion_rate
+        self.cum_eff_exp_time = cum_eff_exp_time
+
+    @property
+    def key(self):
+        return dict(ob_key=self.ob_key)
+
+    def from_rec(self, dct):
+        super().from_rec(dct)
+
+        # comes in as a list from MongoDB, but we want a tuple
+        self.ob_key = tuple(self.ob_key)
+
 class HSC_Exposure(PersistentEntity):
     """
     Describes the result of executing one dither position or one exposure
@@ -1280,7 +1343,11 @@ class PFS_Exposure(PersistentEntity):
 
         # The effective exposure time will be populated from data in
         # the "qaDB".
-        self.effective_exptime = None
+        self.nominal_exptime = None
+        self.effective_exptime_r = None
+        self.effective_exptime_b = None
+        self.effective_exptime_n = None
+        self.effective_exptime_m = None
 
         # environment data at the time of exposure
         # TODO: should this end up being a list of tuples of measurements
@@ -1389,6 +1456,11 @@ def make_program(dct):
     pgm.from_rec(dct)
     return pgm
 
+def make_program_stats(dct):
+    pgm_stats = ProgramStats(dct['proposal'])
+    pgm_stats.from_rec(dct)
+    return pgm_stats
+
 def make_intensive_program(dct):
     int_pgm = Intensive_Program(dct['proposal'])
     int_pgm.from_rec(dct)
@@ -1398,6 +1470,11 @@ def make_executed_ob(dct):
     ex_ob = Executed_OB()
     ex_ob.from_rec(dct)
     return ex_ob
+
+def make_executed_ob_stats(dct):
+    ex_ob_stats = Executed_OB_Stats()
+    ex_ob_stats.from_rec(dct)
+    return ex_ob_stats
 
 def make_exposure(dct):
     insname = dct.get('insname', None)
