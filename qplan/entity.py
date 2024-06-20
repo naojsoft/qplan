@@ -7,6 +7,7 @@ from datetime import timedelta, datetime
 import math
 import dateutil.parser
 from dateutil import tz
+from datetime import datetime
 
 # 3rd party imports
 import numpy as np
@@ -147,6 +148,44 @@ class Intensive_Program(PersistentEntity):
             return False
         return True
 
+class ProgramStats(PersistentEntity):
+    """
+    ProgramStats
+    Contains calculation results and statistics of a program.
+    Gathering those calculation results and statistics can
+    be time-consuming so we compute and update them on a regular
+    basis to make it more efficient to display results to users.
+    """
+    def __init__(self, proposal, ctime=None, mtime=None,
+                 good_ob_count=0, good_ob_acct_time=0,
+                 bad_ob_count=0, bad_ob_acct_time=0,
+                 total_ob_count=0, total_exec_ob_count=0,
+                 total_exec_time=0, total_charged_time=0,
+                 completion_rate_obs=0):
+        super().__init__('program_stats')
+
+        self.proposal = proposal
+        now = datetime.now(tz=tz.UTC)
+        self.ctime = now if ctime is None else ctime
+        self.mtime = now if mtime is None else mtime
+        self.good_ob_count = good_ob_count
+        self.good_ob_acct_time = good_ob_acct_time
+        self.bad_ob_count = bad_ob_count
+        self.bad_ob_acct_time = bad_ob_acct_time
+        self.total_ob_count = total_ob_count
+        self.total_exec_ob_count = total_exec_ob_count
+        self.total_exec_time = total_exec_time
+        self.total_charged_time = total_charged_time
+        self.completion_rate_obs = completion_rate_obs
+
+    @property
+    def key(self):
+        return dict(proposal=self.proposal)
+
+    def __repr__(self):
+        return self.proposal
+
+    __str__ = __repr__
 
 class SlotError(Exception):
     pass
@@ -726,7 +765,6 @@ class PFS_OB(OB):
         self.kind = 'pfs_ob'
         self.name = id
 
-
 class BaseTarget(object):
     pass
 
@@ -1200,6 +1238,35 @@ class Executed_OB(PersistentEntity):
         if self.time_stop is not None:
             self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
 
+class Executed_OB_Stats(PersistentEntity):
+    """
+    Executed_OB_Stats
+    Contains calculation results and statistics of an Executed_OB.
+    Gathering those calculation results and statistics can
+    be time-consuming so we compute and update them on a regular
+    basis to make it more efficient to display results to users.
+    """
+    def __init__(self, ob_key=None, ctime=None, mtime=None,
+                 completion_rate=0, cum_exptime=0):
+        super().__init__('executed_ob_stats')
+
+        self.ob_key = ob_key
+        now = datetime.now(tz=tz.UTC)
+        self.ctime = now if ctime is None else ctime
+        self.mtime = now if mtime is None else mtime
+        self.completion_rate = completion_rate
+        self.cum_exptime = cum_exptime
+
+    @property
+    def key(self):
+        return dict(ob_key=self.ob_key)
+
+    def from_rec(self, dct):
+        super().from_rec(dct)
+
+        # comes in as a list from MongoDB, but we want a tuple
+        self.ob_key = tuple(self.ob_key)
+
 class HSC_Exposure(PersistentEntity):
     """
     Describes the result of executing one dither position or one exposure
@@ -1389,6 +1456,11 @@ def make_program(dct):
     pgm.from_rec(dct)
     return pgm
 
+def make_program_stats(dct):
+    pgm_stats = ProgramStats(dct['proposal'])
+    pgm_stats.from_rec(dct)
+    return pgm_stats
+
 def make_intensive_program(dct):
     int_pgm = Intensive_Program(dct['proposal'])
     int_pgm.from_rec(dct)
@@ -1398,6 +1470,11 @@ def make_executed_ob(dct):
     ex_ob = Executed_OB()
     ex_ob.from_rec(dct)
     return ex_ob
+
+def make_executed_ob_stats(dct):
+    ex_ob_stats = Executed_OB_Stats()
+    ex_ob_stats.from_rec(dct)
+    return ex_ob_stats
 
 def make_exposure(dct):
     insname = dct.get('insname', None)
