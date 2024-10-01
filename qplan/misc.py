@@ -44,7 +44,7 @@ def make_slots(start_time, night_length_mn, min_slot_length_sc):
     """
     night_slots = []
     for isec in range(0, night_length_mn*60, min_slot_length_sc):
-        slot_start = start_time + timedelta(0, isec)
+        slot_start = start_time + timedelta(seconds=isec)
         night_slots.append(entity.Slot(slot_start, min_slot_length_sc))
 
     return night_slots

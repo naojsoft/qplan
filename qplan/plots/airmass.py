@@ -134,7 +134,7 @@ class AirMassPlot(plots.Plot):
 
         # plot current hour
         lo = datetime.now(tz)
-        hi = lo + timedelta(0, 3600.0)
+        hi = lo + timedelta(seconds=3600.0)
         if lt_data[0] < lo < lt_data[-1]:
             self._plot_current_time(ax1, lo, hi)
 
@@ -209,8 +209,8 @@ class AirMassPlot(plots.Plot):
         # so that we can include it in the plot title.
         localdate_start = lt_data[0]
         localdate_end = lt_data[-1]
-        localdate_start_str = localdate_start.strftime('%Y-%b-%d %Hh')
-        localdate_end_str = localdate_end.strftime('%Y-%b-%d %Hh')
+        localdate_start_str = localdate_start.strftime('%Y-%b-%d %H:%M')
+        localdate_end_str = localdate_end.strftime('%Y-%b-%d %H:%M')
 
         min_interval = 12  # hour/5min
         mt = lt_data[0:-1:min_interval]
@@ -309,7 +309,7 @@ class AirMassPlot(plots.Plot):
         self._plot_limits(ax1, min_alt, max_alt)
 
         # Add yesterday's and today's twilight to the plot.
-        self._plot_twilight(ax1, site, localdate_start-timedelta(1), tz,
+        self._plot_twilight(ax1, site, localdate_start-timedelta(days=1), tz,
                             show_legend=show_target_legend)
         self._plot_twilight(ax1, site, localdate_start, tz,
                             show_legend=show_target_legend)
@@ -321,7 +321,7 @@ class AirMassPlot(plots.Plot):
             lo = datetime.now(tz)
         else:
             lo = current_time.astimezone(tz)
-        hi = lo + timedelta(0, 3600.0)
+        hi = lo + timedelta(seconds=3600.0)
         if lt_data[0] < lo < lt_data[-1]:
             self._plot_current_time(ax1, lo, hi)
 
@@ -448,7 +448,7 @@ if __name__ == '__main__':
     # if schedule starts after midnight, change start date to the
     # day before
     if 0 <= t.hour < 12:
-        t -= timedelta(0, 3600*12)
+        t -= timedelta(seconds=3600*12)
     ndate = t.strftime("%Y/%m/%d")
 
     targets = []

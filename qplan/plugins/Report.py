@@ -284,7 +284,7 @@ class Report(PlBase.Plugin):
             date = t.strftime("%Y-%m-%d %H:%M")
             ob = slot.ob
             if ob != None:
-                t_prog = slot.start_time + timedelta(0, ob.total_time)
+                t_prog = slot.start_time + timedelta(seconds=ob.total_time)
                 comment = ob.comment
                 if not ob.derived:
                     # not an OB generated to serve another OB

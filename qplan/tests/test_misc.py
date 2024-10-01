@@ -143,7 +143,7 @@ class TestEntity01(unittest.TestCase):
     ##                                '00:22:13.44', '-00:36:25.20')
     ##     time1 = self.obs.get_date("2010-10-18 19:00")
     ##     for i in xrange(0, 60*8, 5):
-    ##         off = timedelta(0, i*60)
+    ##         off = timedelta(seconds=i*60)
     ##         time = time1 + off
     ##         c1 = self.obs.calc(body, time)
     ##         print("%s  %s  %f" % (c1.lt.strftime("%H:%M"),

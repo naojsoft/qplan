@@ -40,7 +40,7 @@ class Constraints(object):
     ##     """
     ##     Make sure the time taken by the observing block fits the slot.
     ##     """
-    ##     time_done = slot.start_time + timedelta(0, ob.total_time)
+    ##     time_done = slot.start_time + timedelta(seconds=ob.total_time)
     ##     return time_done <= slot.stop_time
 
 #END

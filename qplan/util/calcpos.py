@@ -404,7 +404,7 @@ class Observer(object):
         """Returns night center in observer's time."""
         sunset = self.sunset(date=date)
         sunrise = self.sunrise(date=sunset)
-        center = sunset + timedelta(0, (sunrise - sunset).total_seconds() / 2.0)
+        center = sunset + timedelta(seconds=(sunrise - sunset).total_seconds() / 2.0)
         center = self.date_to_local(center)
         return center
 

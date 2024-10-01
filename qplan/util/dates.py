@@ -28,7 +28,7 @@ def get_semester_by_datetime(dt, tz_local):
     # to previous day (should take care of observations after midnight
     # on the last day of the last month of the semester)
     if 0 <= dt.hour < 8:
-        dt = dt - timedelta(0, hours=8, minutes=30)
+        dt = dt - timedelta(hours=8, minutes=30)
     year, mon = dt.year, dt.month
     if mon == 1:
         # if month is January, dial back the year

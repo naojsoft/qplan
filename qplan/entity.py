@@ -160,7 +160,7 @@ class Slot(object):
     def __init__(self, start_time, slot_len_sec, data=None):
         super().__init__()
         self.start_time = start_time
-        self.stop_time = start_time + timedelta(0, slot_len_sec)
+        self.stop_time = start_time + timedelta(seconds=slot_len_sec)
         self.data = data
         self.ob = None
 
@@ -191,7 +191,7 @@ class Slot(object):
                 raise SlotError("Start time (%s) < slot start time (%s) diff=%f" % (
                     start_time, self.start_time, diff))
 
-        stop_time = start_time + timedelta(0, slot_len_sec)
+        stop_time = start_time + timedelta(seconds=slot_len_sec)
         if stop_time > self.stop_time:
             raise SlotError("Stop time (%s) > slot stop time (%s)" % (
                 stop_time, self.stop_time))

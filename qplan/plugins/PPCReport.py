@@ -133,7 +133,7 @@ class PPCReport(PlBase.Plugin):
             t = slot.start_time.astimezone(sdlr.timezone)
             ob = slot.ob
             if ob != None:
-                t_prog = slot.start_time + timedelta(0, ob.total_time)
+                t_prog = slot.start_time + timedelta(seconds=ob.total_time)
                 row['comment'] = ob.comment
                 row['name'] = ob.name
                 row['datetime'] = t.strftime("%Y-%m-%d %H:%M:%S")

@@ -79,6 +79,11 @@ class AirMassChart(PlBase.Plugin):
         start_time = schedule.start_time
         sdlr = self.model.get_scheduler()
 
+        # if start time is after midnight, need to subtract a few hours
+        # to get the correct day for the target positions
+        if 0 <= start_time.hour <= 9:
+            start_time = start_time - timedelta(hours=12)
+
         # calc noon on the day of observation in sdlr time zone
         ndate = start_time.strftime("%Y-%m-%d") + " 12:00:00"
         site = sdlr.site
@@ -86,8 +91,8 @@ class AirMassChart(PlBase.Plugin):
 
         # plot period 15 minutes before sunset to 15 minutes after sunrise
         delta = 60*15
-        start_time = site.sunset(noon_time) - timedelta(0, delta)
-        stop_time = site.sunrise(start_time) + timedelta(0, delta)
+        start_time = site.sunset(noon_time) - timedelta(seconds=delta)
+        stop_time = site.sunrise(start_time) + timedelta(seconds=delta)
 
         targets = []
         site.set_date(start_time)
