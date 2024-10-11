@@ -1,4 +1,4 @@
-Copyright (c) 2016-2022  National Astronomical Observatory of Japan.
+Copyright (c) 2016-2024  National Astronomical Observatory of Japan.
 
 All rights reserved.
 
