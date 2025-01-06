@@ -385,8 +385,12 @@ class Scheduler(Callback.Callbacks):
 
         # remember "current values" in schedule for evaluating next slot
         cur_filter = getattr(ob.inscfg, 'filter', None)
-        schedule.data.setvals(cur_az=res.az_stop, cur_el=res.alt_stop,
-                              cur_rot=res.rot_stop, cur_filter=cur_filter)
+        # NOTE: these may not be defined if it is a dome == 'CLOSED'
+        az_stop = res.get('az_stop', qsim.parked_az_deg)
+        alt_stop = res.get('alt_stop', qsim.parked_alt_deg)
+        rot_stop = res.get('rot_stop', qsim.parked_rot_deg)
+        schedule.data.setvals(cur_az=az_stop, cur_el=alt_stop,
+                              cur_rot=rot_stop, cur_filter=cur_filter)
 
     def schedule_all(self):
 
