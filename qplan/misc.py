@@ -5,30 +5,15 @@
 #
 import math
 from datetime import timedelta
-from collections import namedtuple
 
+# 3rd party
 import numpy as np
-
-# gen2 imports
-#from astro import radec
 
 # local imports
 from . import entity
 
-TelMove = namedtuple('TelMove', ['rot1_start_deg', 'rot1_stop_deg',
-                                 'rot2_start_deg', 'rot2_stop_deg',
-                                 'az1_start_deg', 'az1_stop_deg',
-                                 'az2_start_deg', 'az2_stop_deg',
-                                 'alt_start_deg', 'alt_stop_deg',
-                                 ])
-
-# def get_body_SOSS(name, ra_funky, dec_funky, equinox=2000):
-#     ra_deg = radec.funkyHMStoDeg(ra_funky)
-#     dec_deg = radec.funkyDMStoDeg(dec_funky)
-#     ra = radec.raDegToString(ra_deg, format='%02d:%02d:%06.3f')
-#     dec = radec.decDegToString(dec_deg, format='%s%02d:%02d:%05.2f')
-
-#     return get_body(name, ra, dec, equinox=equinox)
+# mount angles for certain instruments
+mount_deltas = dict(FOCAS=0.259, MOIRCS=45.0)
 
 
 def make_slots(start_time, night_length_mn, min_slot_length_sc):
@@ -77,52 +62,15 @@ def calc_slew_time(cur_alt_deg, cur_az_deg, cur_rot_deg,
 
 
 def calc_alternate_angle(ang_deg):
-    """calculates the alternative usable angle to the given one."""
+    """Calculates the alternative usable angle to the given one.
+    """
     _ang_deg = ang_deg - np.sign(ang_deg) * 360
     return _ang_deg
 
 
-def calc_rotation_choices(cr_start, cr_stop, pa_deg):
-    """cr_start and cr_stop are CalculationResult objects for the
-    same target at two different times.
-    """
-    pang1_deg = cr_start.pang_deg
-    pang2_deg = cr_stop.pang_deg
-
-    # calculate direction of movement
-    # if rotation movement is greater than 180 degrees, then switch the
-    # rotation direction of movement to the smaller one with opposite sign
-    rot_delta = np.fmod(pang2_deg - pang1_deg, 360.0)
-    if np.abs(rot_delta) > 180.0:
-        rot_delta = - np.sign(rot_delta) * (rot_delta - np.sign(rot_delta) * 360)
-
-    # rotator_angle = parallactic_angle + position_angle
-    rot1_start = np.fmod(pang1_deg + pa_deg, 360.0)
-    # calculate the other possible angle for this target
-    rot2_start = calc_alternate_angle(rot1_start)
-
-    rot1_stop = rot1_start + rot_delta
-    rot2_stop = rot2_start + rot_delta
-
-    az1_start = cr_start.az_deg
-    az2_start = calc_alternate_angle(az1_start)
-    az1_stop = cr_stop.az_deg
-
-    # calculate direction of movement for standard rotation
-    # (see remarks above for rot_delta)
-    az_delta = np.fmod(az1_stop - az1_start, 360.0)
-    if np.abs(az_delta) > 180.0:
-        az_delta = - np.sign(az_delta) * (az_delta - np.sign(az_delta) * 360)
-    az2_stop = az2_start + az_delta
-
-    # return both rotation moves, both azimuth moves and elevation start/stop
-    return TelMove(rot1_start, rot1_stop, rot2_start, rot2_stop,
-                   az1_start, az1_stop, az2_start, az2_stop,
-                   cr_start.alt_deg, cr_stop.alt_deg)
-
-
 def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
                           cur_rot_deg, min_rot, max_rot):
+
     rot1_ok = ((min_rot <= rot1_start <= max_rot) and
                (min_rot <= rot1_stop <= max_rot))
     rot2_ok = ((min_rot <= rot2_start <= max_rot) and
@@ -144,3 +92,307 @@ def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
         return rot2_start, rot2_stop
     else:
         return None, None
+
+
+def normalize_angle(ang_deg, limit=None, ang_offset=0.0):
+    """Normalize an angle.
+
+    Parameters
+    ----------
+    az_deg: float
+        A traditional azimuth value where 0 deg == North
+
+    limit: str or None (optional, defaults to None)
+        How to limit the range of the result angle
+
+    ang_offset: float (optional, defaults to 0.0)
+        Angle to add to the input angle to offset it
+
+    Returns
+    -------
+    limit: None (-360, 360), 'full' (0, 360), or 'half' (-180, 180)
+
+    To normalize to Subaru azimuth (AZ 0 == S), do
+        normalize_angle(ang_deg, limit='half', ang_offset=-180)
+    """
+    ang_deg = ang_deg + ang_offset
+
+    # constrain to -360, +360
+    if np.fabs(ang_deg) >= 360.0:
+        ang_deg = np.remainder(ang_deg, np.sign(ang_deg) * 360.0)
+    if limit is None:
+        return ang_deg
+
+    # constrain to 0, +360
+    if ang_deg < 0.0:
+        ang_deg += 360.0
+    if limit != 'half':
+        return ang_deg
+
+    # constrain to -180, +180
+    if ang_deg > 180.0:
+        ang_deg -= 360.0
+    return ang_deg
+
+
+def calc_subaru_azimuths(az_deg):
+    """Calculate Subaru (0 deg == South) azimuth possibilities.
+
+    Parameters
+    ----------
+    az_deg: float
+        A traditional azimuth value where 0 deg == North
+
+    Returns
+    -------
+    (naz_deg, paz_deg): tuple of float or None
+        possible translated azimuths (0 deg == South), one of them may be None
+
+    NOTE: naz_deg is always in the negative direction, paz_deg in the positive
+    """
+    # limit angle to 0 <= az_deg < 360.0
+    # print(f"INPUT: az_deg (N) = {az_deg}")
+    az_deg = normalize_angle(az_deg, limit='full', ang_offset=0.0)
+    # print(f"NORMALIZED: az_deg (N) = {az_deg}")
+
+    if 0.0 <= az_deg <= 90.0:
+        naz_deg = - (180.0 - az_deg)
+        paz_deg = 180.0 + az_deg
+    elif 90.0 < az_deg < 180.0:
+        naz_deg = - (180.0 - az_deg)
+        paz_deg = None
+    elif 180.0 < az_deg < 270.0:
+        naz_deg = None
+        paz_deg = az_deg - 180.0
+    elif 270.0 < az_deg < 360.0:
+        naz_deg = -270.0 + (az_deg - 270.0)
+        paz_deg = az_deg - 180.0
+    else:
+        # az == 180.0
+        naz_deg = 0.0
+        paz_deg = 0.0
+
+    # print(f"SUBARU: naz_deg (S) = {naz_deg}, paz_deg (S) = {paz_deg}")
+    return naz_deg, paz_deg
+
+
+def get_quadrant(az_deg):
+    """Get the quadrant (NE, SE, SW, NW) for a given azimuth.
+
+    Parameters
+    ----------
+    az_deg: float
+        A traditional azimuth value where 0 deg == North
+
+    Returns
+    -------
+    quadrant : str
+        Quadrant which contains azimuth: 'NE', 'SE', 'SW', 'NW'
+    """
+    is_south = 90.0 < az_deg < 270.0
+    if is_south:
+        if az_deg <= 180.0:
+            return 'SE'
+        return 'SW'
+    else:
+        # <-- is North
+        if 0.0 <= az_deg <= 90.0:
+            return 'NE'
+        return 'NW'
+
+
+def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
+    """Calculate possible azimuth moves.
+
+    Parameters
+    ----------
+    cr_start: ~qplan.util.calcpos.CalculationResult
+        Calculation result for target at start of observation
+
+    cr_stop: ~qplan.util.calcpos.CalculationResult
+        Calculation result for target at stop of observation (end of exposure)
+
+    obs_lat_deg: float
+        Observers latitude in degrees
+
+    Returns
+    -------
+    az_choices : list of (float, float) tuples
+        List of possible azimuth start and stops in Subaru (S==0 deg) coordinates
+    """
+    # circumpolar_deg_limit = 90.0 - obs_lat_deg
+    # if cr1.dec_deg > circumpolar_deg:
+    #     # target in North for whole range
+    #     # circumpolar orbit, object may go E to W or W to E
+    #     # 2 az directions are possible
+    #     if cr1.ha < cr2.ha:
+    #         # object moving E to W
+    #         pass
+    #     else:
+    #         # object moving W to E
+    #         pass
+
+    # print(f"target DEC DEG={cr_start.dec_deg} OBS_LAT={obs_lat_deg}")
+    if cr_start.dec_deg > obs_lat_deg:
+        # target in North for whole range
+        # 2 az directions are possible
+        naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
+
+        if not (-270.0 <= naz_deg_start <= -90.0):
+            raise ValueError(f"AZ(neg) start value ({naz_deg_start}) out of range for target in North")
+        if not (90.0 <= paz_deg_start <= 270.0):
+            raise ValueError(f"AZ(pos) start value ({paz_deg_start}) out of range for target in North")
+
+        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
+
+        if not (-270.0 <= naz_deg_stop <= -90.0):
+            raise ValueError(f"AZ(neg) stop value ({naz_deg_stop}) out of range for target in North")
+        if not (90.0 <= paz_deg_stop <= 270.0):
+            raise ValueError(f"AZ(pos) stop value ({paz_deg_stop}) out of range for target in North")
+
+        return [(naz_deg_start, naz_deg_stop), (paz_deg_start, paz_deg_stop)]
+
+    elif cr_start.dec_deg < 0.0:
+        # target in South for whole range
+        # only 1 az direction is possible
+
+        naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
+        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
+
+        if naz_deg_start is not None:
+            # <-- target in SE
+            if paz_deg_start is not None:
+                raise ValueError(f"target in SE has two AZ start values ({naz_deg_start},{paz_deg_start})")
+            if naz_deg_stop is not None:
+                # <-- target finishes in SE
+                return [(naz_deg_start, naz_deg_stop)]
+            else:
+                # <-- target finishes in SW
+                return [(naz_deg_start, paz_deg_stop)]
+        else:
+            # <-- target in SW
+            if paz_deg_stop is None:
+                raise ValueError(f"target in SW has no AZ stop value ({paz_deg_stop})")
+            if naz_deg_stop is not None:
+                raise ValueError(f"target in SW has neg AZ stop value ({naz_deg_stop})")
+            return [(paz_deg_start, paz_deg_stop)]
+
+    else:
+        # target could be in N and may dip S, depending on start or exp time
+        # 2 az directions are possible if target stays in N
+        # else only 1 az direction is possible
+        start_quad = get_quadrant(cr_start.az_deg)
+        stop_quad = get_quadrant(cr_stop.az_deg)
+
+        naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
+        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
+
+        if start_quad == 'NE':
+            # <-- stop_quad can be in NE, SE, SW, NW
+            if stop_quad not in ['NE', 'SE', 'SW', 'NW']:
+                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in NE")
+            if stop_quad == 'NE':
+                # <-- two azimuths are possible
+                return [(naz_deg_start, naz_deg_stop),
+                        (paz_deg_start, paz_deg_stop)]
+            elif stop_quad == 'SE':
+                # <-- only one azimuth is possible
+                return [(naz_deg_start, naz_deg_stop)]
+            else:
+                # <-- only one azimuth is possible
+                return [(naz_deg_start, paz_deg_stop)]
+
+        elif start_quad == 'SE':
+            # <-- stop_quad can be in SE, SW, NW
+            if stop_quad not in ['SE', 'SW', 'NW']:
+                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in SE")
+            if stop_quad == 'SE':
+                # <-- only one azimuth is possible
+                return [(naz_deg_start, naz_deg_stop)]
+            else:
+                # <-- only one azimuth is possible
+                return [(naz_deg_start, paz_deg_stop)]
+
+        elif start_quad == 'SW':
+            # <-- stop_quad can be in SW, NW
+            if stop_quad not in ['SW', 'NW']:
+                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in SW")
+            # <-- only one azimuth is possible
+            return [(paz_deg_start, paz_deg_stop)]
+
+        elif start_quad == 'NW':
+            # <-- stop_quad can be in NW only
+            if stop_quad not in ['NW']:
+                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in NW")
+            # <-- two azimuths are possible
+            return [(naz_deg_start, naz_deg_stop),
+                    (paz_deg_start, paz_deg_stop)]
+
+        else:
+            raise ValueError(f"start quadrant '{start_quad}' type not recognized")
+
+
+def calc_rotator_offset(cr, az_deg, pa_deg, ins_name):
+    """Calculate the effective instrument rotator offset.
+
+    Parameters
+    ----------
+    cr : ~qplan.util.calcpos.CalculationResult
+        Calculation result for target at a certain time
+
+    az_deg : float
+        The azimuth value (0 deg == South) chosen for the target
+
+    pa_deg : float
+        The desired position angle in degrees
+
+    ins_name : str
+        Instrument name
+
+    Returns
+    -------
+    offset_deg : float
+        The desirable rotator value for this observation
+
+    NOTE: follows guidelines given by H. Okita for best rotator position
+    """
+    # get instrument mounting offset
+    ins_delta = mount_deltas.get(ins_name, 0.0)
+
+    pang_deg = cr.pang_deg
+    # offset_angle = parallactic_angle + position_angle
+    offset_deg = normalize_angle(pang_deg + pa_deg, limit='full')
+    #offset_deg = np.fmod(pang_deg + pa_deg, 360.0)
+
+    if ins_name in ['HSC', 'PPC']:
+        # mirror image at Prime focus
+        offset_deg = offset_deg + ins_delta
+
+    elif ins_name in ['MOIRCS', 'FOCAS']:
+        # Cassegrain focus
+        offset_deg = -offset_deg + ins_delta
+
+    else:
+        raise ValueError(f"unknown instrument {ins_name}")
+
+    # print(f"INITIAL OFFSET ANGLE {offset_deg} (pang={pang_deg}, AZ={az_deg})")
+    # NOTE: az_deg is in Subaru format (0 deg == South)
+    if (-180.0 < az_deg <= 0) or (az_deg >= 180.0):
+        # <-- object in EAST, offset should be POSITIVE (see NOTE above)
+        if offset_deg < 0.0:
+            offset_deg += 360.0
+        # print(f"EAST OBJ, ADJ OFFSET ANGLE {offset_deg}")
+
+    elif (0.0 < az_deg <= 180.0) or (az_deg <= -180.0):
+        # <-- object in WEST, offset should be NEGATIVE (see NOTE above)
+        if offset_deg > 0.0:
+            offset_deg -= 360.0
+        # print(f"WEST OBJ, ADJ OFFSET ANGLE {offset_deg}")
+
+    else:
+        raise ValueError(f"unhandled azimuth {az_deg} deg")
+
+    alt_offset_deg = calc_alternate_angle(offset_deg)
+    # print(f"OFFSET ANGLE={offset_deg}, ALT ANGLE {alt_offset_deg}")
+
+    return offset_deg, alt_offset_deg

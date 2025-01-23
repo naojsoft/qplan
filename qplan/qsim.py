@@ -6,6 +6,9 @@
 from datetime import timedelta
 import time
 
+# 3rd party imports
+import numpy as np
+
 # Gen2 imports
 from ginga.misc import Bunch
 
@@ -364,28 +367,40 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
     c1 = site.calc(ob.target, start_time)
     stop_time = start_time + timedelta(seconds=ob.total_time)
     c2 = site.calc(ob.target, stop_time)
-    pa_deg = ob.inscfg.pa
 
-    tm = misc.calc_rotation_choices(c1, c2, pa_deg)
-
-    # calculate optimal azimuth position
-    az_start, az_stop = misc.calc_optimal_rotation(tm.az1_start_deg,
-                                                   tm.az1_stop_deg,
-                                                   tm.az2_start_deg,
-                                                   tm.az2_stop_deg,
-                                                   cur_az_deg,
-                                                   min_az_deg, max_az_deg)
-    if az_start is None or az_stop is None:
+    # calculate possible azimuth moves
+    obs_lat_deg = np.degrees(site.site.lat.norm)
+    az_choices = misc.calc_possible_azimuths(c1, c2, obs_lat_deg)
+    if len(az_choices) == 0:
         res.setvals(obs_ok=False, reason="Azimuth would go past limit")
         return res
+    elif len(az_choices) == 1:
+        az_start, az_stop = az_choices[0]
+    elif len(az_choices) == 2:
+        # calculate optimal azimuth move
+        az1_start_deg, az1_stop_deg = az_choices[0]
+        az2_start_deg, az2_stop_deg = az_choices[1]
+        az_start, az_stop = misc.calc_optimal_rotation(az1_start_deg,
+                                                       az1_stop_deg,
+                                                       az2_start_deg,
+                                                       az2_stop_deg,
+                                                       cur_az_deg,
+                                                       min_az_deg, max_az_deg)
 
     # calculate optimal rotator position
-    rot_start, rot_stop = misc.calc_optimal_rotation(tm.rot1_start_deg,
-                                                     tm.rot1_stop_deg,
-                                                     tm.rot2_start_deg,
-                                                     tm.rot2_stop_deg,
+    pa_deg = ob.inscfg.pa
+    ins_name = ob.inscfg.insname
+    rot1_start_deg, rot2_start_deg = misc.calc_rotator_offset(c1, az_start, pa_deg,
+                                                              ins_name)
+    rot1_stop_deg, rot2_stop_deg = misc.calc_rotator_offset(c2, az_stop, pa_deg,
+                                                            ins_name)
+    rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
+                                                     rot1_stop_deg,
+                                                     rot2_start_deg,
+                                                     rot2_stop_deg,
                                                      cur_rot_deg,
                                                      min_rot_deg, max_rot_deg)
+    # print(f"ROTATION={rot_start},END={rot_stop}")
     if rot_start is None or rot_stop is None:
         res.setvals(obs_ok=False, reason="Rotator would go past limit")
         return res

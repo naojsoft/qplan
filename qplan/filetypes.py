@@ -262,7 +262,7 @@ class QueueFile(object):
             # that there was a duplicate column name in the
             # spreadsheet and Pandas appended a sequence number to
             # make the subsequent columns have unique names.
-            pattern = info['iname'] + '\.\d+'
+            pattern = info['iname'] + r'\.\d+'
             dup_list = []
             for cname in column_names:
                 if re.match(pattern, cname):
@@ -786,7 +786,7 @@ class WeightsFile(QueueFile):
 
 class ProposalFile(QueueFile):
 
-    propID_re = re.compile('^S\d{2}[AB]-[-\w]{1,10}$')
+    propID_re = re.compile(r'^S\d{2}[AB]-[-\w]{1,10}$')
 
     def __init__(self, input_dir, logger, file_ext=None):
 
