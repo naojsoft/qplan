@@ -26,7 +26,6 @@ minimum_slot_size = 60.0
 
 # telescope parked position
 parked_az_deg = -90.0
-#parked_az_deg = 270.0
 parked_alt_deg = 90.0
 parked_rot_deg = 0.0
 
@@ -156,13 +155,10 @@ def check_moon_cond(cr_start, cr_stop, ob, res):
     moon_is_down = False
     horizon_deg = 0.0   # change as necessary
     if (cr_start.moon_alt < horizon_deg) and (cr_stop.moon_alt < horizon_deg):
-        #print("moon is down, dark night conditions")
         moon_is_down = True
 
     # if observer specified a moon phase, check it now
     if ob.envcfg.moon == 'dark':
-        ## print("moon pct=%f moon alt=%f moon_sep=%f" % (
-        ##       cr_start.moon_pct, cr_start.moon_alt, cr_start.moon_sep))
         if not (is_dark_night or moon_is_down):
             res.setvals(obs_ok=False,
                         reason="Moon illumination=%f not acceptable (alt 1=%.2f 2=%.2f" % (
@@ -376,10 +372,15 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
         return res
     elif len(az_choices) == 1:
         az_start, az_stop = az_choices[0]
+        if not misc.check_rotation_limits(az_start, az_stop,
+                                          min_az_deg, max_az_deg):
+            res.setvals(obs_ok=False, reason="Azimuth would go past limit")
+            return res
     elif len(az_choices) == 2:
         # calculate optimal azimuth move
         az1_start_deg, az1_stop_deg = az_choices[0]
         az2_start_deg, az2_stop_deg = az_choices[1]
+        # NOTE: checks limits
         az_start, az_stop = misc.calc_optimal_rotation(az1_start_deg,
                                                        az1_stop_deg,
                                                        az2_start_deg,
@@ -390,17 +391,15 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
     # calculate optimal rotator position
     pa_deg = ob.inscfg.pa
     ins_name = ob.inscfg.insname
-    rot1_start_deg, rot2_start_deg = misc.calc_rotator_offset(c1, az_start, pa_deg,
-                                                              ins_name)
-    rot1_stop_deg, rot2_stop_deg = misc.calc_rotator_offset(c2, az_stop, pa_deg,
-                                                            ins_name)
+    rot_choices = misc.calc_possible_rotations(c1, c2, pa_deg, ins_name)
+    rot1_start_deg, rot1_stop_deg = rot_choices[0]
+    rot2_start_deg, rot2_stop_deg = rot_choices[1]
     rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
                                                      rot1_stop_deg,
                                                      rot2_start_deg,
                                                      rot2_stop_deg,
                                                      cur_rot_deg,
                                                      min_rot_deg, max_rot_deg)
-    # print(f"ROTATION={rot_start},END={rot_stop}")
     if rot_start is None or rot_stop is None:
         res.setvals(obs_ok=False, reason="Rotator would go past limit")
         return res

@@ -3,7 +3,6 @@
 #
 #  E. Jeschke
 #
-import math
 from datetime import timedelta
 
 # 3rd party
@@ -12,8 +11,10 @@ import numpy as np
 # local imports
 from . import entity
 
-# mount angles for certain instruments
-mount_deltas = dict(FOCAS=0.259, MOIRCS=45.0)
+# mount angle offsets for certain instruments
+mount_offsets = dict(FOCAS=0.259, MOIRCS=45.0)
+# whether PA should be flipped
+mount_flip = dict(FOCAS=True, MOIRCS=True)
 
 
 def make_slots(start_time, night_length_mn, min_slot_length_sc):
@@ -44,9 +45,9 @@ def calc_slew_time_delta(delta_az_deg, delta_el_deg, delta_rot_deg,
     concurrently and so we simply return the time of the one that
     will take the longest.
     """
-    time_sec = max(math.fabs(delta_el_deg) / rate_el,
-                   math.fabs(delta_az_deg) / rate_az,
-                   math.fabs(delta_rot_deg) / rate_rot)
+    time_sec = max(np.fabs(delta_el_deg) / rate_el,
+                   np.fabs(delta_az_deg) / rate_az,
+                   np.fabs(delta_rot_deg) / rate_rot)
     return time_sec
 
 
@@ -68,13 +69,70 @@ def calc_alternate_angle(ang_deg):
     return _ang_deg
 
 
-def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
-                          cur_rot_deg, min_rot, max_rot):
+def check_rotation_limits(rot_start, rot_stop, min_rot, max_rot):
+    """Check rotation against limits.
 
-    rot1_ok = ((min_rot <= rot1_start <= max_rot) and
-               (min_rot <= rot1_stop <= max_rot))
-    rot2_ok = ((min_rot <= rot2_start <= max_rot) and
-               (min_rot <= rot2_stop <= max_rot))
+    Parameters
+    ----------
+    rot_start : float or None
+        Rotation start value
+
+    rot_stop : float or None
+        Rotation stop value
+
+    min_rot : float
+        Minimum rotation value
+
+    max_rot : float
+        Maximum rotation value
+
+    Returns
+    -------
+    rot_ok : bool
+        True if rotation is allowed, False otherwise
+    """
+    if None in (rot_start, rot_stop):
+        rot_ok = False
+    else:
+        rot_ok = ((min_rot <= rot_start <= max_rot) and
+                  (min_rot <= rot_stop <= max_rot))
+    return rot_ok
+
+
+def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
+                          cur_rot, min_rot, max_rot):
+    """Find optimal rotation, while checking against limits.
+
+    Parameters
+    ----------
+    rot1_start : float or None
+        Rotation possibility 1 start value
+
+    rot1_stop : float or None
+        Rotation possibility 1 stop value
+
+    rot2_start : float or None
+        Rotation possibility 2 start value
+
+    rot2_stop : float or None
+        Rotation possibility 2 stop value
+
+    cur_rot : float
+        Current rotation value
+
+    min_rot : float
+        Minimum rotation value
+
+    max_rot : float
+        Maximum rotation value
+
+    Returns
+    -------
+    rot1_ok, rot2_ok : tuple of start and stop rotation values
+        floats if rotation is allowed, None otherwise
+    """
+    rot1_ok = check_rotation_limits(rot1_start, rot1_stop, min_rot, max_rot)
+    rot2_ok = check_rotation_limits(rot2_start, rot2_stop, min_rot, max_rot)
 
     if rot1_ok:
         if not rot2_ok:
@@ -82,8 +140,8 @@ def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
 
         # figure out which rotation would be the shorter distance
         # from the current location
-        delta1 = np.fabs(cur_rot_deg - rot1_start)
-        delta2 = np.fabs(cur_rot_deg - rot2_start)
+        delta1 = np.fabs(cur_rot - rot1_start)
+        delta2 = np.fabs(cur_rot - rot2_start)
         if delta1 < delta2:
             return rot1_start, rot1_stop
         return rot2_start, rot2_stop
@@ -151,9 +209,7 @@ def calc_subaru_azimuths(az_deg):
     NOTE: naz_deg is always in the negative direction, paz_deg in the positive
     """
     # limit angle to 0 <= az_deg < 360.0
-    # print(f"INPUT: az_deg (N) = {az_deg}")
     az_deg = normalize_angle(az_deg, limit='full', ang_offset=0.0)
-    # print(f"NORMALIZED: az_deg (N) = {az_deg}")
 
     if 0.0 <= az_deg <= 90.0:
         naz_deg = - (180.0 - az_deg)
@@ -172,7 +228,6 @@ def calc_subaru_azimuths(az_deg):
         naz_deg = 0.0
         paz_deg = 0.0
 
-    # print(f"SUBARU: naz_deg (S) = {naz_deg}, paz_deg (S) = {paz_deg}")
     return naz_deg, paz_deg
 
 
@@ -232,7 +287,6 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
     #         # object moving W to E
     #         pass
 
-    # print(f"target DEC DEG={cr_start.dec_deg} OBS_LAT={obs_lat_deg}")
     if cr_start.dec_deg > obs_lat_deg:
         # target in North for whole range
         # 2 az directions are possible
@@ -332,7 +386,7 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
             raise ValueError(f"start quadrant '{start_quad}' type not recognized")
 
 
-def calc_rotator_offset(cr, az_deg, pa_deg, ins_name):
+def calc_rotator_offsets(cr, pa_deg, flip=False, ins_delta=0.0):
     """Calculate the effective instrument rotator offset.
 
     Parameters
@@ -340,8 +394,45 @@ def calc_rotator_offset(cr, az_deg, pa_deg, ins_name):
     cr : ~qplan.util.calcpos.CalculationResult
         Calculation result for target at a certain time
 
-    az_deg : float
-        The azimuth value (0 deg == South) chosen for the target
+    pa_deg : float
+        The desired position angle in degrees
+
+    flip : bool (optional, defaults to False)
+        Whether the image is flipped or not (depends on foci)
+
+    ins_delta : float (optional, defaults to 0.0)
+        Instrument mounting offset to apply
+
+    Returns
+    -------
+    offset_deg : float
+        The desirable rotator value for this observation
+    """
+    pang_deg = cr.pang_deg
+    # offset_angle = parallactic_angle + position_angle
+    offset_deg = pang_deg + pa_deg
+
+    if flip:
+        # non-mirror image, such as foci Cs, or NsOpt w/ImR
+        offset_deg = -offset_deg
+
+    offset_deg = offset_deg + ins_delta
+    offset_deg = normalize_angle(offset_deg, limit='full')
+    alt_offset_deg = calc_alternate_angle(offset_deg)
+
+    return offset_deg, alt_offset_deg
+
+
+def calc_possible_rotations(cr_start, cr_stop, pa_deg, ins_name):
+    """Calculate the possible instrument rotations.
+
+    Parameters
+    ----------
+    cr_start: ~qplan.util.calcpos.CalculationResult
+        Calculation result for target at start of observation
+
+    cr_stop: ~qplan.util.calcpos.CalculationResult
+        Calculation result for target at stop of observation (end of exposure)
 
     pa_deg : float
         The desired position angle in degrees
@@ -353,46 +444,14 @@ def calc_rotator_offset(cr, az_deg, pa_deg, ins_name):
     -------
     offset_deg : float
         The desirable rotator value for this observation
-
-    NOTE: follows guidelines given by H. Okita for best rotator position
     """
-    # get instrument mounting offset
-    ins_delta = mount_deltas.get(ins_name, 0.0)
+    ins_delta = mount_offsets.get(ins_name, 0.0)
+    ins_flip = mount_flip.get(ins_name, False)
 
-    pang_deg = cr.pang_deg
-    # offset_angle = parallactic_angle + position_angle
-    offset_deg = normalize_angle(pang_deg + pa_deg, limit='full')
-    #offset_deg = np.fmod(pang_deg + pa_deg, 360.0)
-
-    if ins_name in ['HSC', 'PPC']:
-        # mirror image at Prime focus
-        offset_deg = offset_deg + ins_delta
-
-    elif ins_name in ['MOIRCS', 'FOCAS']:
-        # Cassegrain focus
-        offset_deg = -offset_deg + ins_delta
-
-    else:
-        raise ValueError(f"unknown instrument {ins_name}")
-
-    # print(f"INITIAL OFFSET ANGLE {offset_deg} (pang={pang_deg}, AZ={az_deg})")
-    # NOTE: az_deg is in Subaru format (0 deg == South)
-    if (-180.0 < az_deg <= 0) or (az_deg >= 180.0):
-        # <-- object in EAST, offset should be POSITIVE (see NOTE above)
-        if offset_deg < 0.0:
-            offset_deg += 360.0
-        # print(f"EAST OBJ, ADJ OFFSET ANGLE {offset_deg}")
-
-    elif (0.0 < az_deg <= 180.0) or (az_deg <= -180.0):
-        # <-- object in WEST, offset should be NEGATIVE (see NOTE above)
-        if offset_deg > 0.0:
-            offset_deg -= 360.0
-        # print(f"WEST OBJ, ADJ OFFSET ANGLE {offset_deg}")
-
-    else:
-        raise ValueError(f"unhandled azimuth {az_deg} deg")
-
-    alt_offset_deg = calc_alternate_angle(offset_deg)
-    # print(f"OFFSET ANGLE={offset_deg}, ALT ANGLE {alt_offset_deg}")
-
-    return offset_deg, alt_offset_deg
+    rot1_start_deg, rot2_start_deg = calc_rotator_offsets(cr_start, pa_deg,
+                                                          flip=ins_flip,
+                                                          ins_delta=ins_delta)
+    rot1_stop_deg, rot2_stop_deg = calc_rotator_offsets(cr_stop, pa_deg,
+                                                        flip=ins_flip,
+                                                        ins_delta=ins_delta)
+    return [(rot1_start_deg, rot1_stop_deg), (rot2_start_deg, rot2_stop_deg)]
