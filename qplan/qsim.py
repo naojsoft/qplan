@@ -387,11 +387,15 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
                                                        az2_stop_deg,
                                                        cur_az_deg,
                                                        min_az_deg, max_az_deg)
+        if np.nan in (az_start, az_stop):
+            res.setvals(obs_ok=False, reason="Azimuth would go past limit")
+            return res
 
     # calculate optimal rotator position
     pa_deg = ob.inscfg.pa
     ins_name = ob.inscfg.insname
-    rot_choices = misc.calc_possible_rotations(c1, c2, pa_deg, ins_name)
+    rot_choices = misc.calc_possible_rotations(c1.pang_deg, c2.pang_deg,
+                                               pa_deg, ins_name)
     rot1_start_deg, rot1_stop_deg = rot_choices[0]
     rot2_start_deg, rot2_stop_deg = rot_choices[1]
     rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
@@ -400,7 +404,7 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
                                                      rot2_stop_deg,
                                                      cur_rot_deg,
                                                      min_rot_deg, max_rot_deg)
-    if rot_start is None or rot_stop is None:
+    if np.isnan(rot_start) or np.isnan(rot_stop):
         res.setvals(obs_ok=False, reason="Rotator would go past limit")
         return res
 

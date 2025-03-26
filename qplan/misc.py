@@ -64,92 +64,19 @@ def calc_slew_time(cur_alt_deg, cur_az_deg, cur_rot_deg,
 
 def calc_alternate_angle(ang_deg):
     """Calculates the alternative usable angle to the given one.
-    """
-    _ang_deg = ang_deg - np.sign(ang_deg) * 360
-    return _ang_deg
-
-
-def check_rotation_limits(rot_start, rot_stop, min_rot, max_rot):
-    """Check rotation against limits.
 
     Parameters
     ----------
-    rot_start : float or None
-        Rotation start value
-
-    rot_stop : float or None
-        Rotation stop value
-
-    min_rot : float
-        Minimum rotation value
-
-    max_rot : float
-        Maximum rotation value
+    ang_deg : float or array of float
+        The input angle(s) in degrees
 
     Returns
     -------
-    rot_ok : bool
-        True if rotation is allowed, False otherwise
+    alt_deg : float or array of float
+        The output angle(s) in degrees
     """
-    if None in (rot_start, rot_stop):
-        rot_ok = False
-    else:
-        rot_ok = ((min_rot <= rot_start <= max_rot) and
-                  (min_rot <= rot_stop <= max_rot))
-    return rot_ok
-
-
-def calc_optimal_rotation(rot1_start, rot1_stop, rot2_start, rot2_stop,
-                          cur_rot, min_rot, max_rot):
-    """Find optimal rotation, while checking against limits.
-
-    Parameters
-    ----------
-    rot1_start : float or None
-        Rotation possibility 1 start value
-
-    rot1_stop : float or None
-        Rotation possibility 1 stop value
-
-    rot2_start : float or None
-        Rotation possibility 2 start value
-
-    rot2_stop : float or None
-        Rotation possibility 2 stop value
-
-    cur_rot : float
-        Current rotation value
-
-    min_rot : float
-        Minimum rotation value
-
-    max_rot : float
-        Maximum rotation value
-
-    Returns
-    -------
-    rot1_ok, rot2_ok : tuple of start and stop rotation values
-        floats if rotation is allowed, None otherwise
-    """
-    rot1_ok = check_rotation_limits(rot1_start, rot1_stop, min_rot, max_rot)
-    rot2_ok = check_rotation_limits(rot2_start, rot2_stop, min_rot, max_rot)
-
-    if rot1_ok:
-        if not rot2_ok:
-            return rot1_start, rot1_stop
-
-        # figure out which rotation would be the shorter distance
-        # from the current location
-        delta1 = np.fabs(cur_rot - rot1_start)
-        delta2 = np.fabs(cur_rot - rot2_start)
-        if delta1 < delta2:
-            return rot1_start, rot1_stop
-        return rot2_start, rot2_stop
-
-    elif rot2_ok:
-        return rot2_start, rot2_stop
-    else:
-        return None, None
+    alt_deg = ang_deg - np.sign(ang_deg) * 360
+    return alt_deg
 
 
 def normalize_angle(ang_deg, limit=None, ang_offset=0.0):
@@ -193,6 +120,92 @@ def normalize_angle(ang_deg, limit=None, ang_offset=0.0):
     return ang_deg
 
 
+def check_rotation_limits(rot_start, rot_stop, min_rot, max_rot):
+    """Check rotation against limits.
+
+    Parameters
+    ----------
+    rot_start : float or NaN
+        Rotation start value
+
+    rot_stop : float or NaN
+        Rotation stop value
+
+    min_rot : float
+        Minimum rotation value
+
+    max_rot : float
+        Maximum rotation value
+
+    Returns
+    -------
+    rot_ok : bool
+        True if rotation is allowed, False otherwise
+    """
+    if np.isnan(rot_start) or np.isnan(rot_stop):
+        rot_ok = False
+    else:
+        rot_ok = ((min_rot <= rot_start <= max_rot) and
+                  (min_rot <= rot_stop <= max_rot))
+    return rot_ok
+
+
+def calc_optimal_rotation(left_start_deg, left_stop_deg,
+                          right_start_deg, right_stop_deg,
+                          cur_rot_deg, min_rot_deg, max_rot_deg):
+    """Find optimal rotation, while checking against limits.
+
+    Parameters
+    ----------
+    left_start_deg : float, NaNs ok
+        Rotation possibility 1 start value
+
+    left_stop_deg : float, NaNs ok
+        Rotation possibility 1 stop value
+
+    right_start_deg : float, NaNs ok
+        Rotation possibility 2 start value
+
+    right_stop_deg : float, NaNs ok
+        Rotation possibility 2 stop value
+
+    cur_rot_deg : float
+        Current rotation value
+
+    min_rot_deg : float
+        Minimum rotation value
+
+    max_rot_deg : float
+        Maximum rotation value
+
+    Returns
+    -------
+    rot1_ok, rot2_ok : tuple of start and stop rotation values
+        floats if rotation is allowed, NaN otherwise
+    """
+    left_ok = check_rotation_limits(left_start_deg, left_stop_deg,
+                                    min_rot_deg, max_rot_deg)
+    right_ok = check_rotation_limits(right_start_deg, right_stop_deg,
+                                     min_rot_deg, max_rot_deg)
+
+    if left_ok:
+        if not right_ok:
+            return left_start_deg, left_stop_deg
+
+        # figure out which rotation would be the shorter distance
+        # from the current location
+        delta_l = np.fabs(cur_rot_deg - left_start_deg)
+        delta_r = np.fabs(cur_rot_deg - right_start_deg)
+        if delta_l < delta_r:
+            return left_start_deg, left_stop_deg
+        return right_start_deg, right_stop_deg
+
+    elif right_ok:
+        return right_start_deg, right_stop_deg
+    else:
+        return np.nan, np.nan
+
+
 def calc_subaru_azimuths(az_deg):
     """Calculate Subaru (0 deg == South) azimuth possibilities.
 
@@ -203,8 +216,8 @@ def calc_subaru_azimuths(az_deg):
 
     Returns
     -------
-    (naz_deg, paz_deg): tuple of float or None
-        possible translated azimuths (0 deg == South), one of them may be None
+    (naz_deg, paz_deg): tuple of float or NaN
+        possible translated azimuths (0 deg == South), one of them may be NaN
 
     NOTE: naz_deg is always in the negative direction, paz_deg in the positive
     """
@@ -216,9 +229,9 @@ def calc_subaru_azimuths(az_deg):
         paz_deg = 180.0 + az_deg
     elif 90.0 < az_deg < 180.0:
         naz_deg = - (180.0 - az_deg)
-        paz_deg = None
+        paz_deg = np.nan
     elif 180.0 < az_deg < 270.0:
-        naz_deg = None
+        naz_deg = np.nan
         paz_deg = az_deg - 180.0
     elif 270.0 < az_deg < 360.0:
         naz_deg = -270.0 + (az_deg - 270.0)
@@ -313,11 +326,11 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
         naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
         naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
 
-        if naz_deg_start is not None:
+        if not np.isnan(naz_deg_start):
             # <-- target in SE
-            if paz_deg_start is not None:
+            if not np.isnan(paz_deg_start):
                 raise ValueError(f"target in SE has two AZ start values ({naz_deg_start},{paz_deg_start})")
-            if naz_deg_stop is not None:
+            if not np.isnan(naz_deg_stop):
                 # <-- target finishes in SE
                 return [(naz_deg_start, naz_deg_stop)]
             else:
@@ -325,9 +338,9 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
                 return [(naz_deg_start, paz_deg_stop)]
         else:
             # <-- target in SW
-            if paz_deg_stop is None:
+            if np.isnan(paz_deg_stop):
                 raise ValueError(f"target in SW has no AZ stop value ({paz_deg_stop})")
-            if naz_deg_stop is not None:
+            if not np.isnan(naz_deg_stop):
                 raise ValueError(f"target in SW has neg AZ stop value ({naz_deg_stop})")
             return [(paz_deg_start, paz_deg_stop)]
 
@@ -386,13 +399,15 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
             raise ValueError(f"start quadrant '{start_quad}' type not recognized")
 
 
-def calc_rotator_offsets(cr, pa_deg, flip=False, ins_delta=0.0):
-    """Calculate the effective instrument rotator offset.
+def calc_offset_angle(pang_deg, pa_deg, flip=False, ins_delta=0.0):
+    """Calculate the instrument rotator offset.
+
+    NOTE: DOES NOT NORMALIZE THE ANGLES
 
     Parameters
     ----------
-    cr : ~qplan.util.calcpos.CalculationResult
-        Calculation result for target at a certain time
+    pang_deg : float
+        Parallactic angle for target at a certain time
 
     pa_deg : float
         The desired position angle in degrees
@@ -406,9 +421,8 @@ def calc_rotator_offsets(cr, pa_deg, flip=False, ins_delta=0.0):
     Returns
     -------
     offset_deg : float
-        The desirable rotator value for this observation
+        The rotator offset value for this observation
     """
-    pang_deg = cr.pang_deg
     # offset_angle = parallactic_angle + position_angle
     offset_deg = pang_deg + pa_deg
 
@@ -417,22 +431,19 @@ def calc_rotator_offsets(cr, pa_deg, flip=False, ins_delta=0.0):
         offset_deg = -offset_deg
 
     offset_deg = offset_deg + ins_delta
-    offset_deg = normalize_angle(offset_deg, limit='full')
-    alt_offset_deg = calc_alternate_angle(offset_deg)
-
-    return offset_deg, alt_offset_deg
+    return offset_deg
 
 
-def calc_possible_rotations(cr_start, cr_stop, pa_deg, ins_name):
+def calc_possible_rotations(start_pang_deg, stop_pang_deg, pa_deg, ins_name):
     """Calculate the possible instrument rotations.
 
     Parameters
     ----------
-    cr_start: ~qplan.util.calcpos.CalculationResult
-        Calculation result for target at start of observation
+    start_pang_deg : float
+        Parallactic angle for target at start of observation
 
-    cr_stop: ~qplan.util.calcpos.CalculationResult
-        Calculation result for target at stop of observation (end of exposure)
+    stop_pang_deg : float
+        Parallactic angle for target at stop of observation (end of exposure)
 
     pa_deg : float
         The desired position angle in degrees
@@ -442,16 +453,30 @@ def calc_possible_rotations(cr_start, cr_stop, pa_deg, ins_name):
 
     Returns
     -------
-    offset_deg : float
-        The desirable rotator value for this observation
+    possible_rots : array of (float, float)
+        The rotator offset angles for this parallactic angle
+
+    NOTE: the possibilities are not guaranteed to be achievable.
+    They should be further checked against limits.
     """
     ins_delta = mount_offsets.get(ins_name, 0.0)
     ins_flip = mount_flip.get(ins_name, False)
 
-    rot1_start_deg, rot2_start_deg = calc_rotator_offsets(cr_start, pa_deg,
-                                                          flip=ins_flip,
-                                                          ins_delta=ins_delta)
-    rot1_stop_deg, rot2_stop_deg = calc_rotator_offsets(cr_stop, pa_deg,
-                                                        flip=ins_flip,
-                                                        ins_delta=ins_delta)
-    return [(rot1_start_deg, rot1_stop_deg), (rot2_start_deg, rot2_stop_deg)]
+    start_offset_deg = calc_offset_angle(start_pang_deg, pa_deg, flip=ins_flip,
+                                         ins_delta=ins_delta)
+    stop_offset_deg = calc_offset_angle(stop_pang_deg, pa_deg, flip=ins_flip,
+                                        ins_delta=ins_delta)
+
+    rot_diff = stop_offset_deg - start_offset_deg
+    # sign of this should indicate the direction of the rotation
+    # rot_sign = np.sign(rot_diff)
+
+    # normalize angles to (-360, +360)
+    left_start_deg = normalize_angle(start_offset_deg, limit=None)
+    left_stop_deg = left_start_deg + rot_diff
+
+    right_start_deg = calc_alternate_angle(start_offset_deg)
+    right_stop_deg = right_start_deg + rot_diff
+
+    return np.array([(left_start_deg, left_stop_deg),
+                     (right_start_deg, right_stop_deg)])
