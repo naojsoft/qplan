@@ -475,7 +475,7 @@ def calc_possible_rotations(start_pang_deg, stop_pang_deg, pa_deg, ins_name):
     left_start_deg = normalize_angle(start_offset_deg, limit=None)
     left_stop_deg = left_start_deg + rot_diff
 
-    right_start_deg = calc_alternate_angle(start_offset_deg)
+    right_start_deg = calc_alternate_angle(left_start_deg)
     right_stop_deg = right_start_deg + rot_diff
 
     return np.array([(left_start_deg, left_stop_deg),
