@@ -189,8 +189,8 @@ class HSC_ProgramStats(ProgramStats):
                  category='', grade=None, partner=None, pi='', propid=None, intensive=False, obsdate=None,
                  status='', error=None,
                  alloc_hour=0, alloc_count=0, compl_count=0, bad_count=0, bad_hour=0,
-                 moon_phase='', moon_sep_max=0.0, moon_sep_min=0.0,
-                 trans_max=0.0, trans_min=0.0):
+                 compl_hour=0.0, compl_rate=0.0, moon_phase='', moon_sep_max=0.0, moon_sep_min=0.0,
+                 seeing_max=0.0, seeing_min=0.0, trans_max=0.0, trans_min=0.0):
         super().__init__(proposal, 'hsc_program_stats', semester,
                          category, grade, partner, pi, intensive, obsdate,
                          status, error,
