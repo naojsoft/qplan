@@ -198,10 +198,6 @@ class Observer(object):
 
         d1 = self.calc(target, time_start)
 
-        if d1.alt_deg > el_max_deg:
-            # object above maximum allowed elevation
-            return (False, None, None)
-
         # important: ephem only deals with UTC!!
         time_start_utc = ephem.Date(self.date_to_utc(time_start))
         time_stop_utc = ephem.Date(self.date_to_utc(time_stop))
@@ -257,16 +253,6 @@ class Observer(object):
         can_obs = duration > time_needed
         #print("can_obs=%s duration=%f needed=%f diff=%f" % (
         #    can_obs, duration, time_needed, diff))
-
-        # check conditions at time_end (altitudes, etc)
-        if can_obs:
-            d2 = self.calc(target, time_stop)
-            if d2.alt_deg > el_max_deg:
-                # object above maximum allowed elevation
-                return (False, None, None)
-            # TODO: check lower elevation limit
-            # Need to discuss--it may be ok to track below the min elevation
-            # depending on how low it goes
 
         # convert times back to datetime's
         time_rise = self.date_to_local(time_rise.datetime())
