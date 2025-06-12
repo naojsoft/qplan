@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 
 from ginga.misc import Bunch
-from ginga.gw import Widgets, Viewers
+from ginga.gw import Viewers
 
 from qplan.plugins import PlBase
 from qplan import common

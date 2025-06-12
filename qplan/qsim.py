@@ -4,7 +4,6 @@
 #  E. Jeschke
 #
 from datetime import timedelta
-import time
 
 # 3rd party imports
 import numpy as np
@@ -14,8 +13,6 @@ from ginga.misc import Bunch
 
 # local imports
 from . import misc
-from . import entity
-
 
 # maximum rank for a program
 max_rank = 10.0
@@ -36,16 +33,17 @@ parked_rot_deg = 0.0
 dark_night_moon_pct_limit = 0.25
 
 
-def obs_to_slots(logger, slots, site, obs, check_moon=False, check_env=False):
+def obs_to_slots(logger, slots, site, obs, eph_cache, check_moon=False, check_env=False):
     obmap = {}
     for slot in slots:
+        eph_cache.clear_all()
         key = str(slot)
         obmap[key] = []
         if slot.size() < minimum_slot_size:
             continue
         for ob in obs:
             # this OB OK for this slot at this site?
-            res = check_slot(site, None, slot, ob,
+            res = check_slot(site, None, slot, ob, eph_cache,
                              check_moon=check_moon, check_env=check_env)
             if res.obs_ok:
                 obmap[key].append(ob)
@@ -55,6 +53,7 @@ def obs_to_slots(logger, slots, site, obs, check_moon=False, check_env=False):
                     ob, ob_id, res.reason))
 
     return obmap
+
 
 def check_schedule_invariant_one(site, schedule, ob):
 
@@ -97,7 +96,7 @@ def check_schedule_invariant(site, schedule, oblist):
     return good, bad, results
 
 
-def check_night_visibility_one(site, schedule, ob):
+def check_night_visibility_one(site, schedule, ob, eph_cache):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
@@ -113,13 +112,13 @@ def check_night_visibility_one(site, schedule, ob):
     min_el_deg, max_el_deg = ob.telcfg.get_el_minmax()
 
     # is this target visible during this night, and when?
-    (obs_ok, t_start, t_stop) = site.observable(ob.target,
-                                                schedule.start_time,
-                                                schedule.stop_time,
-                                                min_el_deg, max_el_deg,
-                                                ob.total_time,
-                                                airmass=ob.envcfg.airmass,
-                                                moon_sep=ob.envcfg.moon_sep)
+    (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
+                                                     schedule.start_time,
+                                                     schedule.stop_time,
+                                                     min_el_deg, max_el_deg,
+                                                     ob.total_time)
+                                                     #airmass=ob.envcfg.airmass,
+                                                     #moon_sep=ob.envcfg.moon_sep)
 
     if not obs_ok:
         res.setvals(obs_ok=False,
@@ -129,10 +128,11 @@ def check_night_visibility_one(site, schedule, ob):
     res.setvals(obs_ok=obs_ok, start_time=t_start, stop_time=t_stop)
     return res
 
-def check_night_visibility(site, schedule, oblist):
+
+def check_night_visibility(site, schedule, oblist, eph_cache):
     good, bad, results = [], [], {}
     for ob in oblist:
-        res = check_night_visibility_one(site, schedule, ob)
+        res = check_night_visibility_one(site, schedule, ob, eph_cache)
         results[str(ob)] = res
         if res.obs_ok:
             good.append(ob)
@@ -141,12 +141,13 @@ def check_night_visibility(site, schedule, oblist):
 
     return good, bad, results
 
-def check_moon_cond(cr_start, cr_stop, ob, res):
+
+def check_moon_cond(eph_start, eph_stop, ob, res):
     """Check whether the moon is at acceptable darkness for this OB
     and an acceptable distance from the target.
     """
     # is this a dark night? check moon illumination
-    is_dark_night = cr_start.moon_pct <= dark_night_moon_pct_limit
+    is_dark_night = eph_start.moon_pct <= dark_night_moon_pct_limit
 
     desired_moon_sep = ob.envcfg.moon_sep
 
@@ -154,7 +155,7 @@ def check_moon_cond(cr_start, cr_stop, ob, res):
     # and consider this a dark night
     moon_is_down = False
     horizon_deg = 0.0   # change as necessary
-    if (cr_start.moon_alt < horizon_deg) and (cr_stop.moon_alt < horizon_deg):
+    if (eph_start.moon_alt < horizon_deg) and (eph_stop.moon_alt < horizon_deg):
         moon_is_down = True
 
     # if observer specified a moon phase, check it now
@@ -162,7 +163,7 @@ def check_moon_cond(cr_start, cr_stop, ob, res):
         if not (is_dark_night or moon_is_down):
             res.setvals(obs_ok=False,
                         reason="Moon illumination=%f not acceptable (alt 1=%.2f 2=%.2f" % (
-                cr_start.moon_pct, cr_start.moon_alt, cr_stop.moon_alt))
+                eph_start.moon_pct, eph_start.moon_alt, eph_stop.moon_alt))
             return False
 
     # NOTE: change in HSC queue policy regarding override (2021/02...EJ)
@@ -175,22 +176,20 @@ def check_moon_cond(cr_start, cr_stop, ob, res):
                 ob.envcfg.moon_sep, desired_moon_sep))
 
     # if observer specified a moon separation from target, check it now
-    # TODO: do we need to check this at the end of the exposure as well?
-    # If so, then we may need to do it in observable() method
     if desired_moon_sep is not None:
-        if ((cr_start.moon_sep < desired_moon_sep) or
-            (cr_stop.moon_sep < desired_moon_sep)):
+        if ((eph_start.moon_sep < desired_moon_sep) or
+            (eph_stop.moon_sep < desired_moon_sep)):
             res.setvals(obs_ok=False,
                         reason="Moon-target separation (%f,%f < %f) not acceptable" % (
-                cr_start.moon_sep, cr_stop.moon_sep, desired_moon_sep))
+                eph_start.moon_sep, eph_stop.moon_sep, desired_moon_sep))
             return False
 
     # moon looks good!
     return True
 
 
-def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
-               limit_filter=None, allow_delay=True):
+def check_slot(site, schedule, slot, ob, eph_cache,
+               check_moon=True, check_env=True, limit_filter=None, allow_delay=True):
 
     res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
@@ -332,12 +331,12 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
 
     # find the time that this object begins to be visible
     # TODO: figure out the best place to split the slot
-    (obs_ok, t_start, t_stop) = site.observable(ob.target,
-                                                start_time, slot.stop_time,
-                                                min_el_deg, max_el_deg,
-                                                ob.total_time,
-                                                airmass=ob.envcfg.airmass,
-                                                moon_sep=ob.envcfg.moon_sep)
+    (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
+                                                     start_time, slot.stop_time,
+                                                     min_el_deg, max_el_deg,
+                                                     ob.total_time) #,
+                                                     #airmass=ob.envcfg.airmass,
+                                                     #moon_sep=ob.envcfg.moon_sep)
 
     if not obs_ok:
         res.setvals(obs_ok=False,
@@ -360,9 +359,9 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
 
     # Calculate cost of slew to this target
     start_time = t_start
-    c1 = site.calc(ob.target, start_time)
+    eph_start = eph_cache.get_closest(ob.target, start_time)
     stop_time = start_time + timedelta(seconds=ob.total_time)
-    c2 = site.calc(ob.target, stop_time)
+    eph_stop = eph_cache.get_closest(ob.target, stop_time)
 
     # calculate possible azimuth moves
     dec_deg = c1.dec_deg
@@ -414,7 +413,7 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
 
     # calculate slewing time to new target
     slew_sec = misc.calc_slew_time(cur_alt_deg, cur_az_deg, cur_rot_deg,
-                                   c1.alt_deg, az_start, rot_start)
+                                   eph_start.alt_deg, az_start, rot_start)
 
     prep_sec += slew_sec
     # adjust on-target start time to account for slewing/rotator
@@ -436,7 +435,9 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
 
     # check moon constraints between start and stop time
     if check_moon:
-        obs_ok = check_moon_cond(c1, c2, ob, res)
+        eph_start = eph_cache.get_closest(ob.target, start_time)
+        eph_stop = eph_cache.get_closest(ob.target, stop_time)
+        obs_ok = check_moon_cond(eph_start, eph_stop, ob, res)
     else:
         obs_ok = True
 
@@ -446,7 +447,7 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
                 filterchange_sec=filterchange_sec,
                 start_time=start_time, stop_time=stop_time,
                 az_start=az_start, az_stop=az_stop,
-                alt_start=c1.alt_deg, alt_stop=c2.alt_deg,
+                alt_start=eph_start.alt_deg, alt_stop=eph_stop.alt_deg,
                 rot_start=rot_start, rot_stop=rot_stop,
                 delay_sec=delay_sec)
     return res

@@ -25,7 +25,6 @@ again.
 """
 import time
 import os
-import glob
 
 from ginga.gw import Widgets
 from qplan.plugins import PlBase

@@ -5,8 +5,7 @@
 #
 import time
 import os
-import re
-from io import BytesIO, StringIO
+from io import StringIO
 from datetime import timedelta
 
 from ginga.gw import Widgets

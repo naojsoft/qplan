@@ -4,7 +4,7 @@
 # Russell Kackley (rkackley@naoj.org)
 #
 import numpy as np
-from matplotlib.figure import Figure
+
 from matplotlib.font_manager import FontProperties
 import matplotlib.patches as mpatches
 

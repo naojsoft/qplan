@@ -3,10 +3,6 @@
 #
 #  E. Jeschke
 #
-import os
-
-from ginga.misc import Widgets
-from ginga.qtw import QtHelp
 
 # Gen2
 #from g2base.remoteObjects import remoteObjects as ro

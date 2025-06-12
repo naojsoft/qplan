@@ -3,8 +3,6 @@
 #
 # Russell Kackley (rkackley@naoj.org)
 #
-from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
 from ginga.gw import Plot
 
 from qplan.plots import summary as ps

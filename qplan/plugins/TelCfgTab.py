@@ -2,11 +2,8 @@
 # TelCfgTab.py -- Plugin to display/edit the telescope configuration in a table GUI
 #
 
-import datetime
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
 
-from qplan import entity
 from qplan.plugins import QueueFileTab
 
 class TelCfgTab(QueueFileTab.QueueCfgFileTab):

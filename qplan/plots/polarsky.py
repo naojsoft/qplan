@@ -1,7 +1,6 @@
 import math
 from datetime import datetime
 
-import matplotlib as mpl
 from matplotlib import rc
 
 from ginga.util import plots

@@ -6,9 +6,7 @@ import datetime
 import dateutil.parser
 
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
 
-from qplan.plugins import PlBase
 from qplan.plugins import QueueFileTab
 
 class ScheduleTab(QueueFileTab.QueueFileTab):
