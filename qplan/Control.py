@@ -2,9 +2,6 @@
 # This is open-source software licensed under a BSD license.
 # Please see the file LICENSE.txt for details.
 #
-import sys, os
-import threading
-
 from ginga.misc import Callback
 
 class ControlError(Exception):

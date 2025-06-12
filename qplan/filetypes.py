@@ -11,7 +11,6 @@ import datetime
 import re
 
 import pandas as pd
-import numpy as np
 from pandas.plotting import register_matplotlib_converters
 
 from ginga.misc import Bunch

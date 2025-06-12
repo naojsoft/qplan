@@ -3,21 +3,19 @@
 #
 #  E. Jeschke
 #
-import os
 import time
 from datetime import timedelta
 import numpy
-from io import BytesIO, StringIO
+from io import StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
 
 # local imports
-from . import misc
 from . import entity
-from . import common
 from . import qsim
 from .util import qsort, dates
+from .util.eph_cache import EphemerisCache
 
 # maximum rank for a program
 max_rank = 10.0
@@ -35,6 +33,7 @@ class Scheduler(Callback.Callbacks):
 
         self.site = observer
         self.timezone = observer.tz_local
+        self.eph_cache = EphemerisCache(logger, precision_minutes=5)
 
         # these are the main data structures used to schedule
         self.oblist = []
@@ -192,7 +191,7 @@ class Scheduler(Callback.Callbacks):
     def eval_slot(self, schedule, slot, site, oblist):
 
         # evaluate each OB against this slot
-        results = map(lambda ob: qsim.check_slot(site, schedule, slot, ob,
+        results = map(lambda ob: qsim.check_slot(site, schedule, slot, ob, self.eph_cache,
                                                  limit_filter=self.sch_params.limit_filter,
                                                  allow_delay=self.sch_params.allow_delay),
                            oblist)
@@ -244,7 +243,9 @@ class Scheduler(Callback.Callbacks):
 
         # make a visibility map, and reject OBs that are not visible
         # during this night for long enough to meet the exposure times
-        usable, bad, obmap = qsim.check_night_visibility(site, schedule, usable)
+        # NOTE: this should populate the eph_cache for the night
+        usable, bad, obmap = qsim.check_night_visibility(site, schedule, usable,
+                                                         self.eph_cache)
         cantuse.extend(bad)
         for ob in bad:
             res = obmap[str(ob)]
@@ -439,7 +440,7 @@ class Scheduler(Callback.Callbacks):
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
         obmap = qsim.obs_to_slots(self.logger, night_slots, site,
-                                  self.oblist)
+                                  self.oblist, self.eph_cache)
 
         self.logger.debug('OB MAP')
         for key in obmap:
@@ -499,6 +500,7 @@ class Scheduler(Callback.Callbacks):
 
         self.logger.info("scheduling %d OBs (from %d programs) for %d nights" % (
             len(unscheduled_obs), len(self.programs), len(schedules)))
+        t_t2 = time.time()
 
         for schedule in schedules:
 
@@ -547,6 +549,8 @@ class Scheduler(Callback.Callbacks):
 
             self.logger.info("%d unscheduled OBs left" % (len(unscheduled_obs)))
 
+        t_elapsed = time.time() - t_t2
+        self.logger.info("%.2f sec for 2nd part" % (t_elapsed))
         t_elapsed = time.time() - t_t1
         self.logger.info("%.2f sec to schedule all" % (t_elapsed))
 

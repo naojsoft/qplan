@@ -6,12 +6,10 @@
 import time
 
 # ginga imports
-from ginga.misc import Bunch
 from ginga.gw import Widgets
 
 # local imports
 from qplan.plugins import PlBase
-from qplan import filetypes, misc
 
 
 class Errors(PlBase.Plugin):

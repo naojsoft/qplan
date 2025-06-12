@@ -2,11 +2,8 @@
 # WeightsTab.py -- Plugin to display/edit the schedule in a table GUI
 #
 
-import datetime
-
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
-from qplan.plugins import PlBase
+
 from qplan.plugins import QueueFileTab
 
 class WeightsTab(QueueFileTab.QueueFileTab):

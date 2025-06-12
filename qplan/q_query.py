@@ -5,7 +5,7 @@ from dateutil import tz
 
 from ginga.misc.Bunch import Bunch
 
-from qplan import entity, common
+from qplan import entity
 from qplan.util import dates
 
 # MODULE FUNCTIONS

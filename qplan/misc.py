@@ -269,16 +269,19 @@ def get_quadrant(az_deg):
         return 'NW'
 
 
-def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
+def calc_possible_azimuths(dec_deg, az_start_deg, az_stop_deg, obs_lat_deg):
     """Calculate possible azimuth moves.
 
     Parameters
     ----------
-    cr_start: ~qplan.util.calcpos.CalculationResult
-        Calculation result for target at start of observation
+    dec_deg : float
+        Declination of target in degrees
 
-    cr_stop: ~qplan.util.calcpos.CalculationResult
-        Calculation result for target at stop of observation (end of exposure)
+    az_start_deg: float
+        azimuth for target at start of observation
+
+    az_stop_deg: float
+        azimuth for target at stop of observation (end of exposure)
 
     obs_lat_deg: float
         Observers latitude in degrees
@@ -289,7 +292,7 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
         List of possible azimuth start and stops in Subaru (S==0 deg) coordinates
     """
     # circumpolar_deg_limit = 90.0 - obs_lat_deg
-    # if cr1.dec_deg > circumpolar_deg:
+    # if dec_deg > circumpolar_deg:
     #     # target in North for whole range
     #     # circumpolar orbit, object may go E to W or W to E
     #     # 2 az directions are possible
@@ -300,17 +303,17 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
     #         # object moving W to E
     #         pass
 
-    if cr_start.dec_deg > obs_lat_deg:
+    if dec_deg > obs_lat_deg:
         # target in North for whole range
         # 2 az directions are possible
-        naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
+        naz_deg_start, paz_deg_start = calc_subaru_azimuths(az_start_deg)
 
         if not (-270.0 <= naz_deg_start <= -90.0):
             raise ValueError(f"AZ(neg) start value ({naz_deg_start}) out of range for target in North")
         if not (90.0 <= paz_deg_start <= 270.0):
             raise ValueError(f"AZ(pos) start value ({paz_deg_start}) out of range for target in North")
 
-        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
+        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(az_stop_deg)
 
         if not (-270.0 <= naz_deg_stop <= -90.0):
             raise ValueError(f"AZ(neg) stop value ({naz_deg_stop}) out of range for target in North")
@@ -319,12 +322,12 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
 
         return [(naz_deg_start, naz_deg_stop), (paz_deg_start, paz_deg_stop)]
 
-    elif cr_start.dec_deg < 0.0:
+    elif dec_deg < 0.0:
         # target in South for whole range
         # only 1 az direction is possible
 
-        naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
-        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
+        naz_deg_start, paz_deg_start = calc_subaru_azimuths(az_start_deg)
+        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(az_stop_deg)
 
         if not np.isnan(naz_deg_start):
             # <-- target in SE
@@ -348,11 +351,11 @@ def calc_possible_azimuths(cr_start, cr_stop, obs_lat_deg):
         # target could be in N and may dip S, depending on start or exp time
         # 2 az directions are possible if target stays in N
         # else only 1 az direction is possible
-        start_quad = get_quadrant(cr_start.az_deg)
-        stop_quad = get_quadrant(cr_stop.az_deg)
+        start_quad = get_quadrant(az_start_deg)
+        stop_quad = get_quadrant(az_stop_deg)
 
-        naz_deg_start, paz_deg_start = calc_subaru_azimuths(cr_start.az_deg)
-        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(cr_stop.az_deg)
+        naz_deg_start, paz_deg_start = calc_subaru_azimuths(az_start_deg)
+        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(az_stop_deg)
 
         if start_quad == 'NE':
             # <-- stop_quad can be in NE, SE, SW, NW

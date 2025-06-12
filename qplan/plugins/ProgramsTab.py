@@ -4,13 +4,11 @@
 import yaml
 
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
 
 from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
 from ginga.gw.GwHelp import FileSelection
 
-from qplan.plugins import PlBase
 from qplan.plugins import QueueFileTab
 
 class ProgramsTab(QueueFileTab.QueueFileTab):

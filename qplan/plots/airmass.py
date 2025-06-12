@@ -7,14 +7,10 @@
 #   Copyright (c) 2008 UCO/Lick Observatory.
 #
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 import numpy
 
 import matplotlib.dates as mpl_dt
-import matplotlib as mpl
-from matplotlib.ticker import FormatStrFormatter
 
-from ginga.misc import Bunch
 from ginga.util import plots
 
 
@@ -202,7 +198,7 @@ class AirMassPlot(plots.Plot):
 
         #lstyle = 'o'
         lstyle = '-'
-        lt_data = [t.ut.astimezone(tz) for t in tgt_data[0].history]
+        lt_data = [t.astimezone(tz) for t in tgt_data[0].calc_res.ut]
 
         # we don't know what date "site" is currently initialized to,
         # so get the date of the first target. Also get the end date
@@ -218,7 +214,7 @@ class AirMassPlot(plots.Plot):
 
         # plot targets elevation vs. time
         for i, info in enumerate(tgt_data):
-            alt_data = numpy.array([t.alt_deg for t in info.history])
+            alt_data = info.calc_res.alt_deg
             alt_min = numpy.argmin(alt_data)
             alt_data_dots = alt_data
             color = self.colors[i % len(self.colors)]
@@ -235,7 +231,7 @@ class AirMassPlot(plots.Plot):
 
             if plot_moon_distance:
                 alt_interval = alt_data[0:-1:min_interval]
-                moon_sep = numpy.array([tgt.moon_sep for tgt in info.history])
+                moon_sep = info.calc_res.moon_sep
                 moon_sep = moon_sep[0:-1:min_interval]
 
                 # plot moon separations
@@ -272,7 +268,7 @@ class AirMassPlot(plots.Plot):
         ax1.set_ylabel('Altitude (deg)')
 
         # Plot moon trajectory and illumination
-        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
+        moon_data = tgt_data[0].calc_res.moon_alt
         illum_time = lt_data[moon_data.argmax()]
         moon_illum = site.moon_phase(date=illum_time)
         moon_color = '#666666'
@@ -411,82 +407,5 @@ class AirMassPlot(plots.Plot):
 
         ax.axhspan(hi_lim, ymax, facecolor='#F9EB4E', alpha=0.20)
 
-
-if __name__ == '__main__':
-    import sys
-    from qplan import entity, common
-    from qplan.util.site import get_site
-
-    from ginga import toolkit
-    toolkit.use('qt5')
-
-    from ginga.gw import Widgets, Plot
-    plot = AirMassPlot(1200, 740)
-
-    outfile = None
-    if len(sys.argv) > 1:
-        outfile = sys.argv[1]
-
-    if outfile is None:
-        app = Widgets.Application()
-        topw = app.make_window()
-        plotw = Plot.PlotWidget(plot)
-        topw.set_widget(plotw)
-        topw.add_callback('close', lambda w: w.delete())
-    else:
-        from ginga.aggw import Plot
-        plotw = Plot.PlotWidget(plot)
-
-    plot.setup()
-    site = get_site('subaru')
-    tz = site.tz_local
-
-    start_time = datetime.strptime("2015-03-30 18:30:00",
-                                   "%Y-%m-%d %H:%M:%S")
-    start_time = start_time.replace(tzinfo=tz)
-    t = start_time
-    # if schedule starts after midnight, change start date to the
-    # day before
-    if 0 <= t.hour < 12:
-        t -= timedelta(seconds=3600*12)
-    ndate = t.strftime("%Y/%m/%d")
-
-    targets = []
-    site.set_date(t)
-    tgt = entity.StaticTarget(name='S5', ra='14:20:00.00', dec='48:00:00.00')
-    targets.append(tgt)
-    tgt = entity.StaticTarget(name='Sf', ra='09:40:00.00', dec='43:00:00.00')
-    targets.append(tgt)
-    tgt = entity.StaticTarget(name='Sm', ra='10:30:00.00', dec='36:00:00.00')
-    targets.append(tgt)
-    tgt = entity.StaticTarget(name='Sn', ra='15:10:00.00', dec='34:00:00.00')
-    targets.append(tgt)
-
-    # make airmass plot
-    num_tgts = len(targets)
-    target_data = []
-    lengths = []
-    if num_tgts > 0:
-        for tgt in targets:
-            info_list = site.get_target_info(tgt)
-            target_data.append(Bunch.Bunch(history=info_list, target=tgt))
-            lengths.append(len(info_list))
-
-    # clip all arrays to same length
-    min_len = min(*lengths)
-    for il in target_data:
-        il.history = il.history[:min_len]
-
-    ## plot.plot_airmass(site, target_data, tz, show_target_legend=True,
-    ##                   plot_moon_distance=True)
-    plot.plot_altitude(site, target_data, tz, show_target_legend=True,
-                       plot_moon_distance=True)
-
-    if outfile is None:
-        topw.show()
-    else:
-        plot.fig.savefig(outfile)
-
-    app.mainloop()
 
 #END

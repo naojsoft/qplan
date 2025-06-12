@@ -4,7 +4,6 @@
 # E. Jeschke
 #
 
-import os
 from collections import OrderedDict
 from datetime import timedelta, datetime
 

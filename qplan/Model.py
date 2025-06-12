@@ -5,16 +5,11 @@
 #  E. Jeschke
 #
 import os
-import time
-from datetime import timedelta
 
 # 3rd party imports
 import yaml
-import numpy
-from ginga.misc import Callback, Bunch
+from ginga.misc import Callback
 
-# local imports
-from . import filetypes
 
 class QueueModel(Callback.Callbacks):
 
