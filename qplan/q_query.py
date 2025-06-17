@@ -5,7 +5,7 @@ from dateutil import tz
 
 from ginga.misc.Bunch import Bunch
 
-from qplan import entity, common
+from qplan import entity
 from qplan.util import dates
 
 # MODULE FUNCTIONS
@@ -223,14 +223,16 @@ class QueueQuery(object):
                                lambda rec: rec['exp_id'],
                                entity.make_exposure)
 
-    def get_executed_obs_by_date(self, fromdate, todate):
+    def get_executed_obs_by_date(self, fromdate, todate, insname=None):
         """
         Get executed OBs by date.
         """
         tbl = self._qa.get_db_native_table('executed_ob')
-        recs = tbl.find({'$and': [{'time_start': {'$gte': fromdate}},
-                                  {'time_stop': {'$lte': todate}}
-                                  ]})
+        predicate = [{'time_start': {'$gte': fromdate}},
+                     {'time_stop': {'$lte': todate}}]
+        if insname is not None:
+            predicate.append({'insname': insname})
+        recs = tbl.find({'$and': predicate})
         return self.cmake_iter('executed_ob', recs,
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
                                entity.make_executed_ob)
@@ -270,7 +272,7 @@ class QueueQuery(object):
         tbl = self._qa.get_db_native_table('executed_ob')
         return tbl.count_documents(dict(ob_key=ob_key))
 
-    def get_finalized_executed_obs(self, fqa_set):
+    def get_finalized_executed_obs(self, fqa_set, insname='HSC'):
         """
         Get the OBs that have been executed with a complete FQA.
         `fqa_set` should be a set with some combination of 'good' and
@@ -278,23 +280,26 @@ class QueueQuery(object):
         """
         # Locate the executed_ob table
         tbl = self._qa.get_db_native_table('executed_ob')
-        recs = tbl.find(dict(fqa={'$in': fqa_set}))
+        recs = tbl.find({'$and': [{'insname': insname},
+                                  {'fqa': {'$in': fqa_set}}]})
         return self.cmake_iter('executed_ob', recs,
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
                                entity.make_executed_ob)
 
-    def get_do_not_execute_ob_keys(self):
+    def get_do_not_execute_ob_keys(self, insname='HSC'):
         """
         Get the keys for OBs that should not be executed because they are
         either FQA==good or have an IQA==good/marginal.
         """
         # Locate the executed_ob table
         tbl = self._qa.get_db_native_table('executed_ob')
-        recs = tbl.find({'$or':[ {'fqa': 'good'},
-                                 {'$and': [{'fqa':''},
-                                           {'iqa':{'$in':['good', 'marginal']}
-                                            }]}
-                                 ]}, {'ob_key': 1})
+        recs = tbl.find({'$and': [{'insname': insname},
+                                  {'$or':[ {'fqa': 'good'},
+                                           {'$and': [{'fqa':''},
+                                                     {'iqa':{'$in':['good',
+                                                                    'marginal']}
+                                                      }]}
+                                          ]}]}, {'ob_key': 1})
         return [tuple(rec['ob_key']) for rec in recs]
 
     def get_do_not_execute_ob_info(self, proplst, tz_local):
@@ -379,27 +384,30 @@ class QueueQuery(object):
 
         return fqa_ob_keys, props
 
-    def get_schedulable_ob_keys(self):
+    def get_schedulable_ob_keys(self, insname='HSC'):
         """
         Get the keys for OBs that can be scheduled, because their IQA/FQA
         enables that.
         """
-        do_not_execute = set(self.get_do_not_execute_ob_keys())
+        do_not_execute = set(self.get_do_not_execute_ob_keys(insname=insname))
         tbl = self._qa.get_db_native_table('ob')
-        recs = tbl.find({}, {'program': 1, 'name': 1})
+        recs = tbl.find({'kind': insname.lower() + '_ob'},
+                        {'program': 1, 'name': 1})
         all_obs = set([(rec['program'], rec['name']) for rec in recs])
         return all_obs - do_not_execute
 
-    def get_executed_obs_for_fqa(self):
+    def get_executed_obs_for_fqa(self, insname='HSC'):
         """
         Get the executed OB records that have IQA in (good, marginal) but
         blank FQA
         """
         # Locate the executed_ob table
         tbl = self._qa.get_db_native_table('executed_ob')
-        recs = tbl.find({'$and':[ {'fqa': {'$eq': ''}},
-                                  {'iqa': {'$in':['good', 'marginal']}}
-                                  ]})
+        recs = tbl.find({'$and': [{'insname': insname},
+                                  {'$and':[ {'fqa': {'$eq': ''}},
+                                            {'iqa': {'$in':['good',
+                                                            'marginal']}}
+                                           ]}]})
         return self.cmake_iter('executed_ob', recs,
                                lambda rec: (tuple(rec['ob_key']), rec['time_start']),
                                entity.make_executed_ob)

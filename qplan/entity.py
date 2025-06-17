@@ -13,7 +13,7 @@ import numpy as np
 from astropy.coordinates import Angle
 from astropy import units
 
-entity_version = 20230109.0
+entity_version = 20250616.0
 
 from ginga.misc import Bunch
 
@@ -1246,10 +1246,12 @@ class Executed_OB(PersistentEntity):
     """
     Describes the result of executing an OB.
     """
-    def __init__(self, ob_key=None):
+    def __init__(self, ob_key=None, insname=None):
         super().__init__('executed_ob')
 
         self.ob_key = ob_key
+        # instrument name for this OB
+        self.insname = insname
         # time this OB started and stopped
         self.time_start = None
         self.time_stop = None
@@ -1278,6 +1280,12 @@ class Executed_OB(PersistentEntity):
             self.time_start = self.time_start.replace(tzinfo=tz.UTC)
         if self.time_stop is not None:
             self.time_stop = self.time_stop.replace(tzinfo=tz.UTC)
+
+    def save(self, qt):
+        if self.insname is None:
+            raise ValueError("no instrument name assigned")
+        super().save(qt)
+
 
 class PFS_Executed_OB_Stats(PersistentEntity):
     """
