@@ -212,13 +212,16 @@ class QueueQuery(object):
                                lambda rec: tuple(rec['ob_key']),
                                entity.make_pfs_executed_ob_stats)
 
-    def get_exposures_by_date(self, fromdate, todate):
+    def get_exposures_by_date(self, fromdate, todate, insname=None):
         """
         Get exposure by date.
         """
         tbl = self._qa.get_db_native_table('exposure')
-        recs = tbl.find({'$and': [{'time_start': {'$gte': fromdate}},
-                                  {'time_stop': {'$lte': todate}}]})
+        predicate = [{'time_start': {'$gte': fromdate}},
+                     {'time_stop': {'$lte': todate}}]
+        if insname is not None:
+            predicate.append({'insname': insname})
+        recs = tbl.find({'$and': predicate})
         return self.cmake_iter('exposure', recs,
                                lambda rec: rec['exp_id'],
                                entity.make_exposure)
