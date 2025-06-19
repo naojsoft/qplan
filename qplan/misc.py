@@ -225,15 +225,19 @@ def calc_subaru_azimuths(az_deg):
     az_deg = normalize_angle(az_deg, limit='full', ang_offset=0.0)
 
     if 0.0 <= az_deg <= 90.0:
+        # NE
         naz_deg = - (180.0 - az_deg)
         paz_deg = 180.0 + az_deg
     elif 90.0 < az_deg < 180.0:
+        # SE
         naz_deg = - (180.0 - az_deg)
         paz_deg = np.nan
     elif 180.0 < az_deg < 270.0:
+        # SW
         naz_deg = np.nan
         paz_deg = az_deg - 180.0
     elif 270.0 < az_deg < 360.0:
+        # NW
         naz_deg = -270.0 + (az_deg - 270.0)
         paz_deg = az_deg - 180.0
     else:

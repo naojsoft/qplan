@@ -8,8 +8,8 @@ from qplan.util.calcpos import Observer
 # Subaru Telescope
 wl_a =  {'observing': 3500., 'guiding': 6500.} # Angstrom
 site_subaru = Observer('subaru',
-                       longitude='-155:28:48.900',
-                       latitude='+19:49:42.600',
+                       longitude=-155.4761,
+                       latitude=19.8285,
                        elevation=4163,
                        pressure=615,
                        temperature=0,

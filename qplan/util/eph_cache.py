@@ -28,6 +28,7 @@ class EphemerisCache:
     def clear_all(self):
         self.vis_catalog = dict()
 
+    #@profile
     def populate_target_data(self, key, target, site, start_time, stop_time,
                              keep_old=True):
         """Populate ephemeris for a target from start_time to stop_time
@@ -71,8 +72,8 @@ class EphemerisCache:
             if not keep_old:
                 # remove any old calculations not in this time period
                 mask = np.isin(t_arr, dt_arr, invert=True)
-                if np.any(mask):
-                    num_rem = mask.sum()
+                num_rem = mask.sum()
+                if num_rem > 0:
                     self.logger.debug(f"removing results for {num_rem} times")
                     for key in self._columns + ['time_utc']:
                         vis_dct[key] = vis_dct[key][~mask]
@@ -100,6 +101,7 @@ class EphemerisCache:
 
         return vis_dct
 
+    #@profile
     def get_closest(self, key, time_dt, precision_minutes=None):
         """Return the closest set of results for target to time
 
@@ -142,6 +144,7 @@ class EphemerisCache:
             raise ValueError(f"time diff from result is {diff_sec:.2f} sec")
         return Bunch(res_dct)
 
+    #@profile
     def observable_periods(self, key, target, site, start_time, stop_time,
                            el_min_deg, el_max_deg, time_needed_sec):
         if start_time.tzinfo is None or stop_time.tzinfo is None:
@@ -223,6 +226,7 @@ class EphemerisCache:
         return (True, time_rise, time_set)
 
 
+#@profile
 def split_array(arr):
     """Splits a NumPy array into subarrays based on index discontinuities.
 

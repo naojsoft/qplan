@@ -243,7 +243,6 @@ class Scheduler(Callback.Callbacks):
 
         # make a visibility map, and reject OBs that are not visible
         # during this night for long enough to meet the exposure times
-        # NOTE: this should populate the eph_cache for the night
         usable, bad, obmap = qsim.check_night_visibility(site, schedule, usable,
                                                          self.eph_cache)
         cantuse.extend(bad)
@@ -409,6 +408,7 @@ class Scheduler(Callback.Callbacks):
 
         # measure performance of scheduling
         t_t1 = time.time()
+        self.eph_cache.clear_all()
 
         for rec in self.schedule_recs:
             if rec.skip:
@@ -514,6 +514,7 @@ class Scheduler(Callback.Callbacks):
             #outfile = os.path.join(output_dir, ndate + '.txt')
 
             self.logger.info("scheduling night %s" % (ndate))
+            self.eph_cache.clear_all()
 
             ## this_nights_obs = unscheduled_obs
             # sort to force deterministic scheduling if the same
@@ -639,7 +640,7 @@ class Scheduler(Callback.Callbacks):
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
         obmap = qsim.obs_to_slots(self.logger, [slot], self.site,
-                                  self.oblist)
+                                  self.oblist, self.eph_cache)
 
         self.logger.debug('OB MAP')
         for key in obmap:
