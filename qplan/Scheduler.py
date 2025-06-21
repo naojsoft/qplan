@@ -636,6 +636,7 @@ class Scheduler(Callback.Callbacks):
     def find_executable_obs(self, slot):
 
         t1 = time.time()
+        self.eph_cache.clear_all()
 
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
