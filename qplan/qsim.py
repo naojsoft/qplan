@@ -365,8 +365,11 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
     c2 = site.calc(ob.target, stop_time)
 
     # calculate possible azimuth moves
+    dec_deg = c1.dec_deg
     obs_lat_deg = np.degrees(site.site.lat.norm)
-    az_choices = misc.calc_possible_azimuths(c1, c2, obs_lat_deg)
+
+    az_choices = misc.calc_possible_azimuths(dec_deg, c1.az_deg, c2.az_deg,
+                                             obs_lat_deg)
     if len(az_choices) == 0:
         res.setvals(obs_ok=False, reason="Azimuth would go past limit")
         return res
@@ -395,7 +398,8 @@ def check_slot(site, schedule, slot, ob, check_moon=True, check_env=True,
     pa_deg = ob.inscfg.pa
     ins_name = ob.inscfg.insname
     rot_choices = misc.calc_possible_rotations(c1.pang_deg, c2.pang_deg,
-                                               pa_deg, ins_name)
+                                               pa_deg, ins_name,
+                                               dec_deg, obs_lat_deg)
     rot1_start_deg, rot1_stop_deg = rot_choices[0]
     rot2_start_deg, rot2_stop_deg = rot_choices[1]
     rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
