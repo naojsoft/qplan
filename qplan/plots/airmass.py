@@ -103,19 +103,21 @@ class AirMassPlot(plots.Plot):
                 for x, y, v in zip(mt, am_interval, moon_sep):
                     if y < 0:
                         continue
-                    ax1.text(x, y, '%.1f' %v, fontsize=7,  ha='center', va='bottom')
+                    ax1.text(x, y, '%.1f' %v, fontsize=7,  ha='center',
+                             va='bottom', clip_on=True)
                     ax1.plot_date(x, y, 'ko', ms=3)
 
             # plot object label
             targname = info.target.name
             ax1.text(mpl_dt.date2num(lt_data[am_data.argmin()]),
                      am_data.min() + 0.08, targname.upper(), color=color,
-                     ha='center', va='center')
+                     ha='center', va='center', clip_on=True)
 
         # legend target list
         if show_target_legend:
-            self.fig.legend(legend, targets, 'upper right', fontsize=9, framealpha=0.5,
-                            frameon=True, ncol=1, bbox_to_anchor=[0.3, 0.865, .7, 0.1])
+            self.fig.legend(legend, targets, 'upper right', fontsize=9,
+                            framealpha=0.5, frameon=True, ncol=1,
+                            bbox_to_anchor=[0.3, 0.865, .7, 0.1])
 
         ax1.set_ylim(2.02, 0.98)
         ax1.set_xlim(lt_data[0], lt_data[-1])
@@ -307,8 +309,8 @@ class AirMassPlot(plots.Plot):
         # Add yesterday's and today's twilight to the plot.
         self._plot_twilight(ax1, site, localdate_start-timedelta(days=1), tz,
                             show_legend=show_target_legend)
-        self._plot_twilight(ax1, site, localdate_start, tz,
-                            show_legend=show_target_legend)
+        # self._plot_twilight(ax1, site, localdate_start, tz,
+        #                     show_legend=show_target_legend)
 
         # plot current hour. If current_time wasn't supplied, use
         # computer time and specified time zone. Otherwise use

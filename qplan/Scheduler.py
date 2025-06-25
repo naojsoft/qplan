@@ -15,7 +15,7 @@ from ginga.misc import Callback, Bunch
 from . import entity
 from . import qsim
 from .util import qsort, dates
-from .util.eph_cache import EphemerisCache
+from .util.eph_cache import EphemerisCache, populate_periods_mp
 
 # maximum rank for a program
 max_rank = 10.0
@@ -33,7 +33,8 @@ class Scheduler(Callback.Callbacks):
 
         self.site = observer
         self.timezone = observer.tz_local
-        self.eph_cache = EphemerisCache(logger, precision_minutes=5)
+        self.eph_cache = EphemerisCache(logger, precision_minutes=5,
+                                        default_period_check=False)
 
         # these are the main data structures used to schedule
         self.oblist = []
@@ -437,6 +438,15 @@ class Scheduler(Callback.Callbacks):
             night_slots.append(entity.Slot(night_start, delta,
                                            data=rec.data))
 
+        unique_targets = set([ob.target for ob in self.oblist])
+        self.logger.info("populating visibility for %d unique targets" % (len(unique_targets)))
+        periods = [(schedule.start_time, schedule.stop_time)
+                   for schedule in schedules]
+        tgt_dct = {target: target for target in unique_targets}
+        self.eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
+        # populate_periods_mp(self.eph_cache, unique_targets, site, periods,
+        #                     keep_old=True)
+
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
         obmap = qsim.obs_to_slots(self.logger, night_slots, site,
@@ -514,7 +524,6 @@ class Scheduler(Callback.Callbacks):
             #outfile = os.path.join(output_dir, ndate + '.txt')
 
             self.logger.info("scheduling night %s" % (ndate))
-            self.eph_cache.clear_all()
 
             ## this_nights_obs = unscheduled_obs
             # sort to force deterministic scheduling if the same
@@ -636,10 +645,16 @@ class Scheduler(Callback.Callbacks):
     def find_executable_obs(self, slot):
 
         t1 = time.time()
-        self.eph_cache.clear_all()
 
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
+        unique_targets = set([ob.target for ob in self.oblist])
+        self.logger.info("populating visibility for %d unique targets" % (len(unique_targets)))
+        periods = [(slot.start_time, slot.stop_time)]
+        tgt_dct = {target: target for target in unique_targets}
+        self.eph_cache.populate_periods(tgt_dct, self.site, periods,
+                                        keep_old=True)
+
         obmap = qsim.obs_to_slots(self.logger, [slot], self.site,
                                   self.oblist, self.eph_cache)
 

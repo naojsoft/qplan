@@ -33,10 +33,11 @@ parked_rot_deg = 0.0
 dark_night_moon_pct_limit = 0.25
 
 
-def obs_to_slots(logger, slots, site, obs, eph_cache, check_moon=False, check_env=False):
+def obs_to_slots(logger, slots, site, obs, eph_cache, check_moon=False,
+                 check_env=False):
     obmap = {}
     for slot in slots:
-        eph_cache.clear_all()
+        #eph_cache.clear_all()
         key = str(slot)
         obmap[key] = []
         if slot.size() < minimum_slot_size:
