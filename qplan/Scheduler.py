@@ -15,7 +15,7 @@ from ginga.misc import Callback, Bunch
 from . import entity
 from . import qsim
 from .util import qsort, dates
-from .util.eph_cache import EphemerisCache, populate_periods_mp
+from .util.eph_cache import EphemerisCache
 
 # maximum rank for a program
 max_rank = 10.0
@@ -438,14 +438,15 @@ class Scheduler(Callback.Callbacks):
             night_slots.append(entity.Slot(night_start, delta,
                                            data=rec.data))
 
+        t_t1_1 = time.time()
         unique_targets = set([ob.target for ob in self.oblist])
         self.logger.info("populating visibility for %d unique targets" % (len(unique_targets)))
         periods = [(schedule.start_time, schedule.stop_time)
                    for schedule in schedules]
         tgt_dct = {target: target for target in unique_targets}
         self.eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
-        # populate_periods_mp(self.eph_cache, unique_targets, site, periods,
-        #                     keep_old=True)
+        t_t1_2 = time.time()
+        self.logger.info("%.2f sec to populate ephemeris" % (t_t1_2 - t_t1_1))
 
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
@@ -559,9 +560,9 @@ class Scheduler(Callback.Callbacks):
 
             self.logger.info("%d unscheduled OBs left" % (len(unscheduled_obs)))
 
-        t_elapsed = time.time() - t_t2
-        self.logger.info("%.2f sec for 2nd part" % (t_elapsed))
-        t_elapsed = time.time() - t_t1
+        t_done = time.time()
+        self.logger.info("%.2f sec for scheduling" % (t_done - t_t2))
+        t_elapsed = t_done - t_t1
         self.logger.info("%.2f sec to schedule all" % (t_elapsed))
 
         # print a summary

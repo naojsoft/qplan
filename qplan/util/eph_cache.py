@@ -1,16 +1,9 @@
 from datetime import timedelta
-import multiprocessing as mp
 
 import numpy as np
 from dateutil import tz
 
 from ginga.misc.Bunch import Bunch
-
-core_count = mp.cpu_count()
-_mp_site = None
-_mp_cache = None
-_mp_dt_arr = None
-_mp_tgts = None
 
 
 class EphemerisCache:
@@ -316,53 +309,3 @@ def split_array(arr):
     # split the array into sub-arrays along these indices
     sub_arrays = np.split(arr, split_indices)
     return sub_arrays
-
-
-def _process_chunk(arg):
-    global _mp_site, _mp_cache, _mp_tgts, _mp_dt_arr
-    n, idxs = arg
-    res_dct = dict()
-    if len(idxs) == 0:
-        return res_dct
-
-    site = _mp_site.clone()
-
-    tgt_dct = {i: _mp_tgts[i].clone() for i in idxs}
-    dt_arr = _mp_dt_arr
-    _mp_cache._populate_target_data(res_dct, tgt_dct, site, dt_arr,
-                                    keep_old=True)
-    return res_dct
-
-def populate_periods_mp(eph_cache, targets, site, periods, keep_old=True):
-    global _mp_site, _mp_cache, _mp_dt_arr, _mp_tgts
-    _mp_site = site
-    _mp_cache = eph_cache
-
-    # create one large date array of all periods
-    start_time, stop_time = periods[0]
-    dt_arr = eph_cache.get_date_array(start_time, stop_time)
-    for start_time, stop_time in periods[1:]:
-        dt_arr_n = eph_cache.get_date_array(start_time, stop_time)
-        dt_arr = np.append(dt_arr, dt_arr_n, axis=0)
-    _mp_dt_arr = dt_arr
-
-    #target_chunks = np.array_split(np.asarray(targets), core_count)
-    # targets is often a set, need to index it
-    targets = [tgt.clone() for tgt in targets]
-    _mp_tgts = targets
-
-    # associate indexes with targets
-    arg_list = list(range(len(targets)))
-    chunks = []
-    for i in range(0, len(arg_list), core_count):
-        chunks.append(arg_list[i:i + core_count])
-
-    chunks = list(filter(lambda chunk: len(chunk) > 0, chunks))
-    max_procs = min(core_count, len(chunks))
-    arg_list = [(n, chunk) for n, chunk in enumerate(chunks)]
-
-    with mp.Pool(processes=max_procs) as pool:
-        res_lst = pool.map(_process_chunk, arg_list)
-        for res_dct in res_lst:
-            upd_dct = {targets[i]: vis_dct for i, vis_dct in res_dct.items()}
-            eph_cache.vis_catalog.update(upd_dct)
