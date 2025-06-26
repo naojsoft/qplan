@@ -440,19 +440,15 @@ class Scheduler(Callback.Callbacks):
 
         t_t1_1 = time.time()
         unique_targets = set([ob.target for ob in self.oblist])
-        self.logger.info("populating visibility for %d unique targets" % (len(unique_targets)))
-        periods = [(schedule.start_time, schedule.stop_time)
-                   for schedule in schedules]
-        tgt_dct = {target: target for target in unique_targets}
-        self.eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
-        t_t1_2 = time.time()
-        self.logger.info("%.2f sec to populate ephemeris" % (t_t1_2 - t_t1_1))
+        self.logger.info("populating visibility for OBs")
 
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
         obmap = qsim.obs_to_slots(self.logger, night_slots, site,
                                   self.oblist, self.eph_cache)
 
+        t_t1_2 = time.time()
+        self.logger.info("%.2f sec to populate ephemeris" % (t_t1_2 - t_t1_1))
         self.logger.debug('OB MAP')
         for key in obmap:
             self.logger.debug("-- %s --" % key)
@@ -649,13 +645,6 @@ class Scheduler(Callback.Callbacks):
 
         # check whether there are some OBs that cannot be scheduled
         self.logger.info("checking for unschedulable OBs on these nights from %d OBs" % (len(self.oblist)))
-        unique_targets = set([ob.target for ob in self.oblist])
-        self.logger.info("populating visibility for %d unique targets" % (len(unique_targets)))
-        periods = [(slot.start_time, slot.stop_time)]
-        tgt_dct = {target: target for target in unique_targets}
-        self.eph_cache.populate_periods(tgt_dct, self.site, periods,
-                                        keep_old=True)
-
         obmap = qsim.obs_to_slots(self.logger, [slot], self.site,
                                   self.oblist, self.eph_cache)
 

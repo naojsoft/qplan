@@ -174,7 +174,7 @@ class EphemerisCache:
     def observable_periods(self, tgt_dct, site, start_time, stop_time,
                            el_min_deg, el_max_deg, time_needed_sec,
                            period_check=None):
-        """Check a target's visibility within a time period.
+        """Check many targets visibility within a time period.
 
         Parameters
         ----------
@@ -184,16 +184,30 @@ class EphemerisCache:
         site : ~qplan.util.calcpos.Observer
             The site observing the targets
 
-        periods : list of (start_time, stop_time)
-            Where times are timezone-aware Python datetimes
+        start_time : datetime.datetime
+            Starting time as a timezone-aware Python datetime
 
-        keep_old : bool (optional, defaults to True)
-            Whether to keep old period data not specified in this range
+        stop_time : datetime.datetime
+            Stopping time as a timezone-aware Python datetime
+
+        el_min_deg : float or dict of float
+            Minimum elevation as a constant or per-target
+
+        el_max_deg : float or dict of float
+            Maximum elevation as a constant or per-target
+
+        time_needed_sec : float or dict of float
+            Time needed in seconds as a constant or per-target
+
+        period_check : bool or None (optional, defaults to instance choice)
+            Whether to check if we need to populate the period
 
         Returns
         -------
         obs_dct : dict
-            dict mapping keys to observability periods
+            dict mapping keys to lists of observability periods
+
+        Each list is like [(start_time, stop_time), ...]
         """
         if period_check is None:
             period_check = self.period_check
@@ -213,7 +227,7 @@ class EphemerisCache:
         _stop_time = stop_time.astimezone(tz.UTC).replace(tzinfo=None)
 
         obs_dct = dict()
-        # TODO: can we parallelize this
+        # TODO: any way to parallelize this
         for key in tgt_dct:
             vis_dct = self.get_target_data(key)
 
@@ -227,8 +241,16 @@ class EphemerisCache:
             alt_arr = vis_dct['alt_deg'][time_indices]
 
             # Now limit altitude check by min and max elevation limits
-            alt_indices = np.where(np.logical_and(el_min_deg <= alt_arr,
-                                                  alt_arr <= el_max_deg))[0]
+            _el_min_deg, _el_max_deg = el_min_deg, el_max_deg
+            if isinstance(el_min_deg, dict):
+                # <-- there is a different min limit for each target
+                _el_min_deg = el_min_deg[key]
+            if isinstance(el_max_deg, dict):
+                # <-- there is a different max limit for each target
+                _el_max_deg = el_max_deg[key]
+
+            alt_indices = np.where(np.logical_and(_el_min_deg <= alt_arr,
+                                                  alt_arr <= _el_max_deg))[0]
 
             # check for, and separate, any gaps in the indices as separate
             # available visibility slices
@@ -247,7 +269,11 @@ class EphemerisCache:
                 time_set = utc_times[-1].item().replace(tzinfo=tz.UTC)
 
                 diff = (time_set - time_rise).total_seconds()
-                can_obs = (diff >= time_needed_sec)
+                _time_needed_sec = time_needed_sec
+                if isinstance(time_needed_sec, dict):
+                    # <-- there is a different time needed for each target
+                    _time_needed_sec = time_needed_sec[key]
+                can_obs = (diff >= _time_needed_sec)
                 if can_obs:
                     if tz_incoming is not None:
                         time_rise = time_rise.astimezone(tz_incoming)
@@ -274,6 +300,9 @@ class EphemerisCache:
         `time_stop`, defined by whether it is between elevation `el_min`
         and `el_max` during that period, and whether it meets the minimum
         airmass.
+
+        See docstring for observable_periods() for information about
+        parameters.
         """
         obs_dct = self.observable_periods({key: target}, site,
                                           start_time, stop_time,

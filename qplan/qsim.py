@@ -33,8 +33,14 @@ parked_rot_deg = 0.0
 dark_night_moon_pct_limit = 0.25
 
 
-def obs_to_slots(logger, slots, site, obs, eph_cache, check_moon=False,
+def obs_to_slots(logger, slots, site, oblist, eph_cache, check_moon=False,
                  check_env=False):
+    # populate ephemeris cache for the period
+    unique_targets = set([ob.target for ob in oblist])
+    tgt_dct = {target: target for target in unique_targets}
+    periods = [(slot.start_time, slot.stop_time) for slot in slots]
+    eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
+
     obmap = {}
     for slot in slots:
         #eph_cache.clear_all()
@@ -42,7 +48,7 @@ def obs_to_slots(logger, slots, site, obs, eph_cache, check_moon=False,
         obmap[key] = []
         if slot.size() < minimum_slot_size:
             continue
-        for ob in obs:
+        for ob in oblist:
             # this OB OK for this slot at this site?
             res = check_slot(site, None, slot, ob, eph_cache,
                              check_moon=check_moon, check_env=check_env)
@@ -113,6 +119,7 @@ def check_night_visibility_one(site, schedule, ob, eph_cache):
     min_el_deg, max_el_deg = ob.telcfg.get_el_minmax()
 
     # is this target visible during this night, and when?
+
     (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
                                                      schedule.start_time,
                                                      schedule.stop_time,
