@@ -38,10 +38,10 @@ def obs_to_slots(logger, slots, site, oblist, eph_cache, check_moon=False,
                  check_env=False):
     # populate ephemeris cache for the period
     unique_targets = set([ob.target for ob in oblist])
-    #tgt_dct = {target: target for target in unique_targets}
+    tgt_dct = {target: target for target in unique_targets}
     periods = [(slot.start_time, slot.stop_time) for slot in slots]
     #eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
-    populate_periods_mp(eph_cache, unique_targets, site, periods, keep_old=True)
+    populate_periods_mp(eph_cache, tgt_dct, site, periods, keep_old=True)
 
     obmap = {}
     for slot in slots:
@@ -50,16 +50,17 @@ def obs_to_slots(logger, slots, site, oblist, eph_cache, check_moon=False,
         obmap[key] = []
         if slot.size() < minimum_slot_size:
             continue
-        for ob in oblist:
-            # this OB OK for this slot at this site?
-            res = check_slot(site, None, slot, ob, eph_cache,
+        results = check_slot(site, None, slot, oblist, eph_cache,
                              check_moon=check_moon, check_env=check_env)
-            if res.obs_ok:
-                obmap[key].append(ob)
-            else:
-                ob_id = "%s/%s" % (ob.program, ob.name)
-                logger.debug("OB %s (%s) no good for slot because: %s" % (
-                    ob, ob_id, res.reason))
+        good_obs = [res.ob for res in results if res.obs_ok]
+        obmap[key].extend(good_obs)
+
+        bad = list(filter(lambda res: not res.obs_ok, results))
+        for res in bad:
+            ob = res.ob
+            ob_id = "%s/%s" % (ob.program, ob.name)
+            logger.debug("OB %s (%s) no good for slot because: %s" % (
+                ob, ob_id, res.reason))
 
     return obmap
 
@@ -198,270 +199,293 @@ def check_moon_cond(eph_start, eph_stop, ob, res):
     return True
 
 
-def check_slot(site, schedule, slot, ob, eph_cache,
+def check_slot(site, schedule, slot, oblist, eph_cache,
                check_moon=True, check_env=True, limit_filter=None, allow_delay=True):
 
-    res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
-
-    # Check whether OB will fit in this slot
-    delta = (slot.stop_time - slot.start_time).total_seconds()
-    if ob.total_time > delta:
-        res.setvals(obs_ok=False,
-                    reason="Slot duration (%d) too short for OB (%d)" % (
-            delta, ob.total_time))
-        return res
-
-    # Check time limits on OB
-    if (ob.envcfg.lower_time_limit is not None and
-        ob.envcfg.lower_time_limit > slot.stop_time):
-        res.setvals(obs_ok=False,
-                    reason="Slot end time is before OB lower time limit")
-        return res
-
-    if (ob.envcfg.upper_time_limit is not None and
-        ob.envcfg.upper_time_limit < slot.start_time):
-        res.setvals(obs_ok=False,
-                    reason="Slot start time is after OB upper time limit")
-        return res
-
-    # NOTE: these are now checked pre-scheduling for unschedulable OBs
-    ## # check if instrument will be installed
-    ## if not (ob.inscfg.insname in slot.data.instruments):
-    ##     res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
-    ##         ob.inscfg.insname))
-    ##     return res
-
-    ## # check if filter will be installed
-    ## if not ob.inscfg.check_filter_installed(slot.data.filters):
-    ##     res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
-    ##         ob.inscfg.filter, slot.data.filters))
-    ##     return res
-
-    ## # check if this slot can take this category
-    ## if not ob.program.category in slot.data.categories:
-    ##     res.setvals(obs_ok=False,
-    ##                 reason="Slot cannot take category '%s'" % (
-    ##         ob.program.category))
-    ##     return res
-
-    # if we are limiting the filter to a certain one
-    if (limit_filter is not None and
-        not ob.inscfg.check_filter_installed([limit_filter])):
-        res.setvals(obs_ok=False,
-                    reason="Filter (%s) does not match limit_filter (%s)" % (
-            ob.inscfg.filter, limit_filter))
-        return res
-
-    filterchange = False
-    filterchange_sec = 0.0
-
-    # get current filter
-    if schedule is None:
-        cur_filter = getattr(slot.data, 'cur_filter', None)
-
-    else:
-        cur_filter = schedule.data.get('cur_filter', None)
-
-    # calculate cost of filter exchange
-    if hasattr(ob.inscfg, 'filter') and cur_filter != ob.inscfg.filter:
-        # filter exchange necessary
-        filterchange = True
-        filterchange_sec = ob.inscfg.calc_filter_change_time()
-
-    # for adding up total preparation time for new OB
-    prep_sec = filterchange_sec + ob.setup_time()
-
-    # check dome status
-    if slot.data.dome != ob.telcfg.dome:
-        res.setvals(obs_ok=False, reason="Dome status OB(%s) != slot(%s)" % (
-            ob.telcfg.dome, slot.data.dome))
-        return res
-
-    start_time = slot.start_time + timedelta(seconds=prep_sec)
-
-    if slot.data.dome == 'closed':
-        # <-- dome closed
-
-        stop_time = start_time + timedelta(seconds=ob.total_time)
+    res_lst = []
+    for ob in oblist:
+        res = Bunch.Bunch(ob=ob, obs_ok=False, reason="No good reason!")
 
         # Check whether OB will fit in this slot
-        if slot.stop_time < stop_time:
-            res.setvals(obs_ok=False, reason="Not enough time in slot")
-            return res
+        delta = (slot.stop_time - slot.start_time).total_seconds()
+        if ob.total_time > delta:
+            res.setvals(obs_ok=False,
+                        reason="Slot duration (%d) too short for OB (%d)" % (
+                delta, ob.total_time))
+            res_lst.append(res)
+            continue
 
-        res.setvals(obs_ok=True,
-                    prep_sec=prep_sec, slew_sec=0.0,
+        # Check time limits on OB
+        if (ob.envcfg.lower_time_limit is not None and
+            ob.envcfg.lower_time_limit > slot.stop_time):
+            res.setvals(obs_ok=False,
+                        reason="Slot end time is before OB lower time limit")
+            res_lst.append(res)
+            continue
+
+        if (ob.envcfg.upper_time_limit is not None and
+            ob.envcfg.upper_time_limit < slot.start_time):
+            res.setvals(obs_ok=False,
+                        reason="Slot start time is after OB upper time limit")
+            res_lst.append(res)
+            continue
+
+        # NOTE: these are now checked pre-scheduling for unschedulable OBs
+        ## # check if instrument will be installed
+        ## if not (ob.inscfg.insname in slot.data.instruments):
+        ##     res.setvals(obs_ok=False, reason="Instrument '%s' not installed" % (
+        ##         ob.inscfg.insname))
+        ##     res_lst.append(res)
+        ##     continue
+
+        ## # check if filter will be installed
+        ## if not ob.inscfg.check_filter_installed(slot.data.filters):
+        ##     res.setvals(obs_ok=False, reason="Filter '%s' not installed [%s]" % (
+        ##         ob.inscfg.filter, slot.data.filters))
+        ##     res_lst.append(res)
+        ##     continue
+
+        ## # check if this slot can take this category
+        ## if not ob.program.category in slot.data.categories:
+        ##     res.setvals(obs_ok=False,
+        ##                 reason="Slot cannot take category '%s'" % (
+        ##         ob.program.category))
+        ##     res_lst.append(res)
+        ##     continue
+
+        # if we are limiting the filter to a certain one
+        if (limit_filter is not None and
+            not ob.inscfg.check_filter_installed([limit_filter])):
+            res.setvals(obs_ok=False,
+                        reason="Filter (%s) does not match limit_filter (%s)" % (
+                ob.inscfg.filter, limit_filter))
+            res_lst.append(res)
+            continue
+
+        filterchange = False
+        filterchange_sec = 0.0
+
+        # get current filter
+        if schedule is None:
+            cur_filter = getattr(slot.data, 'cur_filter', None)
+
+        else:
+            cur_filter = schedule.data.get('cur_filter', None)
+
+        # calculate cost of filter exchange
+        if hasattr(ob.inscfg, 'filter') and cur_filter != ob.inscfg.filter:
+            # filter exchange necessary
+            filterchange = True
+            filterchange_sec = ob.inscfg.calc_filter_change_time()
+
+        # for adding up total preparation time for new OB
+        prep_sec = filterchange_sec + ob.setup_time()
+
+        # check dome status
+        if slot.data.dome != ob.telcfg.dome:
+            res.setvals(obs_ok=False, reason="Dome status OB(%s) != slot(%s)" % (
+                ob.telcfg.dome, slot.data.dome))
+            res_lst.append(res)
+            continue
+
+        start_time = slot.start_time + timedelta(seconds=prep_sec)
+
+        if slot.data.dome == 'closed':
+            # <-- dome closed
+
+            stop_time = start_time + timedelta(seconds=ob.total_time)
+
+            # Check whether OB will fit in this slot
+            if slot.stop_time < stop_time:
+                res.setvals(obs_ok=False, reason="Not enough time in slot")
+                res_lst.append(res)
+                continue
+
+            res.setvals(obs_ok=True,
+                        prep_sec=prep_sec, slew_sec=0.0,
+                        filterchange=filterchange,
+                        filterchange_sec=filterchange_sec,
+                        start_time=start_time, stop_time=stop_time,
+                        delay_sec=0.0)
+            res_lst.append(res)
+            continue
+
+        # <-- dome open, need to check visibility and other criteria
+
+        if check_env:
+            # check seeing on the slot is acceptable to this ob
+            if (slot.data.seeing > ob.envcfg.seeing):
+                res.setvals(obs_ok=False,
+                            reason="Seeing (%f > %f) not acceptable" % (
+                    slot.data.seeing, ob.envcfg.seeing))
+                res_lst.append(res)
+                continue
+
+            # check sky condition on the slot is acceptable to this ob
+            if ob.envcfg.transparency is not None:
+                if slot.data.transparency < ob.envcfg.transparency:
+                    res.setvals(obs_ok=False,
+                                reason="Transparency (%f < %f) not acceptable" % (
+                        slot.data.transparency, ob.envcfg.transparency))
+                    res_lst.append(res)
+                    continue
+
+        # get telescope position as left at the end of the previous slot
+        if slot.data.cur_az is not None:
+            # ... current telescope position
+            cur_alt_deg, cur_az_deg = slot.data.cur_el, slot.data.cur_az
+            cur_rot_deg = slot.data.cur_rot
+        elif schedule.data.cur_az is not None:
+            # ... current telescope position
+            cur_alt_deg, cur_az_deg = schedule.data.cur_el, schedule.data.cur_az
+            cur_rot_deg = schedule.data.cur_rot
+        else:
+            # ... parked position
+            cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
+            cur_rot_deg = parked_rot_deg
+
+        # get limits for telescope movements from telescope configuration
+        min_el_deg, max_el_deg = ob.telcfg.get_el_minmax()
+        min_az_deg, max_az_deg = ob.telcfg.get_az_minmax()
+        min_rot_deg, max_rot_deg = ob.telcfg.get_rot_minmax()
+
+        # Check whether OB will fit in this slot
+        ## delta = (slot.stop_time - start_time).total_seconds()
+        ## if ob.total_time > delta:
+        ##     return False
+
+        # find the time that this object begins to be visible
+        # TODO: figure out the best place to split the slot
+        (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
+                                                         start_time, slot.stop_time,
+                                                         min_el_deg, max_el_deg,
+                                                         ob.total_time) #,
+                                                         #airmass=ob.envcfg.airmass,
+                                                         #moon_sep=ob.envcfg.moon_sep)
+
+        if not obs_ok:
+            res.setvals(obs_ok=False,
+                        reason="Time or visibility of target")
+            res_lst.append(res)
+            continue
+
+        # calculate delay until we could actually start observing the object
+        # in this slot
+        if ob.envcfg.lower_time_limit is not None:
+            t_start = max(t_start, ob.envcfg.lower_time_limit)
+
+        delay_sec = max(0.0, (t_start - start_time).total_seconds())
+
+        # if we are disallowing any delays
+        if not allow_delay and delay_sec > 0.0:
+            res.setvals(obs_ok=False,
+                        reason="no_delay==True and OB has a delay of %.4f sec" % (
+                delay_sec))
+            res_lst.append(res)
+            continue
+
+        # Calculate cost of slew to this target
+        start_time = t_start
+        eph_start = eph_cache.get_closest(ob.target, start_time)
+        stop_time = start_time + timedelta(seconds=ob.total_time)
+        eph_stop = eph_cache.get_closest(ob.target, stop_time)
+
+        # calculate possible azimuth moves
+        dec_deg = ob.target.dec
+        obs_lat_deg = site.lat_deg
+
+        az_choices = misc.calc_possible_azimuths(dec_deg, eph_start.az_deg,
+                                                 eph_stop.az_deg, obs_lat_deg)
+        if len(az_choices) == 0:
+            res.setvals(obs_ok=False, reason="Azimuth would go past limit")
+            res_lst.append(res)
+            continue
+        elif len(az_choices) == 1:
+            az_start, az_stop = az_choices[0]
+            if not misc.check_rotation_limits(az_start, az_stop,
+                                              min_az_deg, max_az_deg):
+                res.setvals(obs_ok=False, reason="Azimuth would go past limit")
+                res_lst.append(res)
+                continue
+        elif len(az_choices) == 2:
+            # calculate optimal azimuth move
+            az1_start_deg, az1_stop_deg = az_choices[0]
+            az2_start_deg, az2_stop_deg = az_choices[1]
+            # NOTE: checks limits
+            az_start, az_stop = misc.calc_optimal_rotation(az1_start_deg,
+                                                           az1_stop_deg,
+                                                           az2_start_deg,
+                                                           az2_stop_deg,
+                                                           cur_az_deg,
+                                                           min_az_deg, max_az_deg)
+            if np.nan in (az_start, az_stop):
+                res.setvals(obs_ok=False, reason="Azimuth would go past limit")
+                res_lst.append(res)
+                continue
+
+        # calculate optimal rotator position
+        pa_deg = ob.inscfg.pa
+        ins_name = ob.inscfg.insname
+        rot_choices = misc.calc_possible_rotations(eph_start.pang_deg,
+                                                   eph_stop.pang_deg,
+                                                   pa_deg, ins_name,
+                                                   dec_deg, obs_lat_deg)
+        rot1_start_deg, rot1_stop_deg = rot_choices[0]
+        rot2_start_deg, rot2_stop_deg = rot_choices[1]
+        rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
+                                                         rot1_stop_deg,
+                                                         rot2_start_deg,
+                                                         rot2_stop_deg,
+                                                         cur_rot_deg,
+                                                         min_rot_deg, max_rot_deg)
+        if np.isnan(rot_start) or np.isnan(rot_stop):
+            res.setvals(obs_ok=False, reason="Rotator would go past limit")
+            res_lst.append(res)
+            continue
+
+        # calculate slewing time to new target
+        slew_sec = misc.calc_slew_time(cur_alt_deg, cur_az_deg, cur_rot_deg,
+                                       eph_start.alt_deg, az_start, rot_start)
+
+        prep_sec += slew_sec
+        # adjust on-target start time to account for slewing/rotator
+        start_time += timedelta(seconds=slew_sec)
+
+        # calculate necessary stop time for exposures plus overheads
+        stop_time = (start_time + timedelta(seconds=ob.total_time) +
+                     timedelta(seconds=ob.teardown_time()))
+
+        if ob.envcfg.upper_time_limit is not None:
+            t_stop = min(ob.envcfg.upper_time_limit, t_stop)
+
+        t_stop = min(t_stop, slot.stop_time)
+
+        if t_stop < stop_time:
+            res.setvals(obs_ok=False,
+                        reason="Not enough time in slot after all prep/delay")
+            res_lst.append(res)
+            continue
+
+        # check moon constraints between start and stop time
+        if check_moon:
+            eph_start = eph_cache.get_closest(ob.target, start_time)
+            eph_stop = eph_cache.get_closest(ob.target, stop_time)
+            obs_ok = check_moon_cond(eph_start, eph_stop, ob, res)
+        else:
+            obs_ok = True
+
+        res.setvals(obs_ok=obs_ok,
+                    prep_sec=prep_sec, slew_sec=slew_sec,
                     filterchange=filterchange,
                     filterchange_sec=filterchange_sec,
                     start_time=start_time, stop_time=stop_time,
-                    delay_sec=0.0)
-        return res
+                    az_start=az_start, az_stop=az_stop,
+                    alt_start=eph_start.alt_deg, alt_stop=eph_stop.alt_deg,
+                    rot_start=rot_start, rot_stop=rot_stop,
+                    delay_sec=delay_sec)
+        res_lst.append(res)
 
-    # <-- dome open, need to check visibility and other criteria
-
-    if check_env:
-        # check seeing on the slot is acceptable to this ob
-        if (slot.data.seeing > ob.envcfg.seeing):
-            res.setvals(obs_ok=False,
-                        reason="Seeing (%f > %f) not acceptable" % (
-                slot.data.seeing, ob.envcfg.seeing))
-            return res
-
-        # check sky condition on the slot is acceptable to this ob
-        if ob.envcfg.transparency is not None:
-            if slot.data.transparency < ob.envcfg.transparency:
-                res.setvals(obs_ok=False,
-                            reason="Transparency (%f < %f) not acceptable" % (
-                    slot.data.transparency, ob.envcfg.transparency))
-                return res
-
-    # get telescope position as left at the end of the previous slot
-    if slot.data.cur_az is not None:
-        # ... current telescope position
-        cur_alt_deg, cur_az_deg = slot.data.cur_el, slot.data.cur_az
-        cur_rot_deg = slot.data.cur_rot
-    elif schedule.data.cur_az is not None:
-        # ... current telescope position
-        cur_alt_deg, cur_az_deg = schedule.data.cur_el, schedule.data.cur_az
-        cur_rot_deg = schedule.data.cur_rot
-    else:
-        # ... parked position
-        cur_alt_deg, cur_az_deg = parked_alt_deg, parked_az_deg
-        cur_rot_deg = parked_rot_deg
-
-    # get limits for telescope movements from telescope configuration
-    min_el_deg, max_el_deg = ob.telcfg.get_el_minmax()
-    min_az_deg, max_az_deg = ob.telcfg.get_az_minmax()
-    min_rot_deg, max_rot_deg = ob.telcfg.get_rot_minmax()
-
-    # Check whether OB will fit in this slot
-    ## delta = (slot.stop_time - start_time).total_seconds()
-    ## if ob.total_time > delta:
-    ##     return False
-
-    # find the time that this object begins to be visible
-    # TODO: figure out the best place to split the slot
-    (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
-                                                     start_time, slot.stop_time,
-                                                     min_el_deg, max_el_deg,
-                                                     ob.total_time) #,
-                                                     #airmass=ob.envcfg.airmass,
-                                                     #moon_sep=ob.envcfg.moon_sep)
-
-    if not obs_ok:
-        res.setvals(obs_ok=False,
-                    reason="Time or visibility of target")
-        return res
-
-    # calculate delay until we could actually start observing the object
-    # in this slot
-    if ob.envcfg.lower_time_limit is not None:
-        t_start = max(t_start, ob.envcfg.lower_time_limit)
-
-    delay_sec = max(0.0, (t_start - start_time).total_seconds())
-
-    # if we are disallowing any delays
-    if not allow_delay and delay_sec > 0.0:
-        res.setvals(obs_ok=False,
-                    reason="no_delay==True and OB has a delay of %.4f sec" % (
-            delay_sec))
-        return res
-
-    # Calculate cost of slew to this target
-    start_time = t_start
-    eph_start = eph_cache.get_closest(ob.target, start_time)
-    stop_time = start_time + timedelta(seconds=ob.total_time)
-    eph_stop = eph_cache.get_closest(ob.target, stop_time)
-
-    # calculate possible azimuth moves
-    dec_deg = ob.target.dec
-    obs_lat_deg = site.lat_deg
-
-    az_choices = misc.calc_possible_azimuths(dec_deg, eph_start.az_deg,
-                                             eph_stop.az_deg, obs_lat_deg)
-    if len(az_choices) == 0:
-        res.setvals(obs_ok=False, reason="Azimuth would go past limit")
-        return res
-    elif len(az_choices) == 1:
-        az_start, az_stop = az_choices[0]
-        if not misc.check_rotation_limits(az_start, az_stop,
-                                          min_az_deg, max_az_deg):
-            res.setvals(obs_ok=False, reason="Azimuth would go past limit")
-            return res
-    elif len(az_choices) == 2:
-        # calculate optimal azimuth move
-        az1_start_deg, az1_stop_deg = az_choices[0]
-        az2_start_deg, az2_stop_deg = az_choices[1]
-        # NOTE: checks limits
-        az_start, az_stop = misc.calc_optimal_rotation(az1_start_deg,
-                                                       az1_stop_deg,
-                                                       az2_start_deg,
-                                                       az2_stop_deg,
-                                                       cur_az_deg,
-                                                       min_az_deg, max_az_deg)
-        if np.nan in (az_start, az_stop):
-            res.setvals(obs_ok=False, reason="Azimuth would go past limit")
-            return res
-
-    # calculate optimal rotator position
-    pa_deg = ob.inscfg.pa
-    ins_name = ob.inscfg.insname
-    rot_choices = misc.calc_possible_rotations(eph_start.pang_deg,
-                                               eph_stop.pang_deg,
-                                               pa_deg, ins_name,
-                                               dec_deg, obs_lat_deg)
-    rot1_start_deg, rot1_stop_deg = rot_choices[0]
-    rot2_start_deg, rot2_stop_deg = rot_choices[1]
-    rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
-                                                     rot1_stop_deg,
-                                                     rot2_start_deg,
-                                                     rot2_stop_deg,
-                                                     cur_rot_deg,
-                                                     min_rot_deg, max_rot_deg)
-    if np.isnan(rot_start) or np.isnan(rot_stop):
-        res.setvals(obs_ok=False, reason="Rotator would go past limit")
-        return res
-
-    # calculate slewing time to new target
-    slew_sec = misc.calc_slew_time(cur_alt_deg, cur_az_deg, cur_rot_deg,
-                                   eph_start.alt_deg, az_start, rot_start)
-
-    prep_sec += slew_sec
-    # adjust on-target start time to account for slewing/rotator
-    start_time += timedelta(seconds=slew_sec)
-
-    # calculate necessary stop time for exposures plus overheads
-    stop_time = (start_time + timedelta(seconds=ob.total_time) +
-                 timedelta(seconds=ob.teardown_time()))
-
-    if ob.envcfg.upper_time_limit is not None:
-        t_stop = min(ob.envcfg.upper_time_limit, t_stop)
-
-    t_stop = min(t_stop, slot.stop_time)
-
-    if t_stop < stop_time:
-        res.setvals(obs_ok=False,
-                    reason="Not enough time in slot after all prep/delay")
-        return res
-
-    # check moon constraints between start and stop time
-    if check_moon:
-        eph_start = eph_cache.get_closest(ob.target, start_time)
-        eph_stop = eph_cache.get_closest(ob.target, stop_time)
-        obs_ok = check_moon_cond(eph_start, eph_stop, ob, res)
-    else:
-        obs_ok = True
-
-    res.setvals(obs_ok=obs_ok,
-                prep_sec=prep_sec, slew_sec=slew_sec,
-                filterchange=filterchange,
-                filterchange_sec=filterchange_sec,
-                start_time=start_time, stop_time=stop_time,
-                az_start=az_start, az_stop=az_stop,
-                alt_start=eph_start.alt_deg, alt_stop=eph_stop.alt_deg,
-                rot_start=rot_start, rot_stop=rot_stop,
-                delay_sec=delay_sec)
-    return res
+    return res_lst
 
 
 def eval_schedule(schedule, current_filter=None):

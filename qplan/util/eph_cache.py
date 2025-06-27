@@ -356,7 +356,13 @@ def _process_chunk(cache, tgt_tups, site_spec, dt_arr):
     return res_dct
 
 
-def populate_periods_mp(eph_cache, targets, site, periods, keep_old=True):
+def populate_periods_mp(eph_cache, tgt_dct, site, periods, keep_old=True):
+    """Efficient population of ephemeris through concurrency.
+
+    This is similar to the method populate_periods() in EphemerisCache,
+    but employs the joblib library to parallelize the calculation of
+    ephemeris for multiple unique targets.
+    """
     # create one large date array of all periods
     start_time, stop_time = periods[0]
     dt_arr = eph_cache.get_date_array(start_time, stop_time)
@@ -364,8 +370,9 @@ def populate_periods_mp(eph_cache, targets, site, periods, keep_old=True):
         dt_arr_n = eph_cache.get_date_array(start_time, stop_time)
         dt_arr = np.append(dt_arr, dt_arr_n, axis=0)
 
-    # because targets may be a set
-    targets = list(targets)
+    # get keys and targets separately
+    tgt_keys, targets = tuple(zip(*tgt_dct.items()))
+
     # make a list of (index, target)
     arg_list = list(zip(range(len(targets)), targets))
 
@@ -391,7 +398,7 @@ def populate_periods_mp(eph_cache, targets, site, periods, keep_old=True):
 
     # upack the results
     for i, res_dct in enumerate(res_lst):
-        # replace target indices with original, non-pickled targets
-        upd_dct = {targets[j]: vis_dct for j, vis_dct in res_dct.items()}
+        # replace target indices with original keys
+        upd_dct = {tgt_keys[j]: vis_dct for j, vis_dct in res_dct.items()}
         # update master catalog with each sub-result
         eph_cache.vis_catalog.update(upd_dct)

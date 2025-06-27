@@ -192,10 +192,9 @@ class Scheduler(Callback.Callbacks):
     def eval_slot(self, schedule, slot, site, oblist):
 
         # evaluate each OB against this slot
-        results = map(lambda ob: qsim.check_slot(site, schedule, slot, ob, self.eph_cache,
-                                                 limit_filter=self.sch_params.limit_filter,
-                                                 allow_delay=self.sch_params.allow_delay),
-                           oblist)
+        results = qsim.check_slot(site, schedule, slot, oblist, self.eph_cache,
+                                  limit_filter=self.sch_params.limit_filter,
+                                  allow_delay=self.sch_params.allow_delay)
 
         # filter out unobservable OBs
         good = list(filter(lambda res: res.obs_ok, results))
