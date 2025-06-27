@@ -10,6 +10,7 @@ from dateutil import tz
 import dateutil.parser
 import pandas as pd
 
+from ginga.misc.Bunch import Bunch
 # set up download directory for files
 from ginga.util.paths import ginga_home
 datadir = os.path.join(ginga_home, "downloads")
@@ -418,13 +419,23 @@ class Observer:
     def __repr__(self):
         return self.name
 
-    def clone(self):
-        return Observer(self.name, timezone=self.tz_local, longitude=self.lon_deg,
-                        latitude=self.lat_deg, elevation=self.elev_m,
-                        pressure=self.pressure_mbar, temperature=self.temp_C,
-                        humidity=self.rh_pct, horizon_deg=self.horizon_deg,
-                        date=self.date, wavelength=self.wavelength,
-                        description=self.description)
+    def get_spec(self):
+        return dict(name=self.name, timezone=self.tz_local, longitude=self.lon_deg,
+                    latitude=self.lat_deg, elevation=self.elev_m,
+                    pressure=self.pressure_mbar, temperature=self.temp_C,
+                    humidity=self.rh_pct, horizon_deg=self.horizon_deg,
+                    date=self.date, wavelength=self.wavelength,
+                    description=self.description)
+
+    @classmethod
+    def from_spec(cls, spec_dct):
+        spec = Bunch(spec_dct)
+        return Observer(spec.name, timezone=spec.timezone, longitude=spec.longitude,
+                        latitude=spec.latitude, elevation=spec.elevation,
+                        pressure=spec.pressure, temperature=spec.temperature,
+                        humidity=spec.humidity, horizon_deg=spec.horizon_deg,
+                        date=spec.date, wavelength=spec.wavelength,
+                        description=spec.description)
 
     __str__ = __repr__
 

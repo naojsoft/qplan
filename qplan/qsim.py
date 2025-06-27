@@ -13,6 +13,7 @@ from ginga.misc import Bunch
 
 # local imports
 from . import misc
+from .util.eph_cache import populate_periods_mp
 
 # maximum rank for a program
 max_rank = 10.0
@@ -37,9 +38,10 @@ def obs_to_slots(logger, slots, site, oblist, eph_cache, check_moon=False,
                  check_env=False):
     # populate ephemeris cache for the period
     unique_targets = set([ob.target for ob in oblist])
-    tgt_dct = {target: target for target in unique_targets}
+    #tgt_dct = {target: target for target in unique_targets}
     periods = [(slot.start_time, slot.stop_time) for slot in slots]
-    eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
+    #eph_cache.populate_periods(tgt_dct, site, periods, keep_old=True)
+    populate_periods_mp(eph_cache, unique_targets, site, periods, keep_old=True)
 
     obmap = {}
     for slot in slots:
