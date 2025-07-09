@@ -6,15 +6,16 @@ dependencies:
   - python=3.11
   - pip
   - astropy
+  - skyfield
   - scipy
   - matplotlib
   - pillow
+  - joblib
   - pandas
   - xlrd
   - openpyxl
   - pyqt
   - qtpy
-  - ephem
   - python-dateutil
   - pymongo
   - pyyaml
