@@ -7,30 +7,18 @@
 # stdlib imports
 import sys, traceback
 import os
-import datetime
-import dateutil
 
 # ginga imports
 from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
 
-# Gen2 imports
-have_gen2 = False
-try:
-    from g2cam.status.client import StatusClient
-    from g2cam.status.common import STATNONE, STATERROR
-    have_gen2 = True
-
-except ImportError:
-    pass
-
 # local imports
 from qplan.plugins import PlBase
-from qplan import filetypes, misc, entity, common
+from qplan import filetypes
 
 have_qdb = False
 try:
-    from qplan import q_db, q_query
+    from qplan import q_query
     from qplan.util import qdb_update
     have_qdb = True
 

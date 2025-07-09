@@ -10,15 +10,13 @@ from dateutil import tz
 
 # 3rd party imports
 import numpy as np
-from astropy.coordinates import Angle
-from astropy import units
 
 entity_version = 20250616.0
 
-from ginga.misc import Bunch
+from ginga.util.wcs import hmsStrToDeg, dmsStrToDeg
 
 # local imports
-from qplan.util.calcpos import Body, Observer
+from qplan.util.calcpos import Body
 
 """
 NOTES
@@ -807,46 +805,23 @@ class PFS_OB(OB):
 class BaseTarget(object):
     pass
 
-class StaticTarget(BaseTarget):
+class StaticTarget(Body):
     def __init__(self, name=None, ra=None, dec=None, equinox=2000.0,
                  comment=''):
-        super().__init__()
-        self.name = name
-        self.ra, self.dec = normalize_radec_str(ra, dec)
-        self.equinox = equinox
-        self.comment = comment
-
-        if self.ra is not None:
-            self._recalc_body()
-
-    def _recalc_body(self):
-        self.body = Body(self.name, self.ra, self.dec, self.equinox)
+        ra, dec, equinox = normalize_ra_dec_equinox(ra, dec, equinox)
+        super().__init__(name, ra, dec, equinox, comment=comment)
 
     def import_record(self, rec):
         code = rec.get('code', '').strip()
         self.name = rec['name']
-        self.ra, self.dec = normalize_radec_str(rec['ra'], rec['dec'])
-
         if 'equinox' in rec:
-            self.equinox = int(rec['equinox'])
+            eq = rec['equinox']
         else:
-            # transform equinox, e.g. "J2000" -> 2000
             eq = rec['eq']
-            if isinstance(eq, str):
-                eq = eq.upper()
-                if eq[0] in ('B', 'J'):
-                    eq = eq[1:]
-                    eq = float(eq)
-            eq = int(eq)
-            self.equinox = eq
+        self.ra, self.dec, self.equinox = normalize_ra_dec_equinox(rec['ra'], rec['dec'], eq)
 
         self.comment = rec['comment'].strip()
-
-        self._recalc_body()
         return code
-
-    def calc(self, observer, time_start):
-        return self.body.calc(observer, time_start)
 
     def equivalent(self, other):
         if self.name != other.name:
@@ -1477,31 +1452,75 @@ def parse_date_time(dt_str, default_timezone):
     return dt
 
 
-def normalize_radec_str(ra_str, dec_str):
-    if ra_str is None or ra_str == '':
-        ra = ra_str
-    else:
-        # If ra is a float, assume that the angle is expressed in
-        # decimal degrees. Otherwise, parse ra as a sexagesimal value,
-        # i.e., HH:MM:SS.fff.
-        if isinstance(ra_str, str) and ':' in ra_str:
-            ra_ang = Angle(ra_str, unit=units.hour)
+def normalize_ra_dec_equinox(ra, dec, eq):
+    have_oscript = False
+    if ra is None:
+        ra_deg = None
+    elif isinstance(ra, float):
+        ra_deg = ra
+    elif isinstance(ra, str):
+        ra = ra.strip()
+        if len(ra) == 0:
+            ra_deg = None
+        elif ':' in ra:
+            # read as sexigesimal hours
+            ra_deg = hmsStrToDeg(ra)
         else:
-            ra_ang = Angle(float(ra_str), unit=units.deg)
-
-        ra = ra_ang.to_string(unit=units.hour, sep=':', precision=3, pad=True)
-
-    if dec_str is None or dec_str == '':
-        dec = dec_str
+            if '.' in ra:
+                l, r = ra.split('.')
+            else:
+                l = ra
+            if len(l) > 4:
+                if not have_oscript:
+                    raise ValueError("RA appears to be in funky SOSS format; please install 'oscript' to parse these values")
+                ra_deg = ope.funkyHMStoDeg(ra)
+            else:
+                ra_deg = float(ra)
     else:
-        if isinstance(dec_str, str) and ':' in dec_str:
-            dec_ang = Angle(dec_str, unit=units.deg)
-        else:
-            dec_ang = Angle(float(dec_str), unit=units.deg)
+        raise ValueError(f"don't understand format/type of 'RA': {ra}")
 
-        dec = dec_ang.to_string(sep=':', precision=2, pad=True,
-                                alwayssign=True)
-    return (ra, dec)
+    if dec is None:
+        dec_deg = None
+    elif isinstance(dec, float):
+        dec_deg = dec
+    elif isinstance(dec, str):
+        dec = dec.strip()
+        if len(dec) == 0:
+            dec_deg = None
+        elif ':' in dec:
+            # read as sexigesimal hours
+            dec_deg = dmsStrToDeg(dec)
+        else:
+            if '.' in dec:
+                l, r = dec.split('.')
+            else:
+                l = dec
+            if len(l) > 4:
+                if not have_oscript:
+                    raise ValueError("DEC appears to be in funky SOSS format; please install 'oscript' to parse these values")
+                dec_deg = ope.funkyDMStoDeg(dec)
+            else:
+                dec_deg = float(dec)
+    else:
+        raise ValueError(f"don't understand format/type of 'DEC': {dec}")
+
+    if eq is None:
+        equinox = 2000.0
+    elif isinstance(eq, (float, int)):
+        equinox = float(eq)
+    elif isinstance(eq, str):
+        eq = eq.strip().upper()
+        if len(eq) == 0:
+            equinox = 2000.0
+        elif eq[0] in ('B', 'J'):
+            equinox = float(eq[1:])
+        else:
+            equinox = float(eq)
+    else:
+        raise ValueError(f"don't understand format/type of 'EQ': {eq}")
+
+    return (ra_deg, dec_deg, equinox)
+
 
 #
 ### Functions for going from database record to Python object

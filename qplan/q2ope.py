@@ -10,7 +10,7 @@ Usage:
 """
 # stdlib imports
 import sys, os
-from io import BytesIO, StringIO
+from io import StringIO
 
 # 3rd party imports
 from ginga.misc import log

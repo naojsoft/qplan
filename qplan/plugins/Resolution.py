@@ -3,11 +3,9 @@
 #
 # Russell Kackley (rkackley@naoj.org)
 #
-import os.path
 
-from ginga.misc import Bunch
 from ginga.misc import Widgets
-from qtpy import QtCore
+
 from qtpy import QtWidgets as QtGui
 
 from . import PlBase

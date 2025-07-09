@@ -2,11 +2,8 @@
 # PPCCfgTab.py -- Plugin to display the PPC configuration in a table GUI
 #
 
-import datetime
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
 
-from qplan import entity
 from qplan.plugins import QueueFileTab
 
 class PPCCfgTab(QueueFileTab.QueueCfgFileTab):

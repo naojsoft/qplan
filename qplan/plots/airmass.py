@@ -7,22 +7,17 @@
 #   Copyright (c) 2008 UCO/Lick Observatory.
 #
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-import numpy
+import numpy as np
 
 import matplotlib.dates as mpl_dt
-import matplotlib as mpl
-from matplotlib.ticker import FormatStrFormatter
 
-from ginga.misc import Bunch
 from ginga.util import plots
 
 
-class AirMassPlot(plots.Plot):
+class AltitudePlot(plots.Plot):
 
     def __init__(self, width, height, logger=None):
-        super(AirMassPlot, self).__init__(width=width, height=height,
-                                          logger=logger)
+        super().__init__(width=width, height=height, logger=logger)
 
         # time increments, by minute
         self.time_inc_min = 15
@@ -41,129 +36,6 @@ class AirMassPlot(plots.Plot):
         self.fig.clf()
         self.redraw()
 
-    def plot_airmass(self, site, tgt_data, tz, plot_moon_distance=False,
-                      show_target_legend=False):
-        self._plot_airmass(self.fig, site, tgt_data, tz,
-                           plot_moon_distance=plot_moon_distance,
-                           show_target_legend=show_target_legend)
-
-    def _plot_airmass(self, figure, site, tgt_data, tz,
-                      plot_moon_distance=False,
-                      show_target_legend=False):
-        """
-        Plot into `figure` an airmass chart using target data from `info`
-        with time plotted in timezone `tz` (a tzinfo instance).
-        """
-
-        # set major ticks to hours
-        majorTick = mpl_dt.HourLocator(tz=tz)
-        majorFmt = mpl_dt.DateFormatter('%Hh', tz=tz)
-        # set minor ticks to 15 min intervals
-        minorTick = mpl_dt.MinuteLocator(list(range(0,59,15)), tz=tz)
-
-        figure.clf()
-        ax1 = figure.add_subplot(111)
-        self.ax = ax1
-        if show_target_legend:
-            figure.set_tight_layout(False)
-            figure.subplots_adjust(left=0.05, right=0.65, bottom=0.12, top=0.95)
-
-        #lstyle = 'o'
-        lstyle = '-'
-        lt_data = [info.ut.astimezone(tz) for info in tgt_data[0].history]
-
-        # we don't know what date "site" is currently initialized to,
-        # so find out the date of the first target
-        localdate = lt_data[0].astimezone(tz)
-
-        min_interval = 12  # hour/5min
-        mt = lt_data[0:-1:min_interval]
-        targets, legend = [], []
-
-        # plot targets airmass vs. time
-        for i, info in enumerate(tgt_data):
-            am_data = numpy.array([t.airmass for t in info.history])
-            am_min = numpy.argmin(am_data)
-            am_data_dots = am_data
-            color = self.colors[i % len(self.colors)]
-            lc = color + lstyle
-            # ax1.plot_date(lt_data, am_data, lc, linewidth=1.0, alpha=0.3, aa=True, tz=tz)
-            lg = ax1.plot_date(lt_data, am_data_dots, lc, linewidth=2.0,
-                               aa=True, tz=tz)
-            #xs, ys = mpl.mlab.poly_between(lt_data, 2.02, am_data)
-            #ax1.fill(xs, ys, facecolor=self.colors[i], alpha=0.2)
-            legend.extend(lg)
-
-            targets.append("{0} {1} {2}".format(info.target.name,
-                                                info.target.ra,
-                                                info.target.dec))
-
-            if plot_moon_distance:
-                am_interval = am_data[0:-1:min_interval]
-                moon_sep = numpy.array([tgt.moon_sep for tgt in info.history])
-                moon_sep = moon_sep[0:-1:min_interval]
-
-                # plot moon separations
-                for x, y, v in zip(mt, am_interval, moon_sep):
-                    if y < 0:
-                        continue
-                    ax1.text(x, y, '%.1f' %v, fontsize=7,  ha='center', va='bottom')
-                    ax1.plot_date(x, y, 'ko', ms=3)
-
-            # plot object label
-            targname = info.target.name
-            ax1.text(mpl_dt.date2num(lt_data[am_data.argmin()]),
-                     am_data.min() + 0.08, targname.upper(), color=color,
-                     ha='center', va='center')
-
-        # legend target list
-        if show_target_legend:
-            self.fig.legend(legend, targets, 'upper right', fontsize=9, framealpha=0.5,
-                            frameon=True, ncol=1, bbox_to_anchor=[0.3, 0.865, .7, 0.1])
-
-        ax1.set_ylim(2.02, 0.98)
-        ax1.set_xlim(lt_data[0], lt_data[-1])
-        ax1.xaxis.set_major_locator(majorTick)
-        ax1.xaxis.set_minor_locator(minorTick)
-        ax1.xaxis.set_major_formatter(majorFmt)
-        labels = ax1.get_xticklabels()
-        ax1.grid(True, color='#999999')
-
-        self._plot_twilight(ax1, site, localdate, tz,
-                            show_legend=show_target_legend)
-
-        # plot current hour
-        lo = datetime.now(tz)
-        hi = lo + timedelta(seconds=3600.0)
-        if lt_data[0] < lo < lt_data[-1]:
-            self._plot_current_time(ax1, lo, hi)
-
-        # label axes
-        title = 'Airmass for the night of {}'.format(localdate.strftime("%Y-%m-%d"))
-        ax1.set_title(title)
-        ax1.set_xlabel(tz.tzname(None))
-        ax1.set_ylabel('Airmass')
-
-        # Plot moon altitude and degree scale
-        ax2 = ax1.twinx()
-        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
-        #moon_illum = site.moon_phase()
-        ax2.plot_date(lt_data, moon_data, '#666666', linewidth=2.0,
-                      alpha=0.5, aa=True, tz=tz)
-        ax2.set_ylabel('Moon Altitude (deg)', color='#666666')
-        ax2.set_ylim(0, 90)
-        ax2.set_xlim(lt_data[0], lt_data[-1])
-        ax2.xaxis.set_major_locator(majorTick)
-        ax2.xaxis.set_minor_locator(minorTick)
-        ax2.xaxis.set_major_formatter(majorFmt)
-        ax2.set_xlabel('')
-        ax2.yaxis.tick_right()
-
-        # drawing the line of middle of the night
-        self._middle_night(ax1, site, localdate)
-
-        self.redraw()
-
     def redraw(self):
         canvas = self.fig.canvas
         if canvas is not None:
@@ -172,7 +44,8 @@ class AirMassPlot(plots.Plot):
     def plot_altitude(self, site, tgt_data, tz, current_time=None,
                       plot_moon_distance=False,
                       show_target_legend=False):
-        self._plot_altitude(self.fig, site, tgt_data, tz, current_time=current_time,
+        self._plot_altitude(self.fig, site, tgt_data, tz,
+                            current_time=current_time,
                             plot_moon_distance=plot_moon_distance,
                             show_target_legend=show_target_legend)
 
@@ -200,64 +73,69 @@ class AirMassPlot(plots.Plot):
             figure.set_tight_layout(False)
             figure.subplots_adjust(left=0.05, right=0.65, bottom=0.12, top=0.95)
 
-        #lstyle = 'o'
         lstyle = '-'
-        lt_data = [t.ut.astimezone(tz) for t in tgt_data[0].history]
+        # convert to desired time zone for plot
+        lt_data_first = np.array([t.astimezone(tz)
+                              for t in tgt_data[0].calc_res.ut])
 
-        # we don't know what date "site" is currently initialized to,
-        # so get the date of the first target. Also get the end date
+        # get the date of the first target. Also get the end date
         # so that we can include it in the plot title.
-        localdate_start = lt_data[0]
-        localdate_end = lt_data[-1]
+        localdate_start = lt_data_first[0]
+        localdate_end = lt_data_first[-1]
         localdate_start_str = localdate_start.strftime('%Y-%b-%d %H:%M')
         localdate_end_str = localdate_end.strftime('%Y-%b-%d %H:%M')
 
-        min_interval = 12  # hour/5min
-        mt = lt_data[0:-1:min_interval]
+        min_interval = 4
         targets, legend = [], []
 
         # plot targets elevation vs. time
         for i, info in enumerate(tgt_data):
-            alt_data = numpy.array([t.alt_deg for t in info.history])
-            alt_min = numpy.argmin(alt_data)
+            lt_data = np.array([t.astimezone(tz)
+                                for t in info.calc_res.ut])
+            alt_data = info.calc_res.alt_deg
+            alt_min = np.argmin(alt_data)
             alt_data_dots = alt_data
             color = self.colors[i % len(self.colors)]
-            lc = color + lstyle
-            # ax1.plot_date(lt_data, alt_data, lc, linewidth=1.0, alpha=0.3, aa=True, tz=tz)
-            lg = ax1.plot_date(lt_data, alt_data_dots, lc, linewidth=2.0,
-                               aa=True, tz=tz)
-            #xs, ys = mpl.mlab.poly_between(lt_data, 2.02, alt_data)
-            #ax1.fill(xs, ys, facecolor=self.colors[i], alpha=0.2)
+            alpha = 1.0
+            zorder = 1.0
+            lg = ax1.plot(lt_data, alt_data_dots, color=color,
+                          alpha=alpha, linewidth=2.0, linestyle=lstyle,
+                          marker=None, zorder=zorder, aa=True)
             legend.extend(lg)
 
-            targets.append("{0} {1} {2}".format(info.target.name, info.target.ra,
+            targets.append("{0} {1} {2}".format(info.target.name,
+                                                info.target.ra,
                                                 info.target.dec))
 
             if plot_moon_distance:
                 alt_interval = alt_data[0:-1:min_interval]
-                moon_sep = numpy.array([tgt.moon_sep for tgt in info.history])
+                moon_sep = info.calc_res.moon_sep
                 moon_sep = moon_sep[0:-1:min_interval]
 
                 # plot moon separations
+                mt = lt_data[0:-1:min_interval]
                 for x, y, v in zip(mt, alt_interval, moon_sep):
                     if y < 0:
                         continue
-                    ax1.text(x, y, '%.1f' %v, fontsize=7,  ha='center', va='bottom')
-                    ax1.plot_date(x, y, 'ko', ms=3)
+                    ax1.text(x, y, '%.1f' % v, fontsize=7, ha='center',
+                             va='bottom', clip_on=True)
+                    ax1.plot(x, y, 'ko', ms=3)
 
             # plot object label
             targname = info.target.name
             ax1.text(mpl_dt.date2num(lt_data[alt_data.argmax()]),
                      alt_data.max() + 4.0, targname, color=color,
-                     ha='center', va='center')
+                     alpha=alpha, zorder=zorder,
+                     ha='center', va='center', clip_on=True)
 
         # legend target list
         if show_target_legend:
-            self.fig.legend(legend, targets, 'upper right', fontsize=9, framealpha=0.5,
+            self.fig.legend(legend, targets,
+                            loc='upper right', fontsize=9, framealpha=0.5,
                             frameon=True, ncol=1, bbox_to_anchor=[0.3, 0.865, .7, 0.1])
 
         ax1.set_ylim(0.0, 90.0)
-        ax1.set_xlim(lt_data[0], lt_data[-1])
+        ax1.set_xlim(lt_data_first[0], lt_data_first[-1])
         ax1.xaxis.set_major_locator(majorTick)
         ax1.xaxis.set_minor_locator(minorTick)
         ax1.xaxis.set_major_formatter(majorFmt)
@@ -272,25 +150,25 @@ class AirMassPlot(plots.Plot):
         ax1.set_ylabel('Altitude (deg)')
 
         # Plot moon trajectory and illumination
-        moon_data = numpy.array([t.moon_alt for t in tgt_data[0].history])
-        illum_time = lt_data[moon_data.argmax()]
-        moon_illum = site.moon_phase(date=illum_time)
-        moon_color = '#666666'
-        moon_name = "Moon (%.2f %%)" % (moon_illum*100)
-        ax1.plot_date(lt_data, moon_data, moon_color, linewidth=2.0,
-                      alpha=0.5, aa=True, tz=tz)
+        moon_data = tgt_data[0].calc_res.moon_alt
+        illum_time = lt_data_first[moon_data.argmax()]
+        moon_illum = site.moon_illumination(date=illum_time)
+        moon_color = '#CDBE70'
+        moon_name = "Moon (%.2f %%)" % (moon_illum * 100)
+        ax1.plot(lt_data_first, moon_data, moon_color, linewidth=3.0,
+                 alpha=0.9, aa=True)
         ax1.text(mpl_dt.date2num(illum_time),
-                 moon_data.max() + 4.0, moon_name, color=moon_color,
-                 ha='center', va='center')
+                 moon_data.max() + 4.0, moon_name, color=moon_color, # '#CDBE70'
+                 ha='center', va='center', clip_on=True)
 
         # Plot airmass scale
-        altitude_ticks = numpy.array([20, 30, 40, 50, 60, 70, 80, 90])
-        airmass_ticks = 1.0/numpy.cos(numpy.radians(90 - altitude_ticks))
+        altitude_ticks = np.array([20, 30, 40, 50, 60, 70, 80, 90])
+        airmass_ticks = 1.0 / np.cos(np.radians(90 - altitude_ticks))
         airmass_ticks = ["%.3f" % n for n in airmass_ticks]
 
         ax2 = ax1.twinx()
         #ax2.set_ylim(None, 0.98)
-        #ax2.set_xlim(lt_data[0], lt_data[-1])
+        #ax2.set_xlim(lt_data_first[0], lt_data_first[-1])
         ax2.set_yticks(altitude_ticks)
         ax2.set_yticklabels(airmass_ticks)
         ax2.set_ylim(ax1.get_ylim())
@@ -302,15 +180,15 @@ class AirMassPlot(plots.Plot):
         targname = "moon"
         ## ax1.text(mpl_dt.date2num(moon_data[moon_data.argmax()]),
         ##          moon_data.max() + 0.08, targname.upper(), color=color,
-        ##          ha='center', va='center')
+        ##          ha='center', va='center', clip_on=True)
 
         # plot lower and upper safe limits for clear observing
         min_alt, max_alt = 30.0, 75.0
         self._plot_limits(ax1, min_alt, max_alt)
 
         # Add yesterday's and today's twilight to the plot.
-        self._plot_twilight(ax1, site, localdate_start-timedelta(days=1), tz,
-                            show_legend=show_target_legend)
+        self._plot_twilight(ax1, site, localdate_start - timedelta(days=1), tz,
+                            show_legend=False)
         self._plot_twilight(ax1, site, localdate_start, tz,
                             show_legend=show_target_legend)
 
@@ -321,8 +199,8 @@ class AirMassPlot(plots.Plot):
             lo = datetime.now(tz)
         else:
             lo = current_time.astimezone(tz)
-        hi = lo + timedelta(seconds=3600.0)
-        if lt_data[0] < lo < lt_data[-1]:
+        hi = lo + timedelta(0, 3600.0)
+        if lt_data_first[0] < lo < lt_data_first[-1]:
             self._plot_current_time(ax1, lo, hi)
 
         # drawing the line of middle of the night
@@ -334,15 +212,6 @@ class AirMassPlot(plots.Plot):
         canvas = self.fig.canvas
         if canvas is not None:
             canvas.draw()
-
-    def _middle_night(self, ax, site, localdate):
-        # night center
-        middle_night = site.night_center(date=localdate)
-
-        ymin, ymax = ax.get_ylim()
-
-        ax.vlines(middle_night, ymin, ymax, colors='blue',
-                  linestyles='dashed', label='Night center')
 
     def _plot_twilight(self, ax, site, localdate, tz, show_legend=False):
         # plot sunset
@@ -370,8 +239,9 @@ class AirMassPlot(plots.Plot):
             nautical_twi = "Nautical Twi {}".format(et12.strftime("%H:%M:%S"))
             astro_twi = "Astronomical Twi {}".format(et18.strftime("%H:%M:%S"))
 
-            self.fig.legend((ss, ct, nt, at), (sunset, civil_twi, nautical_twi, astro_twi),
-                            'upper left', fontsize=7, framealpha=0.5,
+            self.fig.legend((ss, ct, nt, at),
+                            (sunset, civil_twi, nautical_twi, astro_twi),
+                            loc='lower left', fontsize=7, framealpha=0.5,
                             bbox_to_anchor=[0.045, -0.02, .7, 0.113])
 
         # plot morning twilight 6/12/18 degrees
@@ -390,7 +260,7 @@ class AirMassPlot(plots.Plot):
         ct = ax.axvspan(mt6, t2, facecolor='#FF6F00', lw=None, ec='none', alpha=0.35)
 
         sr = ax.vlines(t2, ymin, ymax, colors=['red'],
-                   linestyles=['dashed'], label='Sunrise')
+                       linestyles=['dashed'], label='Sunrise')
 
         if show_legend:
             sunrise = "Sunrise {}".format(t2.strftime("%H:%M:%S"))
@@ -398,95 +268,27 @@ class AirMassPlot(plots.Plot):
             nautical_twi = "Nautical Twi {}".format(mt12.strftime("%H:%M:%S"))
             astro_twi = "Astronomical Twi {}".format(mt18.strftime("%H:%M:%S"))
 
-            self.fig.legend((sr, ct, nt, at), (sunrise, civil_twi, nautical_twi, astro_twi),
-                            fontsize=7, framealpha=0.5,
+            self.fig.legend((sr, ct, nt, at),
+                            (sunrise, civil_twi, nautical_twi, astro_twi),
+                            loc='lower right', fontsize=7, framealpha=0.5,
                             bbox_to_anchor=[-0.043, -0.02, .7, 0.113])
 
     def _plot_current_time(self, ax, lo, hi):
         ax.axvspan(lo, hi, facecolor='#7FFFD4', alpha=0.25)
+
+    def _middle_night(self, ax, site, localdate):
+        # night center
+        middle_night = site.night_center(date=localdate)
+
+        ymin, ymax = ax.get_ylim()
+
+        ax.vlines(middle_night, ymin, ymax, colors='blue',
+                  linestyles='dashed', label='Night center')
 
     def _plot_limits(self, ax, lo_lim, hi_lim):
         ymin, ymax = ax.get_ylim()
         ax.axhspan(ymin, lo_lim, facecolor='#F9EB4E', alpha=0.20)
 
         ax.axhspan(hi_lim, ymax, facecolor='#F9EB4E', alpha=0.20)
-
-
-if __name__ == '__main__':
-    import sys
-    from qplan import entity, common
-    from qplan.util.site import get_site
-
-    from ginga import toolkit
-    toolkit.use('qt5')
-
-    from ginga.gw import Widgets, Plot
-    plot = AirMassPlot(1200, 740)
-
-    outfile = None
-    if len(sys.argv) > 1:
-        outfile = sys.argv[1]
-
-    if outfile is None:
-        app = Widgets.Application()
-        topw = app.make_window()
-        plotw = Plot.PlotWidget(plot)
-        topw.set_widget(plotw)
-        topw.add_callback('close', lambda w: w.delete())
-    else:
-        from ginga.aggw import Plot
-        plotw = Plot.PlotWidget(plot)
-
-    plot.setup()
-    site = get_site('subaru')
-    tz = site.tz_local
-
-    start_time = datetime.strptime("2015-03-30 18:30:00",
-                                   "%Y-%m-%d %H:%M:%S")
-    start_time = start_time.replace(tzinfo=tz)
-    t = start_time
-    # if schedule starts after midnight, change start date to the
-    # day before
-    if 0 <= t.hour < 12:
-        t -= timedelta(seconds=3600*12)
-    ndate = t.strftime("%Y/%m/%d")
-
-    targets = []
-    site.set_date(t)
-    tgt = entity.StaticTarget(name='S5', ra='14:20:00.00', dec='48:00:00.00')
-    targets.append(tgt)
-    tgt = entity.StaticTarget(name='Sf', ra='09:40:00.00', dec='43:00:00.00')
-    targets.append(tgt)
-    tgt = entity.StaticTarget(name='Sm', ra='10:30:00.00', dec='36:00:00.00')
-    targets.append(tgt)
-    tgt = entity.StaticTarget(name='Sn', ra='15:10:00.00', dec='34:00:00.00')
-    targets.append(tgt)
-
-    # make airmass plot
-    num_tgts = len(targets)
-    target_data = []
-    lengths = []
-    if num_tgts > 0:
-        for tgt in targets:
-            info_list = site.get_target_info(tgt)
-            target_data.append(Bunch.Bunch(history=info_list, target=tgt))
-            lengths.append(len(info_list))
-
-    # clip all arrays to same length
-    min_len = min(*lengths)
-    for il in target_data:
-        il.history = il.history[:min_len]
-
-    ## plot.plot_airmass(site, target_data, tz, show_target_legend=True,
-    ##                   plot_moon_distance=True)
-    plot.plot_altitude(site, target_data, tz, show_target_legend=True,
-                       plot_moon_distance=True)
-
-    if outfile is None:
-        topw.show()
-    else:
-        plot.fig.savefig(outfile)
-
-    app.mainloop()
 
 #END

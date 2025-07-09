@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from qplan.util import calcpos, site
+from qplan.util import site
 
 def get_observer(site_name, date):
     observer = site.get_site(site_name)

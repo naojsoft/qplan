@@ -1,11 +1,8 @@
 import unittest
-from datetime import timedelta
 import math
 from dateutil import tz
 
-import ephem
-
-from qplan import misc, entity
+from qplan import misc, entity, qsim
 from qplan.util import calcpos
 
 
@@ -43,9 +40,10 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-29 04:00")
         time2 = self.obs.get_date("2014-04-29 05:00")
-        is_obs, time_rise, time_set = self.obs.observable(tgt, time1, time2,
-                                                          15.0, 85.0,
-                                                          59.9*60)
+        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
+                                                      time1, time2,
+                                                      15.0, 85.0,
+                                                      59.9*60)
         print((1, is_obs, time_rise, time_set))
         self.assertTrue(is_obs == True)
 
@@ -55,9 +53,10 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs, time_rise, time_set = self.obs.observable(tgt, time1, time2,
-                                                          15.0, 85.0,
-                                                          60*15)  # 15 min ok
+        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
+                                                      time1, time2,
+                                                      15.0, 85.0,
+                                                      60*15)  # 15 min ok
         print((2, is_obs, time_rise, time_set))
         self.assertTrue(is_obs == True)
 
@@ -67,9 +66,10 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-28 22:00")
         time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs, time_rise, time_set = self.obs.observable(tgt, time1, time2,
-                                                          15.0, 85.0,
-                                                          60*16)  # 16 min NOT ok
+        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
+                                                      time1, time2,
+                                                      15.0, 85.0,
+                                                      60*16)  # 16 min NOT ok
         print((3, is_obs, time_rise, time_set))
         self.assertTrue(is_obs == False)
 
@@ -79,9 +79,10 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-29 10:00")
         time2 = self.obs.get_date("2014-04-29 11:00")
-        is_obs, time_rise, time_set = self.obs.observable(tgt, time1, time2,
-                                                          15.0, 85.0,
-                                                          60*14)  # 14 min ok
+        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
+                                                      time1, time2,
+                                                      15.0, 85.0,
+                                                      60*14)  # 14 min ok
         print((4, is_obs, time_rise, time_set))
         self.assertTrue(is_obs == True)
 
@@ -91,9 +92,10 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-29 10:00")
         time2 = self.obs.get_date("2014-04-29 11:00")
-        is_obs, time_rise, time_set = self.obs.observable(tgt, time1, time2,
-                                                          15.0, 85.0,
-                                                          60*15)  # 15 min NOT ok
+        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
+                                                      time1, time2,
+                                                      15.0, 85.0,
+                                                      60*15)  # 15 min NOT ok
         print((5, is_obs, time_rise, time_set))
         self.assertTrue(is_obs == False)
 
@@ -103,9 +105,10 @@ class TestEntity01(unittest.TestCase):
         tgt = entity.StaticTarget("vega", vega[0], vega[1])
         time1 = self.obs.get_date("2014-04-29 11:00")
         time2 = self.obs.get_date("2014-04-29 12:00")
-        is_obs, time_rise, time_set = self.obs.observable(tgt, time1, time2,
-                                                          15.0, 85.0,
-                                                          60*1)  # 1 min NOT ok
+        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
+                                                      time1, time2,
+                                                      15.0, 85.0,
+                                                      60*1)  # 1 min NOT ok
         print((6, is_obs, time_rise, time_set))
         self.assertTrue(is_obs == False)
 
@@ -165,6 +168,30 @@ class TestEntity01(unittest.TestCase):
         self.assertEqual(int(math.fabs(d_alt)), 11)
         self.assertEqual(int(math.fabs(d_az)), 38)
 
+    def test_calc_alternate_angle(self):
+        res = misc.calc_alternate_angle(0.0)
+        self.assertEqual(int(res), 0)
+        res = misc.calc_alternate_angle(20.0)
+        self.assertEqual(int(res), -340)
+        res = misc.calc_alternate_angle(90.0)
+        self.assertEqual(int(res), -270)
+        res = misc.calc_alternate_angle(177.0)
+        self.assertEqual(int(res), -183)
+        res = misc.calc_alternate_angle(180.0)
+        self.assertEqual(int(res), -180)
+        res = misc.calc_alternate_angle(270.0)
+        self.assertEqual(int(res), -90)
+        res = misc.calc_alternate_angle(1.0)
+        self.assertEqual(int(res), -359)
+
+    def test_calc_rotation_choices1(self):
+        pass
+
+    def test_calc_rotation_choices2(self):
+        pass
+
+    def test_calc_optimal_rotation(self):
+        pass
 
 if __name__ == "__main__":
 

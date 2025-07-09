@@ -4,7 +4,6 @@
 #
 # stdlib imports
 import sys, os
-import platform
 import traceback
 
 from ginga.gw import GwHelp, GwMain, Widgets, Desktop
@@ -14,9 +13,6 @@ from ginga.misc import Bunch
 moduleHome = os.path.split(sys.modules[__name__].__file__)[0]
 icon_path = os.path.abspath(os.path.join(moduleHome, '..', 'icons'))
 rc_file = os.path.join(moduleHome, "qt_rc")
-
-# Local application imports
-from . import qsim
 
 
 class ViewError(Exception):

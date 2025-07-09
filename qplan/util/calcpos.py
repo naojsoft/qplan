@@ -1,102 +1,117 @@
 #
 # calcpos.py -- module for wrapping astronomical ephemeris calculations
 #
-import math
+import os
 
 # third-party imports
 import numpy as np
 from datetime import datetime, time, timedelta
 from dateutil import tz
 import dateutil.parser
+import pandas as pd
+
+from ginga.misc.Bunch import Bunch
+# set up download directory for files
+from ginga.util.paths import ginga_home
+datadir = os.path.join(ginga_home, "downloads")
+if not os.path.isdir(datadir):
+    os.mkdir(datadir)
 
 import erfa
-import ephem
+from astropy.coordinates import SkyCoord, Latitude, Longitude, Angle
+from astropy.time import Time
+from astropy import units as u
+from astropy.utils.iers import conf as ap_iers_conf
+#ap_iers_conf.auto_download = False
+ap_iers_conf.remote_timeout = 5.0
+#ap_iers_conf.iers_degraded_accuracy = 'ignore'
+
+from skyfield.api import Star, Loader, wgs84
+from skyfield.earthlib import refraction
+from skyfield import almanac
+# don't download ephemeris to the CWD
+load = Loader(datadir)
 
 # Constants
+earth_radius_m = 6378136.6
+solar_radius_deg = 0.25
+moon_radius_deg = 0.26
 
-#earth_radius = 6378160.0
-# TODO: more precise calculation
-#minute = 0.0006944444444444444
+ssbodies = load('de421.bsp')
+timescale = load.timescale()
+
+# used for almanac calculations
+horizon_6 = -6.0
+horizon_12 = -12.0
+horizon_18 = -18.0
 
 
 def alt2airmass(alt_deg):
-    xp = 1.0 / math.sin(math.radians(alt_deg + 244.0/(165.0 + 47*alt_deg**1.1)))
+    xp = 1.0 / np.sin(np.radians(alt_deg + 244.0 / (165.0 + 47 * alt_deg ** 1.1)))
     return xp
 
-am_inv = []
-for alt in range(0, 91):
-    alt_deg = float(alt)
-    am = alt2airmass(alt_deg)
-    am_inv.append((am, alt_deg))
+
+am_inv = np.array([(alt2airmass(alt), alt) for alt in range(0, 91, 1)])
+
 
 def airmass2alt(am):
-    # TODO: horribly inefficient lookup--FIX!
-    for (x, alt_deg) in am_inv:
-        if x <= am:
-            return alt_deg
-    return 90.0
+    # TODO: vectorize
+    if am < am_inv.T[0][-1]:
+        return 90.0
+    i = np.argmax(am_inv.T[0] < am)
+    i = np.clip(i - 1, 0, len(am_inv) - 1)
+    return am_inv.T[1][i]
 
 #### Classes ####
 
 
-class Observer(object):
+class Observer:
     """
     Observer
     """
     def __init__(self, name, timezone=None, longitude=None, latitude=None,
-                 elevation=None, pressure=None, temperature=None, humidity=None,
-                 date=None, wavelength=None, description=None):
-        super(Observer, self).__init__()
+                 elevation=0, pressure=0, temperature=0, humidity=0,
+                 horizon_deg=None, date=None, wavelength=None,
+                 description=None):
+        super().__init__()
         self.name = name
-        self.timezone = timezone
-        self.longitude = longitude
-        self.latitude = latitude
-        self.elevation = elevation
-        self.pressure = pressure
-        self.temperature = temperature
-        self.humidity = humidity
-        self.date = date
-        self.wavelength = wavelength
-        self.description = description
-        self.horizon = -1 * np.sqrt(2 * elevation / ephem.earth_radius)
         if timezone is None:
             # default to UTC
             timezone = tz.UTC
         self.tz_local = timezone
-        self.tz_utc = tz.UTC
-        self.site = self.get_site(date=date)
-
-        # used for sunset, sunrise calculations
-        self.horizon6 = -1.0 * ephem.degrees('06:00:00.0')
-        self.horizon12 = -1.0 * ephem.degrees('12:00:00.0')
-        self.horizon18 = -1.0 * ephem.degrees('18:00:00.0')
-        self.sun = ephem.Sun()
-        self.moon = ephem.Moon()
-        self.sun.compute(self.site)
-        self.moon.compute(self.site)
-
-    def get_site(self, date=None, horizon_deg=None):
-        site = ephem.Observer()
-        site.lon = self.longitude
-        site.lat = self.latitude
-        site.elevation = self.elevation
-        site.pressure = self.pressure
-        site.temp = self.temperature
-        if horizon_deg != None:
-            site.horizon = math.radians(horizon_deg)
+        if isinstance(longitude, str):
+            self.lon_deg = Longitude(longitude, unit=u.deg, wrap_angle=180 * u.deg).deg
         else:
-            site.horizon = self.horizon
-        site.epoch = 2000.0
+            self.lon_deg = longitude
+        if isinstance(latitude, str):
+            self.lat_deg = Latitude(latitude, unit=u.deg).deg
+        else:
+            self.lat_deg = latitude
+        self.elev_m = elevation
+        self.pressure_mbar = pressure
+        self.temp_C = temperature
+        self.rh_pct = humidity / 100.
         if date is None:
-            date = datetime.now(tz=self.tz_utc)
-        site.date = ephem.Date(self.date_to_utc(date))
-        return site
-
-    def set_humidity(self, humidity):
-        self.humidity = humidity
-
-    def set_wavelength(self, wavelength):
+            date = datetime.now(tz=self.tz_local)
+        self.date = date
         self.wavelength = wavelength
+        self.description = description
+        if horizon_deg is None:
+            horizon_deg = np.degrees(- np.arccos(earth_radius_m / (earth_radius_m + self.elev_m)))
+        self.horizon_deg = horizon_deg
+
+        earth = ssbodies['earth']
+        self.location = earth + wgs84.latlon(latitude_degrees=self.lat_deg,
+                                             longitude_degrees=self.lon_deg,
+                                             elevation_m=self.elev_m)
+
+    @property
+    def timezone(self):
+        return self.tz_local
+
+    @property
+    def tz_utc(self):
+        return tz.UTC
 
     def date_to_utc(self, date):
         """Convert a datetime to UTC.
@@ -105,13 +120,13 @@ class Observer(object):
         """
         if date.tzinfo is not None:
             # date is timezone-aware
-            date = date.astimezone(self.tz_utc)
+            date = date.astimezone(tz.UTC)
 
         else:
             # date is a naive date: assume expressed in local time
             date = date.replace(tzinfo=self.tz_local)
             # and converted to UTC
-            date = date.astimezone(self.tz_utc)
+            date = date.astimezone(tz.UTC)
         return date
 
     def date_to_local(self, date):
@@ -125,7 +140,7 @@ class Observer(object):
 
         else:
             # date is a naive date: assume expressed in UTC
-            date = date.replace(tzinfo=self.tz_utc)
+            date = date.replace(tzinfo=tz.UTC)
             # and converted to local time
             date = date.astimezone(self.tz_local)
 
@@ -136,21 +151,27 @@ class Observer(object):
         stored internally in the timezone set for the observer.
         """
         self.date = self.date_to_local(date)
-        # ephem deals only in UTC
-        self.site.date = ephem.Date(self.date_to_utc(self.date))
 
-    def radec_of(self, az_deg, alt_deg):
-        ra, dec = self.site.radec_of(np.radians(az_deg), np.radians(alt_deg))
-        ra_deg, dec_deg = np.degrees([ra, dec])
+    def radec_of(self, az_deg, alt_deg, date=None):
+        if date is None:
+            date = self.date
+        obstime = timescale.from_datetime(date)
+        apparent = self.location.at(obstime).from_altaz(alt_degrees=alt_deg,
+                                                        az_degrees=az_deg)
+        ra, dec, distance = apparent.radec()
+        ra_deg, dec_deg = ra._degrees, dec._degrees
         return ra_deg, dec_deg
 
-    def azalt_of(self, ra_deg, dec_deg):
-        body = ephem.FixedBody()
-        body._ra = np.radians(ra_deg)
-        body._dec = np.radians(dec_deg)
-        body.compute(self.site)
-
-        az_deg, alt_deg = np.degrees([body.az, body.alt])
+    def azalt_of(self, ra_deg, dec_deg, date=None):
+        if date is None:
+            date = self.date
+        coord = Star(ra_hours=ra_deg / 15.0, dec_degrees=dec_deg)
+        obstime = timescale.from_datetime(date)
+        astrometric = self.location.at(obstime).observe(coord)
+        apparent = astrometric.apparent()
+        alt, az, distance = apparent.altaz(temperature_C=self.temp_C,
+                                           pressure_mbar=self.pressure_mbar)
+        az_deg, alt_deg = az.degrees, alt.degrees
         return az_deg, alt_deg
 
     def calc(self, body, time_start):
@@ -176,90 +197,6 @@ class Observer(object):
             dt = dt.astimezone(timezone)
         return dt
 
-    def observable(self, target, time_start, time_stop,
-                   el_min_deg, el_max_deg, time_needed,
-                   airmass=None, moon_sep=None):
-        """
-        Return True if `target` is observable between `time_start` and
-        `time_stop`, defined by whether it is between elevation `el_min`
-        and `el_max` during that period, and whether it meets the minimum
-        airmass.
-        """
-        # set observer's horizon to elevation for el_min or to achieve
-        # desired airmass
-        if airmass != None:
-            # compute desired altitude from airmass
-            alt_deg = airmass2alt(airmass)
-            min_alt_deg = max(alt_deg, el_min_deg)
-        else:
-            min_alt_deg = el_min_deg
-
-        site = self.get_site(date=time_start, horizon_deg=min_alt_deg)
-
-        d1 = self.calc(target, time_start)
-
-        # important: ephem only deals with UTC!!
-        time_start_utc = ephem.Date(self.date_to_utc(time_start))
-        time_stop_utc = ephem.Date(self.date_to_utc(time_stop))
-        #print("period (UT): %s to %s" % (time_start_utc, time_stop_utc))
-
-        if d1.alt_deg >= min_alt_deg:
-            # body is above desired altitude at start of period
-            # so calculate next setting
-            time_rise = time_start_utc
-            time_set = site.next_setting(target.body._body,
-                                         start=time_start_utc)
-            #print("body already up: set=%s" % (time_set))
-
-        else:
-            # body is below desired altitude at start of period
-            try:
-                time_rise = site.next_rising(target.body._body,
-                                             start=time_start_utc)
-                time_set = site.next_setting(target.body._body,
-                                             start=time_start_utc)
-            except ephem.NeverUpError:
-                return (False, None, None)
-
-            #print("body not up: rise=%s set=%s" % (time_rise, time_set))
-            ## if time_rise < time_set:
-            ##     print("body still rising, below threshold")
-            ##     # <-- body is still rising, just not high enough yet
-            ## else:
-            ##     # <-- body is setting
-            ##     print("body setting, below threshold")
-            ##     # calculate rise time backward from end of period
-            ##     #time_rise = site.previous_rising(target.body, start=time_stop_utc)
-            ##     pass
-
-        if time_rise < time_start_utc:
-            diff = time_rise - time_start_utc
-            ## raise AssertionError("time rise (%s) < time start (%s)" % (
-            ##         time_rise, time_start))
-            print(("WARNING: time rise (%s) < time start (%s)" % (
-                    time_rise, time_start)))
-            time_rise = time_start_utc
-
-        # last observable time is setting or end of period,
-        # whichever comes first
-        time_end = min(time_set, time_stop_utc)
-        # calculate duration in seconds (subtracting two ephem Date
-        # objects seems to give a fraction in days)
-        duration = (time_end - time_rise) * 86400.0
-        # object is observable as long as the duration that it is
-        # up is as long or longer than the time needed
-        diff = duration - float(time_needed)
-        #can_obs = diff > -0.001
-        can_obs = duration > time_needed
-        #print("can_obs=%s duration=%f needed=%f diff=%f" % (
-        #    can_obs, duration, time_needed, diff))
-
-        # convert times back to datetime's
-        time_rise = self.date_to_local(time_rise.datetime())
-        time_end = self.date_to_local(time_end.datetime())
-
-        return (can_obs, time_rise, time_end)
-
     def distance(self, tgt1, tgt2, time_start):
         c1 = self.calc(tgt1, time_start)
         c2 = self.calc(tgt2, time_start)
@@ -268,96 +205,147 @@ class Observer(object):
         d_az = c1.az_deg - c2.az_deg
         return (d_alt, d_az)
 
-    def _set_site_date(self, date):
-        if not isinstance(date, ephem.Date):
-            if date is None:
-                date = self.date
-            date = self.date_to_utc(date)
+    def _find_setting(self, coord, start_dt, stop_dt, horizon_deg):
+        # NOTE: fractional seconds seems to cause an exception inside
+        # skyfield
+        t0 = timescale.from_datetime(start_dt.replace(microsecond=0))
+        t1 = timescale.from_datetime(stop_dt.replace(microsecond=0))
+        # TODO: refraction function does not appear to work as expected
+        r = refraction(0.0, temperature_C=self.temp_C,
+                       pressure_mbar=self.pressure_mbar)
+        r = horizon_deg + r
+        t, y = almanac.find_settings(self.location, coord, t0, t1,
+                                     horizon_degrees=r)
+        return t, y
 
-            date = ephem.Date(date)
-        self.site.date = date
+    def _find_rising(self, coord, start_dt, stop_dt, horizon_deg):
+        # NOTE: fractional seconds seems to cause an exception inside
+        # skyfield
+        t0 = timescale.from_datetime(start_dt.replace(microsecond=0))
+        t1 = timescale.from_datetime(stop_dt.replace(microsecond=0))
+        # TODO: refraction function does not appear to work as expected
+        r = refraction(0.0, temperature_C=self.temp_C,
+                       pressure_mbar=self.pressure_mbar)
+        r = horizon_deg + r
+        t, y = almanac.find_risings(self.location, coord, t0, t1,
+                                    horizon_degrees=r)
+        return t, y
 
     def get_last(self, date=None):
         """Return the local apparent sidereal time."""
+        # TODO: use skyfield to calculate this (see CalculationResult "last")
         if date is None:
             date = self.date
         else:
             date = self.get_date(date)
-        self._set_site_date(date)
-        last = self.site.sidereal_time()
-        dt = dateutil.parser.parse(str(last))
+        last = Time(date).sidereal_time('apparent',
+                                        longitude=self.lon_deg * u.deg)
+        time_s = str(last).replace('h', ':').replace('m', ':').replace('s', '')
+        dt = dateutil.parser.parse(time_s)
         return time(hour=dt.hour, minute=dt.minute, second=dt.second,
                     microsecond=dt.microsecond)
 
     def sunset(self, date=None):
         """Returns sunset in observer's time."""
-        self.site.horizon = self.horizon
-        self._set_site_date(date)
-        r_date = self.site.next_setting(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_setting(ssbodies['sun'], date,
+                                  date + timedelta(days=1, hours=1),
+                                  self.horizon_deg - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def sunrise(self, date=None):
         """Returns sunrise in observer's time."""
-        self.site.horizon = self.horizon
-        self._set_site_date(date)
-        r_date = self.site.next_rising(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_rising(ssbodies['sun'], date,
+                                 date + timedelta(days=1, hours=1),
+                                 self.horizon_deg - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def evening_twilight_6(self, date=None):
         """Returns evening 6 degree civil twilight(civil dusk) in observer's time.
         """
-        self.site.horizon = self.horizon6
-        self._set_site_date(date)
-        r_date = self.site.next_setting(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_setting(ssbodies['sun'], date,
+                                  date + timedelta(days=1, hours=0),
+                                  horizon_6 - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def evening_twilight_12(self, date=None):
         """Returns evening 12 degree (nautical) twilight in observer's time.
         """
-        self.site.horizon = self.horizon12
-        self._set_site_date(date)
-        r_date = self.site.next_setting(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_setting(ssbodies['sun'], date,
+                                  date + timedelta(days=1, hours=0),
+                                  horizon_12 - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def evening_twilight_18(self, date=None):
         """Returns evening 18 degree (civil) twilight in observer's time.
         """
-        self.site.horizon = self.horizon18
-        self._set_site_date(date)
-        r_date = self.site.next_setting(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_setting(ssbodies['sun'], date,
+                                  date + timedelta(days=1, hours=0),
+                                  horizon_18 - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def morning_twilight_6(self, date=None):
         """Returns morning 6 degree civil twilight(civil dawn) in observer's time.
         """
-        self.site.horizon = self.horizon6
-        self._set_site_date(date)
-        r_date = self.site.next_rising(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_rising(ssbodies['sun'], date,
+                                 date + timedelta(days=1, hours=0),
+                                 horizon_6 - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def morning_twilight_12(self, date=None):
         """Returns morning 12 degree (nautical) twilight in observer's time.
         """
-        self.site.horizon = self.horizon12
-        self._set_site_date(date)
-        r_date = self.site.next_rising(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_rising(ssbodies['sun'], date,
+                                 date + timedelta(days=1, hours=0),
+                                 horizon_12 - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def morning_twilight_18(self, date=None):
         """Returns morning 18 degree (civil) twilight in observer's time.
         """
-        self.site.horizon = self.horizon18
-        self._set_site_date(date)
-        r_date = self.site.next_rising(self.sun)
-        r_date = self.date_to_local(r_date.datetime())
-        return r_date
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_rising(ssbodies['sun'], date,
+                                 date + timedelta(days=1, hours=0),
+                                 horizon_18 - solar_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def sun_set_rise_times(self, date=None):
         """Sunset, sunrise and twilight times. Returns a tuple with
@@ -373,27 +361,37 @@ class Observer(object):
 
     def moon_rise(self, date=None):
         """Returns moon rise time in observer's time."""
-        self._set_site_date(date)
-        moonrise = self.site.next_rising(self.moon)
-        moonrise = self.date_to_local(moonrise.datetime())
-        ## if moonrise < self.sunset():
-        ##     moonrise = None
-        return moonrise
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_rising(ssbodies['moon'], date,
+                                 date + timedelta(days=2, hours=0),
+                                 self.horizon_deg - moon_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def moon_set(self, date=None):
         """Returns moon set time in observer's time."""
-        self._set_site_date(date)
-        moonset = self.site.next_setting(self.moon)
-        moonset = self.date_to_local(moonset.datetime())
-        ## if moonset > self.sunrise():
-        ##     moonset = None
-        return moonset
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        t, y = self._find_setting(ssbodies['moon'], date,
+                                  date + timedelta(days=2, hours=0),
+                                  self.horizon_deg - moon_radius_deg)
+        return t[0].astimezone(self.tz_local)
 
     def moon_illumination(self, date=None):
         """Returns moon percentage of illumination."""
-        self._set_site_date(date)
-        self.moon.compute(self.site)
-        return self.moon.moon_phase
+        if date is None:
+            date = self.date
+        else:
+            date = self.get_date(date)
+
+        cres = Moon.calc(self, date)
+        return cres.moon_pct
 
     # TO BE DEPRECATED
     moon_phase = moon_illumination
@@ -406,37 +404,10 @@ class Observer(object):
         center = self.date_to_local(center)
         return center
 
-    def get_text_almanac(self, date):
-        date_s = date.strftime("%Y-%m-%d")
-        text = ''
-        text += 'Almanac for the night of %s\n' % date_s.split()[0]
-        text += '\nEvening\n'
-        text += '_'*30 + '\n'
-        rst = self.sun_set_rise_times(date=date)
-        rst = [t.strftime('%H:%M') for t in rst]
-        text += 'Sunset: %s\n12d: %s\n18d: %s\n' % (rst[0], rst[1], rst[2])
-        text += '\nMorning\n'
-        text += '_'*30 + '\n'
-        text += '18d: %s\n12d: %s\nSunrise: %s\n' % (rst[3], rst[4], rst[5])
-        return text
-
     def get_target_info(self, target, time_start=None, time_stop=None,
                         time_interval=5):
         """Compute various values for a target from sunrise to sunset.
         """
-
-        def _set_time(dtime):
-            # Sets time to nice rounded value
-            y, m ,d, hh, mm, ss = dtime.tuple()
-            mm = mm - (mm % 5)
-            return ephem.Date(datetime(y, m , d, hh, mm, 5, 0))
-
-        def _set_data_range(time_start, time_stop, t_ival):
-            # Returns numpy array of dates
-            ss = _set_time(ephem.Date(ephem.Date(time_start) - t_ival))
-            sr = _set_time(ephem.Date(ephem.Date(time_stop) + t_ival))
-            return np.arange(ss, sr, t_ival)
-
         if time_start is None:
             # default for start time is sunset on the current date
             time_start = self.sunset()
@@ -444,69 +415,115 @@ class Observer(object):
             # default for stop time is sunrise on the current date
             time_stop = self.sunrise(date=time_start)
 
-        t_range = _set_data_range(self.date_to_utc(time_start),
-                                  self.date_to_utc(time_stop),
-                                  time_interval * ephem.minute)
-        #print('computing airmass history...')
-        history = []
-
-        # TODO: this should probably return a generator
-        for ut in t_range:
-            # ugh
-            tup = ephem.Date(ut).tuple()
-            args = tup[:-1] + (int(tup[-1]),)
-            ut_with_tz = datetime(*args).replace(tzinfo=self.tz_utc)
-            info = target.calc(self, ut_with_tz)
-            history.append(info)
-        #print(('computed airmass history', self.history))
-        return history
-
-    def get_target_info_table(self, target, time_start=None, time_stop=None):
-        """Prints a table of hourly airmass data"""
-        history = self.get_target_info(target, time_start=time_start,
-                                       time_stop=time_stop)
-        text = ''
-        format = '%-16s  %-5s  %-5s  %-5s  %-5s  %-5s %-5s\n'
-        header = ('Date       Local', 'UTC', 'LMST', 'HA', 'PA', 'AM', 'Moon')
-        hstr = format % header
-        text += hstr
-        text += '_'*len(hstr) + '\n'
-        for info in history:
-            s_lt = info.lt.strftime('%d%b%Y  %H:%M')
-            s_utc = info.ut.strftime('%H:%M')
-            s_ha = ':'.join(str(ephem.hours(info.ha)).split(':')[:2])
-            s_lmst = ':'.join(str(ephem.hours(info.lmst)).split(':')[:2])
-            #s_pa = round(info.pang*180.0/np.pi, 1)
-            s_pa = round(info.pang, 1)
-            s_am = round(info.airmass, 2)
-            s_ma = round(info.moon_alt, 1)
-            if s_ma < 0:
-                s_ma = ''
-            s_data = format % (s_lt, s_utc, s_lmst, s_ha, s_pa, s_am, s_ma)
-            text += s_data
-        return text
+        # create date array
+        dt_arr = np.arange(time_start, time_stop + timedelta(minutes=time_interval),
+                           timedelta(minutes=time_interval))
+        return target.calc(self, dt_arr)
 
     def __repr__(self):
         return self.name
 
+    def get_spec(self):
+        return dict(name=self.name, timezone=self.tz_local, longitude=self.lon_deg,
+                    latitude=self.lat_deg, elevation=self.elev_m,
+                    pressure=self.pressure_mbar, temperature=self.temp_C,
+                    humidity=self.rh_pct, horizon_deg=self.horizon_deg,
+                    date=self.date, wavelength=self.wavelength,
+                    description=self.description)
+
+    @classmethod
+    def from_spec(cls, spec_dct):
+        spec = Bunch(spec_dct)
+        return Observer(spec.name, timezone=spec.timezone, longitude=spec.longitude,
+                        latitude=spec.latitude, elevation=spec.elevation,
+                        pressure=spec.pressure, temperature=spec.temperature,
+                        humidity=spec.humidity, horizon_deg=spec.horizon_deg,
+                        date=spec.date, wavelength=spec.wavelength,
+                        description=spec.description)
+
     __str__ = __repr__
 
 
-class Body(object):
+class Body:
 
-    def __init__(self, name, ra, dec, equinox):
-        super(Body, self).__init__()
+    def __init__(self, name, ra, dec, equinox, comment='',
+                 pmra=None, pmdec=None):
+        super().__init__()
 
         self.name = name
         self.ra = ra
         self.dec = dec
         self.equinox = equinox
+        self.comment = comment
+        # specify in mas/yr
+        self.pmra = pmra
+        self.pmdec = pmdec
 
-        xeph_line = "%s,f|A,%s,%s,0.0,%s" % (name[:20], ra, dec, equinox)
-        self._body = ephem.readdb(xeph_line)
+    def _get_epoch(self, eq):
+        if isinstance(eq, str):
+            if eq.startswith('J'):
+                eq = eq[1:]
+        return float(eq)
+
+    def _get_coord(self):   # noqa
+        # vector construction, if the value passed is an array
+        if isinstance(self.ra, np.ndarray):
+            if isinstance(self.ra[0], str):
+                # assume units are in hours and parse with astropy
+                coord = SkyCoord(self.ra, self.dec,
+                                 unit=(u.hourangle, u.degree))
+                ra_deg, dec_deg = coord.ra.degree, coord.dec.degree
+            else:
+                ra_deg, dec_deg = self.ra.astype(float), self.dec.astype(float)
+
+            if isinstance(self.equinox, np.ndarray):
+                epoch = [self._get_epoch(eq) for eq in self.equinox]
+            else:
+                epoch = [self._get_epoch(self.equinox)] * len(self.ra)
+            #epoch = timescale.tt(np.array(epoch))
+            epoch = np.array(epoch)
+
+            contents = dict(names=self.name, ra_degrees=ra_deg,
+                            ra_hours=ra_deg / 15.0, dec_degrees=dec_deg,
+                            epoch_year=epoch)
+            if self.pmra is not None:
+                contents['ra_mas_per_year'] = self.pmra
+            if self.pmdec is not None:
+                contents['dec_mas_per_year'] = self.pmdec
+
+            df = pd.DataFrame(contents)
+            coord = Star.from_dataframe(df)
+        else:
+            if isinstance(self.ra, str):
+                # assume units are in hours and parse with astropy
+                coord = SkyCoord(self.ra, self.dec,
+                                 unit=(u.hourangle, u.degree))
+                ra_deg, dec_deg = coord.ra.degree, coord.dec.degree
+            else:
+                ra_deg, dec_deg = float(self.ra), float(self.dec)
+
+            epoch = self._get_epoch(self.equinox)
+
+            # NOTE: when you are initializing from kwargs, the kwarg is "epoch"
+            # but from a Pandas table it is "epoch_year"
+            kwargs = dict()
+            # Cannot pass None for optional parameters ra_mas_per_year or
+            # dec_mas_per_year--it tries to use the value
+            if self.pmra is not None:
+                kwargs['ra_mas_per_year'] = self.pmra
+            if self.pmdec is not None:
+                kwargs['dec_mas_per_year'] = self.pmdec
+            coord = Star(ra_hours=ra_deg / 15.0, dec_degrees=dec_deg,
+                         epoch=epoch, **kwargs)
+
+        return coord
 
     def calc(self, observer, date):
-        return CalculationResult(self._body, observer, date)
+        return CalculationResult(self, observer, date)
+
+    def clone(self):
+        return Body(self.name, self.ra, self.dec, self.equinox,
+                    comment=self.comment, pmra=self.pmra, pmdec=self.pmdec)
 
 
 class SSBody(object):
@@ -517,8 +534,11 @@ class SSBody(object):
         self.name = name
         self._body = body
 
+    def _get_coord(self):
+        return self._body
+
     def calc(self, observer, date):
-        return CalculationResult(self._body, observer, date)
+        return CalculationResult(self, observer, date)
 
 
 class CalculationResult(object):
@@ -528,32 +548,31 @@ class CalculationResult(object):
         `date` is a datetime.datetime object converted to observer's
         time.
         """
-        self.site = observer.site
+        self.observer = observer
         self.body = body
-        self.date = observer.date_to_local(date)
-        date_utc = observer.date_to_utc(self.date)
+        # vector construction, if the value passed is an array
+        if isinstance(date, np.ndarray):
+            # NOTE: need to convert numpy.datetime64 to astropy time
+            at = Time(date)
+            self.obstime = timescale.from_astropy(at)
+        else:
+            self.obstime = timescale.from_datetime(date)
 
-        self.humidity = observer.humidity
-        self.wavelength = observer.wavelength
-
-        # Can/should this calculation be postponed?
-        self.site.date = ephem.Date(date_utc)
-        self.body.compute(self.site)
-
-        self.alt = float(self.body.alt)
-        self.az = float(self.body.az)
-        self.ra = self.body.ra
-        self.dec = self.body.dec
-        self.will_be_visible = not self.body.neverup
-
+        self.will_be_visible = True
         # properties
         self._ut = None
+        self._lt = None
         self._jd = None
         self._mjd = None
         self._gmst = None
         self._gast = None
         self._lmst = None
         self._last = None
+        self._ra = None
+        self._dec = None
+        self._eq = None
+        self._alt = None
+        self._az = None
         self._ha = None
         self._pang = None
         self._am = None
@@ -570,36 +589,82 @@ class CalculationResult(object):
         return self.body.name
 
     @property
+    def ra(self):
+        """Return right ascension in radians."""
+        if self._ra is None:
+            self._calc_radec()
+        return self._ra.radians
+
+    @property
     def ra_deg(self):
-        return math.degrees(self.ra)
+        """Return right ascension in degrees."""
+        return np.degrees(self.ra)
+
+    @property
+    def dec(self):
+        """Return declination in radians."""
+        if self._dec is None:
+            self._calc_radec()
+        return self._dec.radians
 
     @property
     def dec_deg(self):
-        return math.degrees(self.dec)
+        """Return declination in degrees."""
+        return np.degrees(self.dec)
+
+    @property
+    def equinox(self):
+        if self._eq is None:
+            self._calc_radec()
+        return self._eq
+
+    @property
+    def alt(self):
+        """Return altitude in radians."""
+        if self._alt is None:
+            self._calc_altaz()
+        return self._alt.radians
+
+    @property
+    def az(self):
+        """Return azimuth in radians."""
+        if self._az is None:
+            self._calc_altaz()
+        return self._az.radians
 
     @property
     def alt_deg(self):
-        return math.degrees(self.alt)
+        """Return altitude in degrees."""
+        if self._az is None:
+            self._calc_altaz()
+        return self._alt.degrees
 
     @property
     def az_deg(self):
-        return math.degrees(self.az)
+        """Return azimuth in degrees."""
+        if self._az is None:
+            self._calc_altaz()
+        return self._az.degrees
 
     @property
     def lt(self):
-        return self.date
+        """Return local time as a Python timzezone-aware datetime."""
+        if self._lt is None:
+            self._lt = self.obstime.astimezone(self.observer.tz_local)
+        return self._lt
 
     @property
     def ut(self):
+        """Return universal time as a Python timzezone-aware datetime."""
         if self._ut is None:
-            self._ut = self.lt.astimezone(tz.UTC)
+            self._ut = self.obstime.utc_datetime()
         return self._ut
 
     @property
     def jd(self):
         """Return the Julian Date."""
         if self._jd is None:
-            self._jd = ephem.julian_date(self.ut)
+            self._jd = self.obstime.ut1
         return self._jd
 
     @property
@@ -611,138 +676,159 @@ class CalculationResult(object):
 
     @property
     def gmst(self):
+        """Return Greenwich Mean Sidereal Time in radians."""
         if self._gmst is None:
-            jd = self.jd
-            T = (jd - 2451545.0)/36525.0
-            gmstdeg = 280.46061837+(360.98564736629*(jd-2451545.0))+(0.000387933*T*T)-(T*T*T/38710000.0)
-            self._gmst = ephem.degrees(gmstdeg*np.pi/180.0)
-        return self._gmst.norm
+            # NOTE:obstime.gmst is in hours
+            self._gmst = self.obstime.gmst
+        return np.radians(self._gmst * 15.0)
 
     @property
     def gast(self):
+        """Return Greenwich Apparent Sidereal Time in radians."""
         if self._gast is None:
-            gast = ephem.degrees(self.last - self.site.long)
-            self._gast = gast.norm
-        return self._gast
+            # NOTE:obstime.gast is in hours
+            self._gast = self.obstime.gast
+        return np.radians(self._gast * 15.0)
 
     @property
     def lmst(self):
+        """Return Local Mean Sidereal Time in radians."""
         if self._lmst is None:
-            lmst = ephem.degrees(self.gmst + self.site.long)
-            self._lmst = lmst.norm
-        return self._lmst
+            # NOTE:obstime.gmst is in hours
+            _lmst = self.obstime.gmst + self.observer.lon_deg / 15.0
+            # normalize to 24 hour time
+            self._lmst = np.fmod(_lmst + 24.0, 24.0)
+        return np.radians(self._lmst * 15)
 
     @property
     def last(self):
-        """Compute Local Apparent Sidereal Time"""
+        """Return Local Apparent Sidereal Time in radians."""
         if self._last is None:
-            self._last = self.site.sidereal_time()
-        return self._last
+            # NOTE:obstime.gast is in hours
+            _last = self.obstime.gast + self.observer.lon_deg / 15.0
+            # normalize to 24 hour time
+            self._last = np.fmod(_last + 24.0, 24.0)
+        return np.radians(self._last * 15)
 
     @property
     def ha(self):
+        """Return the Hour Angle in radians."""
         if self._ha is None:
-            self._ha = self.lmst - self.ra
-        return self._ha
+            lmst = self.lmst     # force calculation of self._lmst
+            _ha = Angle(self._lmst - self.ra_deg / 15.0, unit=u.hour)
+            _ha.wrap_at(12 * u.hour, inplace=True)
+            self._ha = _ha
+        return self._ha.rad
 
     @property
     def pang(self):
+        """Return the parallactic angle of the target(s) in radians."""
         if self._pang is None:
-            self._pang = self._calc_parallactic(float(self.dec),
-                                                float(self.ha),
-                                                float(self.site.lat),
-                                                self.az)
+            self._pang = self._calc_parallactic(self.dec,
+                                                self.ha,
+                                                self.observer.lat_deg)
         return self._pang
 
     @property
     def pang_deg(self):
+        """Return the parallactic angle of the target(s) in degrees."""
         return np.degrees(self.pang)
 
     @property
     def airmass(self):
+        """Return the airmass of the target(s)."""
         if self._am is None:
-            self._am = self._calc_airmass(self.alt)
+            #self._am = alt2airmass(self.alt_deg)
+            self._am = self._calc_airmass(self.alt_deg)
         return self._am
 
     @property
     def moon_alt(self):
+        """Return the moon's altitude at the time of observation (in degrees)."""
         if self._moon_alt is None:
-            self._calc_moon()
+            # calculate moon altitude
+            moon = ssbodies['moon']
+            astrometric = self.observer.location.at(self.obstime).observe(moon)
+            apparent = astrometric.apparent()
+            alt, az, distance = apparent.altaz(temperature_C=self.observer.temp_C,
+                                               pressure_mbar=self.observer.pressure_mbar)
+            self._moon_alt = alt.degrees
         return self._moon_alt
 
     @property
     def moon_pct(self):
+        """Return the moon's percentage of illumination (range: 0-1)."""
         if self._moon_pct is None:
-            self._calc_moon()
+            e = self.observer.location.at(self.obstime)
+            s = e.observe(ssbodies['sun']).apparent()
+            m = e.observe(ssbodies['moon']).apparent()
+            self._moon_pct = m.fraction_illuminated(ssbodies['sun'])
         return self._moon_pct
 
     @property
     def moon_sep(self):
+        """Return the moon's separation from target(s) (in degrees)."""
         if self._moon_sep is None:
-            self._calc_moon()
+            self._calc_altaz()
         return self._moon_sep
 
     @property
     def atmos_disp(self):
         if self._atmos_disp is None:
-            self._atmos_disp = self._calc_atmos_disp(self.site)
+            self._atmos_disp = self._calc_atmos_disp(self.observer)
         return self._atmos_disp
 
-    def _calc_parallactic(self, dec, ha, lat, az):
-        """Compute parallactic angle"""
-        if np.cos(dec) != 0.0:
-            sinp = -1.0*np.sin(az)*np.cos(lat)/np.cos(dec)
-            cosp = -1.0*np.cos(az)*np.cos(ha)-np.sin(az)*np.sin(ha)*np.sin(lat)
-            parang = ephem.degrees(np.arctan2(sinp, cosp))
-        else:
-            if lat > 0.0:
-                parang = ephem.degrees(np.pi)
-            else:
-                parang = 0.0
-        return parang
+    def _calc_parallactic(self, dec_rad, ha_rad, lat_deg):
+        """Compute parallactic angle(s).
+        From Meeus, J. [Astronomical Algorithms, p. 98]
+        """
+        lat_rad = np.radians(lat_deg)
+        pang_rad = np.arctan2(np.sin(ha_rad),
+                              np.tan(lat_rad) * np.cos(dec_rad) -
+                              np.sin(dec_rad) * np.cos(ha_rad))
+        return pang_rad
 
-    def _calc_airmass(self, alt):
-        """Compute airmass"""
-        if alt < ephem.degrees('03:00:00'):
-            alt = ephem.degrees('03:00:00')
-        sz = 1.0/np.sin(alt) - 1.0
-        xp = 1.0 + sz*(0.9981833 - sz*(0.002875 + 0.0008083*sz))
+    def _calc_airmass(self, alt_deg):
+        """Compute airmass(es)"""
+        alt_deg = np.clip(alt_deg, 3.0, None)
+        sz = 1.0 / np.sin(np.radians(alt_deg)) - 1.0
+        xp = 1.0 + sz * (0.9981833 - sz * (0.002875 + 0.0008083 * sz))
         return xp
-
-    def _calc_moon(self):
-        self.site.date = ephem.Date(self.ut)
-        moon = ephem.Moon(self.site)
-        #moon.compute(site)
-        self._moon_alt = math.degrees(float(moon.alt))
-        # moon.phase is % of moon that is illuminated
-        self._moon_pct = moon.moon_phase
-        # calculate distance from target
-        moon_sep = ephem.separation(moon, self.body)
-        self._moon_sep = math.degrees(float(moon_sep))
 
     def calc_separation_alt_az(self, body):
         """Compute deltas for azimuth and altitude from another target"""
-        self.body.compute(self.site)
-        body.body.compute(self.site)
+        cr1 = self.body.calc(self.observer, self.ut)
+        cr2 = body.calc(self.observer, self.ut)
 
-        delta_az = float(self.body.az) - float(target.az)
-        delta_alt = float(self.body.alt) - float(target.alt)
+        delta_az = cr1.az_deg - cr2.az_deg
+        delta_alt = cr1.alt_deg - cr2.alt_deg
         return (delta_alt, delta_az)
+
+    def calc_separation(self, body):
+        """Compute separation from another target"""
+        coord1 = self.body._get_coord()
+        coord2 = body._get_coord()
+
+        e = self.observer.location.at(self.obstime)
+        r1 = e.observe(coord1)
+        r2 = e.observe(coord2)
+        sep = r1.separation_from(r2)
+
+        return sep.arcseconds()
 
     def _calc_atmos_refco(self, bar_press_mbar, temp_degc, rh_pct, wl_mm):
         """Compute atmospheric refraction coefficients (radians)"""
-        rh_frac = rh_pct / 100.0
-        refa, refb = erfa.refco(bar_press_mbar, temp_degc, rh_frac, wl_mm)
+        refa, refb = erfa.refco(bar_press_mbar, temp_degc, rh_pct, wl_mm)
         return (refa, refb)
 
-    def _calc_atmos_disp(self, site):
+    def _calc_atmos_disp(self, observer):
         """Compute atmospheric dispersion (radians)"""
-        bar_press_mbar = site.pressure
-        temp_degc = site.temperature
-        rh_pct = self.humidity
-        wl = self.wavelength
-        zd_rad = math.pi / 2. - self.alt
-        tzd = math.tan(zd_rad)
+        bar_press_mbar = observer.pressure_mbar
+        temp_degc = observer.temp_C
+        rh_pct = observer.rh_pct
+        wl = observer.wavelength
+        zd_rad = np.subtract(np.pi / 2.0, self.alt)
+        tzd = np.tan(zd_rad)
         if wl is None:
             raise ValueError('Wavelength is None')
         else:
@@ -761,13 +847,47 @@ class CalculationResult(object):
             else:
                 wl_mm = wl * self.angstrom_to_mm
                 refa, refb = self._calc_atmos_refco(bar_press_mbar, temp_degc, rh_pct, wl_mm)
-                atmos_disp_rad  = (refa + refb * tzd * tzd) * tzd
+                atmos_disp_rad = (refa + refb * tzd * tzd) * tzd
             return atmos_disp_rad
+
+    def _calc_radec(self):
+        coord = self.body._get_coord()
+        if hasattr(coord, 'ra'):
+            self._ra, self._dec = coord.ra, coord.dec
+            self._ra_deg, self._dec_deg = coord.ra.hours * 15.0, coord.dec.degrees
+            # TODO
+            self._eq = 2000.0
+        else:
+            # moons, planets, etc.
+            # Need to calculate the apparent ra/dec from the azalt
+            self._calc_altaz()
+            apparent = self.observer.location.at(self.obstime).from_altaz(alt_degrees=self.alt_deg,
+                                                                          az_degrees=self.az_deg)
+            self._ra, self._dec, distance = apparent.radec()
+            self._ra_deg, self._dec_deg = self._ra.hours * 15.0, self._dec.degrees
+            # TODO
+            self._eq = 2000.0
+
+    def _calc_altaz(self):
+        coord = self.body._get_coord()
+        astrometric = self.observer.location.at(self.obstime).observe(coord)
+        apparent = astrometric.apparent()
+        alt, az, distance = apparent.altaz(temperature_C=self.observer.temp_C,
+                                           pressure_mbar=self.observer.pressure_mbar)
+        self._az, self._alt = az, alt
+
+        # calculate moon separation from target(s)
+        moon = ssbodies['moon']
+        astrometric_m = self.observer.location.at(self.obstime).observe(moon)
+        apparent_m = astrometric_m.apparent()
+        sep = apparent.separation_from(apparent_m)
+        self._moon_sep = sep.degrees
 
     def get_dict(self, columns=None):
         if columns is None:
             return dict(name=self.name, ra=self.ra, ra_deg=self.ra_deg,
                         dec=self.dec, dec_deg=self.dec_deg, az=self.az,
+                        equinox=self.equinox,
                         az_deg=self.az_deg, alt=self.alt, alt_deg=self.alt_deg,
                         lt=self.lt, ut=self.ut, jd=self.jd, mjd=self.mjd,
                         gast=self.gast, gmst=self.gmst, last=self.last,
@@ -780,17 +900,27 @@ class CalculationResult(object):
         else:
             return {colname: getattr(self, colname) for colname in columns}
 
+    def __len__(self):
+        if isinstance(self.az, np.ndarray):
+            return len(self.az)
+        return 1
 
-Moon = SSBody('Moon', ephem.Moon())
-Sun = SSBody('Sun', ephem.Sun())
-Mercury = SSBody('Mercury', ephem.Mercury())
-Venus = SSBody('Venus', ephem.Venus())
-Mars = SSBody('Mars', ephem.Mars())
-Jupiter = SSBody('Jupiter', ephem.Jupiter())
-Saturn = SSBody('Saturn', ephem.Saturn())
-Uranus = SSBody('Uranus', ephem.Uranus())
-Neptune = SSBody('Neptune', ephem.Neptune())
-Pluto = SSBody('Pluto', ephem.Pluto())
 
+
+Moon = SSBody('Moon', ssbodies['moon'])
+Sun = SSBody('Sun', ssbodies['sun'])
+Mercury = SSBody('Mercury', ssbodies['mercury'])
+Venus = SSBody('Venus', ssbodies['venus'])
+Mars = SSBody('Mars', ssbodies['mars'])
+Jupiter = SSBody('Jupiter', ssbodies['jupiter barycenter'])
+Saturn = SSBody('Saturn', ssbodies['saturn barycenter'])
+Uranus = SSBody('Uranus', ssbodies['uranus barycenter'])
+Neptune = SSBody('Neptune', ssbodies['neptune barycenter'])
+Pluto = SSBody('Pluto', ssbodies['pluto barycenter'])
+
+def get_ssbody(lookup_name, myname=None):
+    if myname is None:
+        myname = lookup_name
+    return SSBody(myname, ssbodies[lookup_name.lower()])
 
 #END

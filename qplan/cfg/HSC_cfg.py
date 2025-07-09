@@ -3,11 +3,7 @@
 #  E. Jeschke
 #
 import pathlib
-try:
-    import tomllib
-except ImportError:
-    # see setup.cfg, for python < 3.11
-    import tomli as tomllib
+import tomllib
 
 from qplan.util.paths import qplan_home
 

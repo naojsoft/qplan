@@ -2,11 +2,8 @@
 # OBListTab.py -- Plugin to display/edit the observing blocks in a table GUI
 #
 
-import datetime
 from qtpy import QtCore
-from qtpy import QtWidgets as QtGui
 
-from qplan import entity
 from qplan.plugins import QueueFileTab
 
 class OBListTab(QueueFileTab.QueueCfgFileTab):

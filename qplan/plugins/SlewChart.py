@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 
 from ginga.misc import Bunch
-from ginga.gw import Widgets, Viewers
+from ginga.gw import Viewers
 
 from qplan.plugins import PlBase
 from qplan import common
@@ -172,8 +172,8 @@ class SlewChart(PlBase.Plugin):
         self.view.gui_call(self.plot_targets, targets, 'targets')
 
         # plot the current location of solar system objects
-        start_time = tgt_subset[0][1]
-        self.view.gui_call(self.plot_ss, start_time=start_time)
+        # start_time = tgt_subset[0][1]
+        # self.view.gui_call(self.plot_ss, start_time=start_time)
 
         # plot last known telescope position, if we know it
         if self.telescope_pos is not None:

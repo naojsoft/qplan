@@ -4,13 +4,12 @@
 #  E. Jeschke
 #
 from datetime import timedelta
-#from dateutil import tz
 
-from ginga.gw import Widgets, Plot
+from ginga.gw import Plot
 from ginga.misc import Bunch
 
 from qplan.plugins import PlBase
-from qplan.plots.airmass import AirMassPlot
+from qplan.plots.airmass import AltitudePlot
 
 
 class AirMassChart(PlBase.Plugin):
@@ -33,7 +32,7 @@ class AirMassChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        self.plot = AirMassPlot(700, 500, logger=self.logger)
+        self.plot = AltitudePlot(700, 500, logger=self.logger)
 
         plot_w = Plot.PlotWidget(self.plot, width=700, height=500)
 
@@ -110,21 +109,19 @@ class AirMassChart(PlBase.Plugin):
         lengths = []
         if num_tgts > 0:
             for tgt in targets:
-                ## info_list = site.get_target_info(tgt,
-                ##                                  start_time=start_time)
-                info_list = site.get_target_info(tgt)
-                target_data.append(Bunch.Bunch(history=info_list, target=tgt))
-                lengths.append(len(info_list))
+                calc_res = site.get_target_info(tgt)
+                target_data.append(Bunch.Bunch(calc_res=calc_res, target=tgt))
+                lengths.append(len(calc_res))
 
         # clip all arrays to same length
         min_len = 0
         if len(lengths) > 0:
             min_len = min(lengths)
-        for il in target_data:
-            il.history = il.history[:min_len]
+        # for il in target_data:
+        #     il.history = il.history[:min_len]
 
         self.schedules[schedule] = Bunch.Bunch(site=site, num_tgts=num_tgts,
-                                               target_data=target_data)
+                                               target_data=target_data, length=min_len)
 
     def new_schedule_cb(self, qscheduler, schedule):
         self.add_schedule(schedule)

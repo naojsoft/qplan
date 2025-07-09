@@ -5,7 +5,6 @@
 from ginga.misc import ModuleManager
 from ginga.gw import Widgets
 
-from qplan import entity
 from qplan.plugins import PlBase
 
 class ProposalTab(PlBase.Plugin):
