@@ -9,7 +9,7 @@ from ginga.gw import Plot
 from ginga.misc import Bunch
 
 from qplan.plugins import PlBase
-from qplan.plots.airmass import AirMassPlot
+from qplan.plots.airmass import AltitudePlot
 
 
 class AirMassChart(PlBase.Plugin):
@@ -32,7 +32,7 @@ class AirMassChart(PlBase.Plugin):
 
     def build_gui(self, container):
 
-        self.plot = AirMassPlot(700, 500, logger=self.logger)
+        self.plot = AltitudePlot(700, 500, logger=self.logger)
 
         plot_w = Plot.PlotWidget(self.plot, width=700, height=500)
 

@@ -128,8 +128,6 @@ def check_night_visibility_one(site, schedule, ob, eph_cache):
                                                      schedule.stop_time,
                                                      min_el_deg, max_el_deg,
                                                      ob.total_time)
-                                                     #airmass=ob.envcfg.airmass,
-                                                     #moon_sep=ob.envcfg.moon_sep)
 
     if not obs_ok:
         res.setvals(obs_ok=False,
@@ -359,9 +357,7 @@ def check_slot(site, schedule, slot, oblist, eph_cache,
         (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
                                                          start_time, slot.stop_time,
                                                          min_el_deg, max_el_deg,
-                                                         ob.total_time) #,
-                                                         #airmass=ob.envcfg.airmass,
-                                                         #moon_sep=ob.envcfg.moon_sep)
+                                                         ob.total_time)
 
         if not obs_ok:
             res.setvals(obs_ok=False,
@@ -395,7 +391,9 @@ def check_slot(site, schedule, slot, oblist, eph_cache,
         obs_lat_deg = site.lat_deg
 
         az_choices = misc.calc_possible_azimuths(dec_deg, eph_start.az_deg,
-                                                 eph_stop.az_deg, obs_lat_deg)
+                                                 eph_stop.az_deg, obs_lat_deg,
+                                                 az_min_deg=min_az_deg,
+                                                 az_max_deg=max_az_deg)
         if len(az_choices) == 0:
             res.setvals(obs_ok=False, reason="Azimuth would go past limit")
             res_lst.append(res)
@@ -429,9 +427,10 @@ def check_slot(site, schedule, slot, oblist, eph_cache,
         rot_choices = misc.calc_possible_rotations(eph_start.pang_deg,
                                                    eph_stop.pang_deg,
                                                    pa_deg, ins_name,
-                                                   dec_deg, obs_lat_deg)
-        rot1_start_deg, rot1_stop_deg = rot_choices[0]
-        rot2_start_deg, rot2_stop_deg = rot_choices[1]
+                                                   eph_start.az_deg,
+                                                   eph_stop.az_deg)
+        rot1_start_deg, rot1_stop_deg, rot1_offset_deg = rot_choices[0]
+        rot2_start_deg, rot2_stop_deg, rot2_offset_deg = rot_choices[1]
         rot_start, rot_stop = misc.calc_optimal_rotation(rot1_start_deg,
                                                          rot1_stop_deg,
                                                          rot2_start_deg,

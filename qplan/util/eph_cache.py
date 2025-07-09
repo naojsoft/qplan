@@ -1,3 +1,6 @@
+#
+# eph_cache.py -- class for caching ephemeris data
+#
 from datetime import timedelta
 
 import numpy as np

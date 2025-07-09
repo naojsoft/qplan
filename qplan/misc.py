@@ -15,6 +15,8 @@ from . import entity
 mount_offsets = dict(FOCAS=0.259, MOIRCS=45.0)
 # whether PA should be flipped
 mount_flip = dict(FOCAS=True, MOIRCS=True)
+# Rotation limits
+rot_limits = dict(PFS=(-174.0, 174.0))
 
 
 def make_slots(start_time, night_length_mn, min_slot_length_sc):
@@ -206,74 +208,26 @@ def calc_optimal_rotation(left_start_deg, left_stop_deg,
         return np.nan, np.nan
 
 
-def calc_subaru_azimuths(az_deg):
-    """Calculate Subaru (0 deg == South) azimuth possibilities.
+def is_north_az(az_deg):
+    """Return True if azimuth is in 'north' range.
 
     Parameters
     ----------
     az_deg: float
-        A traditional azimuth value where 0 deg == North
+        azimuth for target (N == 0 deg)
 
     Returns
     -------
-    (naz_deg, paz_deg): tuple of float or NaN
-        possible translated azimuths (0 deg == South), one of them may be NaN
+    tf : bool
+        True if azimuth is in the North
 
-    NOTE: naz_deg is always in the negative direction, paz_deg in the positive
     """
-    # limit angle to 0 <= az_deg < 360.0
-    az_deg = normalize_angle(az_deg, limit='full', ang_offset=0.0)
-
-    if 0.0 <= az_deg <= 90.0:
-        # NE
-        naz_deg = - (180.0 - az_deg)
-        paz_deg = 180.0 + az_deg
-    elif 90.0 < az_deg < 180.0:
-        # SE
-        naz_deg = - (180.0 - az_deg)
-        paz_deg = np.nan
-    elif 180.0 < az_deg < 270.0:
-        # SW
-        naz_deg = np.nan
-        paz_deg = az_deg - 180.0
-    elif 270.0 < az_deg < 360.0:
-        # NW
-        naz_deg = -270.0 + (az_deg - 270.0)
-        paz_deg = az_deg - 180.0
-    else:
-        # az == 180.0
-        naz_deg = 0.0
-        paz_deg = 0.0
-
-    return naz_deg, paz_deg
+    az = normalize_angle(az_deg, limit='half')
+    return np.abs(az) < 90.0
 
 
-def get_quadrant(az_deg):
-    """Get the quadrant (NE, SE, SW, NW) for a given azimuth.
-
-    Parameters
-    ----------
-    az_deg: float
-        A traditional azimuth value where 0 deg == North
-
-    Returns
-    -------
-    quadrant : str
-        Quadrant which contains azimuth: 'NE', 'SE', 'SW', 'NW'
-    """
-    is_south = 90.0 < az_deg < 270.0
-    if is_south:
-        if az_deg <= 180.0:
-            return 'SE'
-        return 'SW'
-    else:
-        # <-- is North
-        if 0.0 <= az_deg <= 90.0:
-            return 'NE'
-        return 'NW'
-
-
-def calc_possible_azimuths(dec_deg, az_start_deg, az_stop_deg, obs_lat_deg):
+def calc_possible_azimuths(dec_deg, az_start_deg, az_stop_deg, obs_lat_deg,
+                           az_min_deg=-270.0, az_max_deg=+270.0):
     """Calculate possible azimuth moves.
 
     Parameters
@@ -282,148 +236,71 @@ def calc_possible_azimuths(dec_deg, az_start_deg, az_stop_deg, obs_lat_deg):
         Declination of target in degrees
 
     az_start_deg: float
-        azimuth for target at start of observation
+        azimuth for target at start of observation (N == 0 deg)
 
     az_stop_deg: float
-        azimuth for target at stop of observation (end of exposure)
+        azimuth for target at stop of observation (N == 0 deg, end of exposure)
 
     obs_lat_deg: float
         Observers latitude in degrees
+
+    az_min_deg : float (optional, defaults to -270.0)
+        Minimum azimuth position
+
+    az_max_deg : float (optional, defaults to +270.0)
+        Maximum azimuth position
 
     Returns
     -------
     az_choices : list of (float, float) tuples
         List of possible azimuth start and stops in Subaru (S==0 deg) coordinates
     """
-    # circumpolar_deg_limit = 90.0 - obs_lat_deg
-    # if dec_deg > circumpolar_deg:
-    #     # target in North for whole range
-    #     # circumpolar orbit, object may go E to W or W to E
-    #     # 2 az directions are possible
-    #     if cr1.ha < cr2.ha:
-    #         # object moving E to W
-    #         pass
-    #     else:
-    #         # object moving W to E
-    #         pass
+    # convert to Subaru azimuths in the range -180 to +180
+    az_start_deg = normalize_angle(az_start_deg, limit='half', ang_offset=-180)
+    az_stop_deg = normalize_angle(az_stop_deg, limit='half', ang_offset=-180)
 
-    # NOTE: this "fudge factor" was added because some objects azimuth
-    # as calculated by the ephemeris engine fall outside of the expected
-    # ranges--this hopefully allows us to ensure that we can test whether
-    # a target is will be truly in the North or South only
-    fudge_factor_deg = 0.1
+    # Determine if the object is in the south or crosses the zenith
+    traverses_south = (dec_deg < obs_lat_deg) and \
+        (az_stop_deg > -90.0 and az_start_deg < 90.0)
 
-    if dec_deg > obs_lat_deg + fudge_factor_deg:
-        # target in North for whole range
-        # 2 az directions are possible
-        naz_deg_start, paz_deg_start = calc_subaru_azimuths(az_start_deg)
+    # Compute both motion paths
+    # delta = signed_delta(az_start_deg % 360, az_stop_deg % 360)
+    delta = normalize_angle(az_stop_deg, limit='full') - \
+        normalize_angle(az_start_deg, limit='full')
 
-        if not (-270.0 <= naz_deg_start <= -90.0):
-            raise ValueError(f"AZ(neg) start value ({naz_deg_start}) out of range for target in North")
-        if not (90.0 <= paz_deg_start <= 270.0):
-            raise ValueError(f"AZ(pos) start value ({paz_deg_start}) out of range for target in North")
+    # First candidate: direct motion
+    first_path = (az_start_deg, az_start_deg + delta)
 
-        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(az_stop_deg)
+    # Second candidate: alternate path (opposite direction)
+    az_start2 = calc_alternate_angle(az_start_deg)
+    second_path = (az_start2, az_start2 + delta)
 
-        if not (-270.0 <= naz_deg_stop <= -90.0):
-            raise ValueError(f"AZ(neg) stop value ({naz_deg_stop}) out of range for target in North")
-        if not (90.0 <= paz_deg_stop <= 270.0):
-            raise ValueError(f"AZ(pos) stop value ({paz_deg_stop}) out of range for target in North")
-
-        return [(naz_deg_start, naz_deg_stop), (paz_deg_start, paz_deg_stop)]
-
-    elif dec_deg < 0.0 - fudge_factor_deg:
-        # target in South for whole range
-        # only 1 az direction is possible
-
-        naz_deg_start, paz_deg_start = calc_subaru_azimuths(az_start_deg)
-        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(az_stop_deg)
-
-        if not np.isnan(naz_deg_start):
-            # <-- target in SE
-            if not np.isnan(paz_deg_start):
-                raise ValueError(f"target in SE has two AZ start values ({naz_deg_start},{paz_deg_start})")
-            if not np.isnan(naz_deg_stop):
-                # <-- target finishes in SE
-                return [(naz_deg_start, naz_deg_stop)]
-            else:
-                # <-- target finishes in SW
-                return [(naz_deg_start, paz_deg_stop)]
-        else:
-            # <-- target in SW
-            if np.isnan(paz_deg_stop):
-                raise ValueError(f"target in SW has no AZ stop value ({paz_deg_stop})")
-            if not np.isnan(naz_deg_stop):
-                raise ValueError(f"target in SW has neg AZ stop value ({naz_deg_stop})")
-            return [(paz_deg_start, paz_deg_stop)]
+    # If target crosses into the south, there is only one possible az move
+    if traverses_south:
+        candidates = [(az_start_deg, az_stop_deg)]
 
     else:
-        # target could be in N and may dip S, depending on start or exp time
-        # 2 az directions are possible if target stays in N
-        # else only 1 az direction is possible
-        start_quad = get_quadrant(az_start_deg)
-        stop_quad = get_quadrant(az_stop_deg)
+        candidates = [first_path, second_path]
 
-        naz_deg_start, paz_deg_start = calc_subaru_azimuths(az_start_deg)
-        naz_deg_stop, paz_deg_stop = calc_subaru_azimuths(az_stop_deg)
-
-        if start_quad == 'NE':
-            # <-- stop_quad can be in NE, SE, SW, NW
-            if stop_quad not in ['NE', 'SE', 'SW', 'NW']:
-                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in NE")
-            if stop_quad == 'NE':
-                # <-- two azimuths are possible
-                return [(naz_deg_start, naz_deg_stop),
-                        (paz_deg_start, paz_deg_stop)]
-            elif stop_quad == 'SE':
-                # <-- only one azimuth is possible
-                return [(naz_deg_start, naz_deg_stop)]
-            else:
-                # <-- only one azimuth is possible
-                return [(naz_deg_start, paz_deg_stop)]
-
-        elif start_quad == 'SE':
-            # <-- stop_quad can be in SE, SW, NW
-            if stop_quad not in ['SE', 'SW', 'NW']:
-                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in SE")
-            if stop_quad == 'SE':
-                # <-- only one azimuth is possible
-                return [(naz_deg_start, naz_deg_stop)]
-            else:
-                # <-- only one azimuth is possible
-                return [(naz_deg_start, paz_deg_stop)]
-
-        elif start_quad == 'SW':
-            # <-- stop_quad can be in SW, NW
-            if stop_quad not in ['SW', 'NW']:
-                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in SW")
-            # <-- only one azimuth is possible
-            return [(paz_deg_start, paz_deg_stop)]
-
-        elif start_quad == 'NW':
-            # <-- stop_quad can be in NW only
-            if stop_quad not in ['NW']:
-                raise ValueError(f"stop quadrant '{stop_quad}' not valid for target originating in NW")
-            # <-- two azimuths are possible
-            return [(naz_deg_start, naz_deg_stop),
-                    (paz_deg_start, paz_deg_stop)]
-
-        else:
-            raise ValueError(f"start quadrant '{start_quad}' type not recognized")
+    # Filter paths within az move limits
+    result = [(start, stop) for start, stop in candidates
+              if (az_min_deg <= start <= az_max_deg and
+                  az_min_deg <= stop <= az_max_deg)]
+    return result
 
 
-def calc_offset_angle(pang_deg, pa_deg, flip=False, ins_delta=0.0):
+def calc_rotator_angle(pang_deg, pa_deg, flip=False, ins_delta=0.0):
     """Calculate the instrument rotator offset.
 
     NOTE: DOES NOT NORMALIZE THE ANGLES
 
     Parameters
     ----------
-    pang_deg : float
-        Parallactic angle for target at a certain time
+    pang_deg : float or array of float
+        Parallactic angle for target(s) at a certain time
 
-    pa_deg : float
-        The desired position angle in degrees
+    pa_deg : float or array of float
+        The desired position angle(s) in degrees
 
     flip : bool (optional, defaults to False)
         Whether the image is flipped or not (depends on foci)
@@ -433,43 +310,103 @@ def calc_offset_angle(pang_deg, pa_deg, flip=False, ins_delta=0.0):
 
     Returns
     -------
-    offset_deg : float
-        The rotator offset value for this observation
+    rot_deg, off_deg : tuple of (float, float)
+        The rotator value and offset angle for this observation
     """
-    # offset_angle = parallactic_angle + position_angle
-    offset_deg = pang_deg + pa_deg
-
     if flip:
         # non-mirror image, such as foci Cs, or NsOpt w/ImR
-        offset_deg = -offset_deg
+        pa_deg = -pa_deg
 
-    offset_deg = offset_deg + ins_delta
-    return offset_deg
+    # rotator_angle = parallactic_angle + position_angle
+    rot_deg = pang_deg + pa_deg + ins_delta
+
+    return rot_deg, pa_deg + ins_delta
 
 
-def calc_possible_rotations(start_pang_deg, stop_pang_deg, pa_deg, ins_name,
-                            dec_deg, obs_lat_deg):
+def unwrap_angle(ref_angle_deg, angle_deg):
+    """Unwrap `angle_deg` relative to `ref_angle_deg` to minimize discontinuity."""
+    delta_deg = (angle_deg - ref_angle_deg + 180) % 360 - 180
+    return ref_angle_deg + delta_deg
+
+
+def compute_rotator_angles(pang_start_deg, pang_stop_deg, pa_deg,
+                           az_start_deg, az_stop_deg,
+                           flip=False, ins_delta=0.0):
+    """
+    Compute the rotator start and stop angles.
+
+    Parameters
+    ----------
+    pang_deg_start : float or array of float
+        Parallactic angle for target(s) at start of observation
+
+    pang_deg_stop : float or array of float
+        Parallactic angle for target(s) at stop of observation (end of exposure)
+
+    pa_deg : float or array of float
+        The desired position angle(s) in degrees
+
+    az_start_deg: float
+        azimuth for target at start of observation (N == 0 deg)
+
+    az_stop_deg: float
+        azimuth for target at stop of observation (N == 0 deg, end of exposure)
+
+    flip : bool (optional, defaults to False)
+        Whether the image is flipped or not (depends on foci)
+
+    ins_delta : float (optional, defaults to 0.0)
+        Instrument mounting offset to apply
+
+    Returns
+    -------
+    rot_res : tuple of (float, float, float)
+        A tuple of the rotator start angle, stop angle and offset angle
+    """
+    # Compute raw rotator positions
+    rot_start, off_deg = calc_rotator_angle(pang_start_deg, pa_deg, flip=flip,
+                                            ins_delta=ins_delta)
+    rot_end, _na = calc_rotator_angle(pang_stop_deg, pa_deg, flip=flip,
+                                      ins_delta=ins_delta)
+    rot_start = normalize_angle(rot_start, limit='full')
+
+    # Detect zenith crossing
+    crossed_zenith = is_north_az(az_start_deg) != is_north_az(az_stop_deg)
+
+    if crossed_zenith:
+        # Apply 180° flip
+        rot_end = unwrap_angle(rot_start, rot_end + 180.0)
+    else:
+        rot_end = unwrap_angle(rot_start, rot_end)
+
+    rot_end = normalize_angle(rot_end, limit='full')
+
+    return rot_start, rot_end, off_deg
+
+
+def calc_possible_rotations(pang_start_deg, pang_stop_deg, pa_deg, ins_name,
+                            az_start_deg, az_stop_deg):
     """Calculate the possible instrument rotations.
 
     Parameters
     ----------
-    start_pang_deg : float
-        Parallactic angle for target at start of observation
+    pang_deg_start : float or array of float
+        Parallactic angle for target(s) at start of observation
 
-    stop_pang_deg : float
-        Parallactic angle for target at stop of observation (end of exposure)
+    pang_deg_stop : float or array of float
+        Parallactic angle for target(s) at stop of observation (end of exposure)
 
-    pa_deg : float
-        The desired position angle in degrees
+    pa_deg : float or array of float
+        The desired position angle(s) in degrees
 
     ins_name : str
         Instrument name
 
-    dec_deg : float
-        Declination of target in degrees
+    az_start_deg: float
+        azimuth for target at start of observation (N == 0 deg)
 
-    ob_lat_deg : float
-        Observers latitude in degrees
+    az_stop_deg: float
+        azimuth for target at stop of observation (N == 0 deg, end of exposure)
 
     Returns
     -------
@@ -482,30 +419,15 @@ def calc_possible_rotations(start_pang_deg, stop_pang_deg, pa_deg, ins_name,
     ins_delta = mount_offsets.get(ins_name, 0.0)
     ins_flip = mount_flip.get(ins_name, False)
 
-    is_north = dec_deg > obs_lat_deg
-
-    if is_north and np.sign(start_pang_deg) != np.sign(stop_pang_deg):
-        # north target has a discontinuity in parallactic angle as the target
-        # passes through the meridian.  If sign is different for a northerly
-        # target, then we need to calculate the alternate angle to calculate
-        # the correct direction of rotation
-        stop_pang_deg = calc_alternate_angle(stop_pang_deg)
-
-    start_offset_deg = calc_offset_angle(start_pang_deg, pa_deg, flip=ins_flip,
-                                         ins_delta=ins_delta)
-    stop_offset_deg = calc_offset_angle(stop_pang_deg, pa_deg, flip=ins_flip,
-                                        ins_delta=ins_delta)
-
-    rot_diff = stop_offset_deg - start_offset_deg
-    # sign of this should indicate the direction of the rotation
-    # rot_sign = np.sign(rot_diff)
-
-    # normalize angles to (-360, +360)
-    left_start_deg = normalize_angle(start_offset_deg, limit=None)
-    left_stop_deg = left_start_deg + rot_diff
+    left_start_deg, left_stop_deg, left_offset_deg = \
+        compute_rotator_angles(pang_start_deg, pang_stop_deg,
+                               pa_deg, az_start_deg, az_stop_deg,
+                               flip=ins_flip, ins_delta=ins_delta)
+    rot_diff = left_stop_deg - left_start_deg
 
     right_start_deg = calc_alternate_angle(left_start_deg)
     right_stop_deg = right_start_deg + rot_diff
+    right_offset_deg = calc_alternate_angle(left_offset_deg)
 
-    return np.array([(left_start_deg, left_stop_deg),
-                     (right_start_deg, right_stop_deg)])
+    return np.array([(left_start_deg, left_stop_deg, left_offset_deg),
+                     (right_start_deg, right_stop_deg, right_offset_deg)])
