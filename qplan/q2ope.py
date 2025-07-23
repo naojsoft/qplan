@@ -14,6 +14,7 @@ from io import StringIO
 
 # 3rd party imports
 from ginga.misc import log
+from ginga.util import wcs
 
 # Local imports
 from . import entity
@@ -108,11 +109,18 @@ class BaseConverter(object):
         return __out
 
     def ra_to_funky(self, ra):
+        if isinstance(ra, str):
+            return float(ra.replace(':', ''))
+
+        ra = wcs.ra_deg_to_str(ra)
         return float(ra.replace(':', ''))
 
     def dec_to_funky(self, dec):
-        return float(dec.replace(':', ''))
+        if isinstance(dec, str):
+            return float(dec.replace(':', ''))
 
+        dec = wcs.dec_deg_to_str(dec)
+        return float(dec.replace(':', ''))
 
 def main(options, args):
 

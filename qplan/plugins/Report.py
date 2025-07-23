@@ -175,7 +175,8 @@ class Report(PlBase.Plugin):
             return ope_buf
 
         except Exception as e:
-            self.logger.error("Error making OPE file: %s" % (str(e)))
+            self.logger.error("Error making OPE file: %s" % (str(e)),
+                              exc_info=True)
 
 
     def save_as_cb(self, ope_buf, ent_w):
