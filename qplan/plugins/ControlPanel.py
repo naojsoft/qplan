@@ -487,17 +487,21 @@ class ControlPanel(PlBase.Plugin):
                 qt.put(sdlr.programs[key])
 
         except Exception as e:
-            self.logger.error('Unexpected error while updating program table in database: %s' % str(e), exc_info=True)
+            errmsg = f'Unexpected error while updating program table in database: {repr(e)}'
+            self.logger.error(errmsg, exc_info=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
 
         # store OBs into db
         try:
             qt = self.qa.get_table('ob')
             for ob in sdlr.oblist:
-                self.logger.info("adding record for OB '%s'" % (str(ob)))
+                self.logger.info(f"adding record for program {ob.program} OB {str(ob)}")
                 qt.put(ob)
 
         except Exception as e:
-            self.logger.error('Unexpected error while updating ob table in database: %s' % str(e), exc_info=True)
+            errmsg = f'Unexpected error while updating ob table in database: {repr(e)}'
+            self.logger.error(errmsg, exc_info=True)
+            self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
 
         self.logger.info("done updating database")
 
@@ -524,6 +528,7 @@ class ControlPanel(PlBase.Plugin):
         try:
             for key in sdlr.programs:
                 pgm_f = sdlr.programs[key]
+                self.logger.info(f'checking program {pgm_f}')
                 pgm_d = self.qq.get_program(pgm_f.proposal)
                 if pgm_d is None:
                     self.logger.error("No program '%s' in database" % (str(key)))

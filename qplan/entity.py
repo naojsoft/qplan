@@ -484,10 +484,7 @@ class OB(PersistentEntity):
     def to_rec(self):
         doc = super().to_rec()
 
-        _d = explode(doc['target'])
-        # body object not serializable to MongoDB
-        del _d['body']
-        doc['target'] = _d
+        doc['target'] = explode(doc['target'])
         doc['inscfg'] = explode(doc['inscfg'])
         doc['telcfg'] = explode(doc['telcfg'])
         doc['envcfg'] = explode(doc['envcfg'])
@@ -609,9 +606,7 @@ class HSC_OB(OB):
 
         if ('calib_tgtcfg' in doc and doc['calib_tgtcfg'] is not None and
             not isinstance(doc['calib_tgtcfg'], str)):
-            _d = explode(doc['calib_tgtcfg'])
-            del _d['body']
-            doc['calib_tgtcfg'] = _d
+            doc['calib_tgtcfg'] = explode(doc['calib_tgtcfg'])
 
         if ('calib_inscfg' in doc and doc['calib_inscfg'] is not None and
             not isinstance(doc['calib_inscfg'], str)):
