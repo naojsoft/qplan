@@ -1,6 +1,7 @@
 #
 #  E. Jeschke
 #
+import datetime
 from dateutil import tz
 
 from ginga.misc.Bunch import Bunch
@@ -439,6 +440,51 @@ class QueueQuery(object):
             l = res.setdefault(key, [])
             l.append(ob_key[1])
         return res
+
+    def get_pfs_executed_ob_status(self, fromdate_utc, todate_utc):
+        """
+        Given a date range (UTC dates), return a Python dict with
+        the processing status of the executed_ob collection for each
+        UTC date in the range.
+        """
+        if todate_utc >= fromdate_utc:
+            # If either date was supplied as a string, convert it to a
+            # "datetime" object in the UTC timezone Otherwise, we
+            # assume that the date is a timezone-aware "datetime"
+            # object.
+            if isinstance(fromdate_utc, str):
+                fromdate_utc = entity.parse_date_time(fromdate_utc, tz.UTC)
+            if isinstance(todate_utc, str):
+                todate_utc = entity.parse_date_time(todate_utc, tz.UTC)
+
+            # Set the "time" portion to 00:00:00 so that query will be
+            # based on just the "date".
+            fromdate_utc = fromdate_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            todate_utc = todate_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+
+            res = dict()
+            d = fromdate_utc
+            while d <= todate_utc:
+                try:
+                    r = self.cmake1('pfs_executed_ob_status', d, {'obs_date_utc': d},
+                                    entity.make_pfs_executed_ob_status)
+                    res[d] = entity.ProcessingStatusType(r.processing_status)
+                except KeyError as e:
+                    res[d] = entity.ProcessingStatusType.NOT_STARTED
+
+                d += datetime.timedelta(days=1)
+
+            return res
+        else:
+            raise QueryError(f'todate_utc ({todate_utc}) must be >= fromdate_utc ({fromdate_utc})')
+
+    def get_pfs_executed_ob_stats_status(self, program):
+        try:
+            r = self.cmake1('pfs_executed_ob_stats_status', program, {'program': program},
+                            entity.make_pfs_executed_ob_stats_status)
+            return entity.ProcessingStatusType(r.processing_status)
+        except KeyError as e:
+            return entity.ProcessingStatusType.NOT_STARTED
 
     #
     # cache management

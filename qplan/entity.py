@@ -3,6 +3,7 @@
 #
 #  E. Jeschke
 #
+import enum
 from datetime import timedelta, datetime
 import math
 import dateutil.parser
@@ -1436,6 +1437,48 @@ class SavedStateRec(PersistentEntity):
     def key(self):
         return dict(name='current')
 
+class PFS_ExecutedOB_Status(PersistentEntity):
+
+    def __init__(self, obs_date_utc=None):
+        super().__init__('pfs_executed_ob_status')
+
+        # obs_date_utc is a timezone-aware "datetime" object with its
+        # timezone set to UTC. Set the "time" component to 00:00:00 so
+        # that, when we query the "pfs_executed_ob_status" collection,
+        # we don't want to have to consider the "time" portion of the
+        # date.
+        self.obs_date_utc = obs_date_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        self.processing_begin_utc = None
+        self.processing_end_utc = None
+        self.set_processing_status(ProcessingStatusType.NOT_STARTED)
+
+    @property
+    def key(self):
+        return dict(obs_date_utc=self.obs_date_utc)
+
+    def set_processing_status(self, value):
+        self.processing_status = ProcessingStatusType(value)
+        self.processing_status_descr = ProcessingStatusType(value).description()
+
+class PFS_ExecutedOB_Stats_Status(PersistentEntity):
+
+    def __init__(self, program=None):
+        super().__init__('pfs_executed_ob_stats_status')
+
+        self.program = program
+        self.processing_begin_utc = None
+        self.processing_end_utc = None
+        #self.processing_status = None
+        #self.processing_status_descr = None
+        self.set_processing_status(ProcessingStatusType.NOT_STARTED)
+
+    @property
+    def key(self):
+        return dict(program=self.program)
+
+    def set_processing_status(self, value):
+        self.processing_status = ProcessingStatusType(value)
+        self.processing_status_descr = ProcessingStatusType(value).description()
 
 def parse_date_time(dt_str, default_timezone):
     if len(dt_str) > 0:
@@ -1446,6 +1489,24 @@ def parse_date_time(dt_str, default_timezone):
         dt = None
     return dt
 
+class ProcessingStatusType(enum.IntEnum):
+    """
+    Enumerated options for the status of database processing. This is mostly for
+    the processing that populates the executed_ob collection with PFS OB's and the
+    pfs_executed_ob_stats collection.
+    """
+    NOT_STARTED = 0
+    IN_PROGRESS = 1
+    COMPLETE = 2
+    ERROR = 3
+    def description(self):
+        descriptions = {
+            0: "The process has not yet started",
+            1: "The process is in progress",
+            2: "The process completed successfully",
+            3: "The process failed with an error"
+        }
+        return descriptions[self.value]
 
 def normalize_ra_dec_equinox(ra, dec, eq):
     have_oscript = False
@@ -1568,6 +1629,16 @@ def make_exposure(dct):
 
 def make_saved_state(dct):
     rec = SavedStateRec()
+    rec.from_rec(dct)
+    return rec
+
+def make_pfs_executed_ob_status(dct):
+    rec = PFS_ExecutedOB_Status(dct['obs_date_utc'])
+    rec.from_rec(dct)
+    return rec
+
+def make_pfs_executed_ob_stats_status(dct):
+    rec = PFS_ExecutedOB_Stats_Status()
     rec.from_rec(dct)
     return rec
 

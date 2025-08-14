@@ -149,6 +149,8 @@ mdb2py_tbl_map = {
     'pfs_program_stats': entity.make_pfs_program_stats,
     'intensive_program': entity.make_intensive_program,
     'saved_state': entity.make_saved_state,
+    'pfs_executed_ob_status': entity.make_pfs_executed_ob_status,
+    'pfs_executed_ob_stats_status': entity.make_pfs_executed_ob_stats_status,
     'ob': lambda dct: None,
     }
 
