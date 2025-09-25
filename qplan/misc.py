@@ -77,7 +77,7 @@ def calc_alternate_angle(ang_deg):
     alt_deg : float or array of float
         The output angle(s) in degrees
     """
-    alt_deg = ang_deg - np.sign(ang_deg) * 360
+    alt_deg = ang_deg - np.sign(ang_deg) * 360.0
     return alt_deg
 
 
@@ -100,43 +100,49 @@ def normalize_angle(ang_deg, limit=None, ang_offset=0.0):
     limit: None (-360, 360), 'full' (0, 360), or 'half' (-180, 180)
 
     To normalize to Subaru azimuth (AZ 0 == S), do
-        normalize_angle(ang_deg, limit='half', ang_offset=-180)
+        normalize_angle(ang_deg, limit='half', ang_offset=-180.0)
     """
-    ang_deg = ang_deg + ang_offset
+    # convert to array if just a scalar
+    is_array = isinstance(ang_deg, np.ndarray)
+    if not is_array:
+        ang_deg = np.array([ang_deg], dtype=float)
+
+    ang_deg = (ang_deg + ang_offset).astype(float)
 
     # constrain to -360, +360
-    if np.fabs(ang_deg) >= 360.0:
-        ang_deg = np.remainder(ang_deg, np.sign(ang_deg) * 360.0)
-    if limit is None:
-        return ang_deg
+    mask = np.fabs(ang_deg) >= 360.0
+    ang_deg[mask] = np.remainder(ang_deg[mask], np.sign(ang_deg[mask]) * 360.0)
+    if limit is not None:
+        # constrain to 0, +360
+        mask = ang_deg < 0.0
+        ang_deg[mask] += 360.0
+        if limit == 'half':
+            # constrain to -180, +180
+            mask = ang_deg > 180.0
+            ang_deg[mask] -= 360.0
 
-    # constrain to 0, +360
-    if ang_deg < 0.0:
-        ang_deg += 360.0
-    if limit != 'half':
-        return ang_deg
+    if not is_array:
+        # extract scalar
+        ang_deg = ang_deg[0]
 
-    # constrain to -180, +180
-    if ang_deg > 180.0:
-        ang_deg -= 360.0
     return ang_deg
 
 
-def check_rotation_limits(rot_start, rot_stop, min_rot, max_rot):
+def check_rotation_limits(rot_start_deg, rot_stop_deg, min_rot_deg, max_rot_deg):
     """Check rotation against limits.
 
     Parameters
     ----------
-    rot_start : float or NaN
-        Rotation start value
+    rot_start : float or array of float, NaNs ok
+        Rotation start value(s). NaN indicates a non-available angle.
 
-    rot_stop : float or NaN
-        Rotation stop value
+    rot_stop : float or array of float, NaNs ok
+        Rotation stop value(s). NaN indicates a non-available angle.
 
-    min_rot : float
+    min_rot_deg : float
         Minimum rotation value
 
-    max_rot : float
+    max_rot_deg : float
         Maximum rotation value
 
     Returns
@@ -144,11 +150,20 @@ def check_rotation_limits(rot_start, rot_stop, min_rot, max_rot):
     rot_ok : bool
         True if rotation is allowed, False otherwise
     """
-    if np.isnan(rot_start) or np.isnan(rot_stop):
-        rot_ok = False
-    else:
-        rot_ok = ((min_rot <= rot_start <= max_rot) and
-                  (min_rot <= rot_stop <= max_rot))
+    is_array = isinstance(rot_start_deg, np.ndarray)
+    if not is_array:
+        rot_start_deg = np.array([rot_start_deg], dtype=float)
+        rot_stop_deg = np.array([rot_stop_deg], dtype=float)
+
+    rot_ok = np.logical_and(np.isfinite(rot_start_deg),
+                            np.isfinite(rot_stop_deg))
+    rot_ok = np.logical_and(rot_ok, min_rot_deg <= rot_start_deg)
+    rot_ok = np.logical_and(rot_ok, rot_start_deg <= max_rot_deg)
+    rot_ok = np.logical_and(rot_ok, min_rot_deg <= rot_stop_deg)
+    rot_ok = np.logical_and(rot_ok, rot_stop_deg <= max_rot_deg)
+
+    if not is_array:
+        rot_ok = rot_ok[0]
     return rot_ok
 
 
@@ -159,17 +174,17 @@ def calc_optimal_rotation(left_start_deg, left_stop_deg,
 
     Parameters
     ----------
-    left_start_deg : float, NaNs ok
-        Rotation possibility 1 start value
+    left_start_deg : float array of float, NaNs ok
+        Rotation possibility 1 start value(s)
 
-    left_stop_deg : float, NaNs ok
-        Rotation possibility 1 stop value
+    left_stop_deg : float or array of float, NaNs ok
+        Rotation possibility 1 stop value(s)
 
-    right_start_deg : float, NaNs ok
-        Rotation possibility 2 start value
+    right_start_deg : float or array of float, NaNs ok
+        Rotation possibility 2 start value(s)
 
-    right_stop_deg : float, NaNs ok
-        Rotation possibility 2 stop value
+    right_stop_deg : float or array of float, NaNs ok
+        Rotation possibility 2 stop value(s)
 
     cur_rot_deg : float
         Current rotation value
@@ -182,7 +197,7 @@ def calc_optimal_rotation(left_start_deg, left_stop_deg,
 
     Returns
     -------
-    rot1_ok, rot2_ok : tuple of start and stop rotation values
+    rot_start, rot_stop : start and stop rotation values
         floats if rotation is allowed, NaN otherwise
     """
     left_ok = check_rotation_limits(left_start_deg, left_stop_deg,
@@ -190,22 +205,42 @@ def calc_optimal_rotation(left_start_deg, left_stop_deg,
     right_ok = check_rotation_limits(right_start_deg, right_stop_deg,
                                      min_rot_deg, max_rot_deg)
 
-    if left_ok:
-        if not right_ok:
-            return left_start_deg, left_stop_deg
+    is_array = isinstance(left_start_deg, np.ndarray)
+    if not is_array:
+        left_start_deg = np.array([left_start_deg], dtype=float)
+        left_stop_deg = np.array([left_stop_deg], dtype=float)
 
-        # figure out which rotation would be the shorter distance
-        # from the current location
-        delta_l = np.fabs(cur_rot_deg - left_start_deg)
-        delta_r = np.fabs(cur_rot_deg - right_start_deg)
-        if delta_l < delta_r:
-            return left_start_deg, left_stop_deg
-        return right_start_deg, right_stop_deg
+    res_start = np.full_like(left_start_deg, np.nan)
+    res_stop = np.full_like(left_stop_deg, np.nan)
+    idx = np.arange(len(res_start), dtype=int)
 
-    elif right_ok:
-        return right_start_deg, right_stop_deg
-    else:
-        return np.nan, np.nan
+    both_ok = np.logical_and(left_ok, right_ok)
+    if np.any(both_ok):
+        delta_l = np.fabs(cur_rot_deg - left_start_deg[both_ok])
+        delta_r = np.fabs(cur_rot_deg - right_start_deg[both_ok])
+        favor_l = delta_l < delta_r
+        res_start[both_ok] = np.where(favor_l,
+                                      left_start_deg[both_ok],
+                                      right_start_deg[both_ok])
+        res_stop[both_ok] = np.where(favor_l,
+                                     left_stop_deg[both_ok],
+                                     right_stop_deg[both_ok])
+
+    just_left_ok = np.logical_and(left_ok, np.logical_not(right_ok))
+    if np.any(just_left_ok):
+        res_start[just_left_ok] = left_start_deg[just_left_ok]
+        res_stop[just_left_ok] = left_stop_deg[just_left_ok]
+
+    just_right_ok = np.logical_and(np.logical_not(left_ok), right_ok)
+    if np.any(just_right_ok):
+        res_start[just_right_ok] = right_start_deg[just_right_ok]
+        res_stop[just_right_ok] = right_stop_deg[just_right_ok]
+
+    if not is_array:
+        # extract scalars
+        res_start, res_stop = res_start[0], res_stop[0]
+
+    return np.array([res_start, res_stop])
 
 
 def is_north_az(az_deg):
@@ -368,18 +403,14 @@ def compute_rotator_angles(pang_start_deg, pang_stop_deg, pa_deg,
                                             ins_delta=ins_delta)
     rot_end, _na = calc_rotator_angle(pang_stop_deg, pa_deg, flip=flip,
                                       ins_delta=ins_delta)
-    rot_start = normalize_angle(rot_start, limit='full')
+    rot_start = normalize_angle(rot_start, limit=None)
 
     # Detect zenith crossing
     crossed_zenith = is_north_az(az_start_deg) != is_north_az(az_stop_deg)
-
-    if crossed_zenith:
-        # Apply 180° flip
-        rot_end = unwrap_angle(rot_start, rot_end + 180.0)
-    else:
-        rot_end = unwrap_angle(rot_start, rot_end)
-
-    rot_end = normalize_angle(rot_end, limit='full')
+    # Apply 180 deg flip if needed
+    add_180 = np.multiply(crossed_zenith, 180.0)
+    rot_end = unwrap_angle(rot_start, rot_end + add_180)
+    rot_end = normalize_angle(rot_end, limit=None)
 
     return rot_start, rot_end, off_deg
 

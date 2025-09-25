@@ -468,6 +468,8 @@ class Scheduler(Callback.Callbacks):
         props = self.props
         total_program_time = 0.0
         for propname in self.programs:
+            # NOTE: total_time for intensive programs will be the semester
+            # time
             total_time = self.programs[propname].total_time
 
             props[propname] = Bunch.Bunch(pgm=self.programs[propname],
