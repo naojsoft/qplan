@@ -140,6 +140,14 @@ class QueueQuery(object):
                                lambda rec: rec['exp_id'],
                                entity.make_exposure)
 
+    def get_all_programs(self):
+        """Get the list of all programs."""
+        tbl = self._qa.get_db_native_table('program')
+        all_recs = list(tbl.find({'proposal': {'$regex': "^S.+"}}))
+        return self.cmake_iter('program', all_recs,
+                               lambda rec: rec['proposal'],
+                               entity.make_program)
+
     def get_program_by_semester(self, semester):
         """
         Get a program in semester.
