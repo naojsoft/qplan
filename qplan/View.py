@@ -93,14 +93,13 @@ class Viewer(GwMain.GwMain, Widgets.Application):
 
     def close_cb(self, app):
         # confirm close with a dialog here
-        q_quit = Widgets.Dialog(title="Confirm Quit", modal=False,
-                                parent=self.w.root,
-                                buttons=[("Cancel", False), ("Confirm", True)])
+        q_quit = Widgets.MessageDialog(title="Confirm Quit", modal=False,
+                                       parent=self.w.root,
+                                       buttons=[("Cancel", False),
+                                                ("Confirm", True)])
         # necessary so it doesn't get garbage collected right away
         self.w.quit_dialog = q_quit
-        vbox = q_quit.get_content_area()
-        vbox.set_margins(4, 4, 4, 4)
-        vbox.add_widget(Widgets.Label("Do you really want to quit?"))
+        q_quit.set_message('question', "Do you really want to quit?")
         q_quit.add_callback('activated', self._confirm_quit_cb)
         q_quit.add_callback('close', lambda w: self._confirm_quit_cb(w, False))
         q_quit.show()
