@@ -300,7 +300,13 @@ class Report(PlBase.Plugin):
 
                 # this is Terai-san's scored sum request
                 if ob.program.grade.upper() in ('A', 'B'):
-                    scored_sum += float(ob.program.rank) * (ob.total_time / 60)
+                    # NOTE: EJ 2026-02-27
+                    # Fujiyoshi-san found an issue where the scored sum was
+                    # not using "on source" time for the calculation
+                    # scored_sum += float(ob.program.rank) * (ob.total_time / 60)
+                    # so I've changed it to use the true on source time
+                    on_src_time = ob.inscfg.calc_num_exp() * ob.inscfg.exp_time
+                    scored_sum += float(ob.program.rank) * (on_src_time / 60)
             else:
                 out_f.write("%-16.16s  %-10.10s\n" % (date, str(ob)))
 
