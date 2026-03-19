@@ -1191,7 +1191,7 @@ class TgtCfgFile(QueueFile):
             'target_name':  {'iname': 'Target Name', 'type': str, 'constraint': "len(value) > 0",              'prefilled': False, 'required': True},
             'ra':           {'iname': 'RA',          'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
             'dec':          {'iname': 'DEC',         'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': True},
-            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': "value in ('J2000', 'B1950')", 'prefilled': False, 'required': True},
+            'equinox':      {'iname': 'Equinox',     'type': str, 'constraint': self.checkEquinox,             'prefilled': False, 'required': True},
             'sdss_ra':      {'iname': 'SDSS RA',     'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': False},
             'sdss_dec':     {'iname': 'SDSS DEC',    'type': str, 'constraint': self.parseRA_Dec,              'prefilled': False, 'required': False},
             }
@@ -1253,6 +1253,29 @@ class TgtCfgFile(QueueFile):
             except ValueError:
                 return False
         return True
+
+    def checkEquinox(self, val, rec, row_num, col_name, progFile):
+        iname = self.columnInfo[col_name]['iname']
+
+        if len(val) > 0:
+            # Match J2000, J2000.0, B1950, B1950.0, or similar.
+            if re.match(r'[JB]\d{4}(\.\d*)?$', val):
+               progFile.logger.debug('Line %d, column %s of sheet %s: %s %s is ok' % (row_num, iname, self.name, iname, val))
+               valid = True
+            else:
+                msg = "Error while checking line %d, column %s of sheet %s: %s '%s' is not valid" % (row_num, iname, self.name, iname, val)
+                progFile.logger.error(msg)
+                progFile.errors[self.name].append([row_num, [iname], msg])
+                progFile.error_count += 1
+                valid = False
+        else:
+            msg = 'Error while checking line %d, column %s of sheet %s: %s is blank' % (row_num, iname, self.name, iname)
+            progFile.logger.error(msg)
+            progFile.errors[self.name].append([row_num, [iname], msg])
+            progFile.error_count += 1
+            valid = False
+
+        return valid
 
     def parse_input(self):
         """
