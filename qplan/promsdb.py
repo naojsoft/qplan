@@ -4,11 +4,18 @@
 # ID and ProMS ID/password.
 
 import os, sys
-import mysql.connector
-import sqlalchemy
 import logging
-from sqlsoup import SQLSoup as SqlSoup
-import bcrypt
+
+try:
+    import mysql.connector
+    import sqlalchemy
+    from sqlsoup import SQLSoup as SqlSoup
+    import bcrypt
+except ImportError:
+    raise ImportError(
+        "HSC phase 2 checker dependencies are not installed. "
+        "Install them with: pip install 'qplan[hsc-phase2]'"
+    )
 
 from ginga.misc import log
 
