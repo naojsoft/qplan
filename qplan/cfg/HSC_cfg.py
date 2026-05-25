@@ -1,5 +1,5 @@
 #
-#  Russell Kackley (rkackley@naoj.org)
+#  R. Kackley
 #  E. Jeschke
 #
 import pathlib

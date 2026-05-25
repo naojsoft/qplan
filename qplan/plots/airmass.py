@@ -28,19 +28,6 @@ class AltitudePlot(plots.Plot):
     def setup(self):
         pass
 
-    def get_figure(self):
-        return self.fig
-
-    def clear(self):
-        #self.ax.cla()
-        self.fig.clf()
-        self.redraw()
-
-    def redraw(self):
-        canvas = self.fig.canvas
-        if canvas is not None:
-            canvas.draw()
-
     def plot_altitude(self, site, tgt_data, tz, current_time=None,
                       plot_moon_distance=False,
                       show_target_legend=False):
@@ -209,9 +196,7 @@ class AltitudePlot(plots.Plot):
         # plot moon's position at midnight
         #self._moon_position(ax1, site)
 
-        canvas = self.fig.canvas
-        if canvas is not None:
-            canvas.draw()
+        self.redraw()
 
     def _plot_twilight(self, ax, site, localdate, tz, show_legend=False):
         # plot sunset

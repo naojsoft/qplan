@@ -29,14 +29,14 @@ class PPCReport(PlBase.Plugin):
 
         self.model.add_callback('schedule-selected', self.show_schedule_cb)
 
-        self.columns = [('Time', 'datetime'),
-                        ('PPC name', 'name'),
-                        ('Exp time', 'exp_time'),
-                        ('Total time', 'total_time'),
-                        ('Priority', 'priority'),
-                        ('RA', 'ra'), ('DEC', 'dec'),
-                        ('PA', 'pa'),
-                        ('Comment', 'comment')]
+        self.columns = [('Time', 'datetime', 'str'),
+                        ('PPC name', 'name', 'str'),
+                        ('Exp time', 'exp_time', 'float'),
+                        ('Total time', 'total_time', 'float'),
+                        ('Priority', 'priority', 'float'),
+                        ('RA', 'ra', 'float'), ('DEC', 'dec', 'float'),
+                        ('PA', 'pa', 'flaot'),
+                        ('Comment', 'comment', 'str')]
         self.w = Bunch.Bunch()
         self.gui_up = False
 
@@ -106,6 +106,7 @@ class PPCReport(PlBase.Plugin):
 
             def _have_schedule():
                 self.w.ppc_tbl.set_tree(info.table)
+                self.w.ppc_tbl.set_optimal_column_widths()
                 if len(info.table) > 0:
                     self.w.btn_make_sfa.set_enabled(True)
 

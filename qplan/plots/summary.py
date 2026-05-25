@@ -1,7 +1,7 @@
 #
 # summary.py -- creates summary plots
 #
-# Russell Kackley (rkackley@naoj.org)
+# R. Kackley
 #
 import numpy as np
 

@@ -100,7 +100,7 @@ plugins = [
     ]
 
 
-class QueuePlanner(object):
+class QueuePlanner:
     """
     This class exists solely to be able to customize the queue planner
     startup/application.
@@ -108,6 +108,11 @@ class QueuePlanner(object):
     def __init__(self, layout=default_layout):
         self.plugins = []
         self.layout = layout
+        self.ev_quit = None
+        self.thread_pool = None
+        self.prefs = None
+        self.settings = None
+        self.basedir = None
 
     def add_plugins(self, plugins):
         self.plugins.extend(plugins)
@@ -129,7 +134,7 @@ class QueuePlanner(object):
         argprs.add_argument("-g", "--geometry", dest="geometry",
                             metavar="GEOM", default=None,
                             help="X geometry for initial size and placement")
-        argprs.add_argument("-i", "--input", dest="input_dir", default=".",
+        argprs.add_argument("-i", "--input", dest="input_dir", default=None,
                             metavar="DIRECTORY",
                             help="Read input files from DIRECTORY")
         argprs.add_argument("-f", "--format", dest="input_fmt", default=None,
@@ -147,7 +152,7 @@ class QueuePlanner(object):
                             metavar="DIRECTORY",
                             help="Write output files to DIRECTORY")
         argprs.add_argument("-s", "--site", dest="sitename", metavar="NAME",
-                            default='subaru',
+                            default=None,
                             help="Observing site NAME")
         argprs.add_argument("-t", "--toolkit", dest="toolkit", metavar="NAME",
                             default=None,
@@ -161,36 +166,12 @@ class QueuePlanner(object):
     def main(self, options, args):
         # Create top level logger.
         svcname = 'qplan'
-        logger = log.get_logger(name=svcname, options=options)
+        self.logger = log.get_logger(name=svcname, options=options)
+        self.logger.info("starting qplan %s" % (version.version))
 
-        logger.info("starting qplan %s" % (version.version))
-
-        ev_quit = threading.Event()
-
-        thread_pool = Task.ThreadPool(logger=logger, ev_quit=ev_quit,
-                                     numthreads=options.numthreads)
-
-        if options.toolkit is not None:
-            ginga_toolkit.use(options.toolkit)
-        else:
-            ginga_toolkit.choose()
-
-        tkname = ginga_toolkit.get_family()
-        logger.info("Chosen toolkit (%s) family is '%s'" % (
-            ginga_toolkit.toolkit, tkname))
-
-        from qplan.View import Viewer
-        # must import AFTER Viewer
-        from ginga.rv.Control import GuiLogHandler
-
-        class QueuePlanner(Controller, Viewer):
-
-            def __init__(self, logger, thread_pool, module_manager, preferences,
-                         ev_quit, model):
-
-                Viewer.__init__(self, logger, ev_quit)
-                Controller.__init__(self, logger, thread_pool, module_manager,
-                                    preferences, ev_quit, model)
+        self.ev_quit = threading.Event()
+        self.layout = default_layout
+        self.plugins = plugins
 
         # Get settings folder
         if ('CONFHOME' in os.environ and
@@ -200,33 +181,120 @@ class QueuePlanner(object):
             basedir = os.path.join(os.environ['HOME'], '.' + svcname)
         if not os.path.exists(basedir):
             os.mkdir(basedir)
-        prefs = Settings.Preferences(basefolder=basedir, logger=logger)
+        self.prefs = Settings.Preferences(basefolder=basedir,
+                                          logger=self.logger)
+        self.basedir = basedir
 
-        settings = prefs.create_category('general')
+        settings = self.prefs.create_category('general')
         settings.load(onError='silent')
         settings.set_defaults(output_dir=options.output_dir,
+                              widgetSet='choose',
+                              recursion_limit=2000,
+                              min_threads=2,
+                              num_threads=max(os.cpu_count(), 10),
+                              sitename='subaru',
+                              input_dir='.',
+                              completed_file=None,
+                              input_format=None,
+                              # this only takes effect if we are using
+                              # the pgwidgets backend
+                              http_server=True,
+                              geometry='1440x900',
+                              confirm_shutdown=True,
                               save_layout=True)
+        self.settings = settings
 
-        mm = ModuleManager.ModuleManager(logger)
+        # ------ command line overrides for various settings -----
+        #
+        if hasattr(options, 'toolkit') and options.toolkit is not None:
+            settings.set(widgetSet=options.toolkit)
 
-        ## # Add any custom modules
-        ## if options.modules:
-        ##     modules = options.modules.split(',')
-        ##     for mdlname in modules:
-        ##         #self.mm.loadModule(name, pfx=pluginconfpfx)
-        ##         self.mm.loadModule(name)
+        # number of threads
+        if hasattr(options, 'numthreads') and options.numthreads is not None:
+            settings.set(num_threads=options.numthreads)
 
-        observer = site.get_site(options.sitename)
+        # did user specify a particular geometry?
+        if hasattr(options, 'geometry') and options.geometry is not None:
+            settings.set(geometry=options.geometry)
 
-        scheduler = Scheduler(logger, observer)
+        # did user specify a particular site?
+        if hasattr(options, 'sitename') and options.sitename is not None:
+            settings.set(sitename=options.sitename)
 
-        model = QueueModel(logger, scheduler)
+        # restore the window to approximate
+        if hasattr(options, 'norestore'):
+            settings.set(ignore_saved_layout=options.norestore)
 
-        if options.completed is not None:
+        # set input directory
+        if hasattr(options, 'input_dir') and options.input_dir is not None:
+            settings.set(input_dir=options.input_dir)
+
+        # set input format
+        if hasattr(options, 'input_fmt') and options.input_fmt is not None:
+            settings.set(input_format=options.input_fmt)
+
+        # set completed file
+        if hasattr(options, 'completed') and options.completed is not None:
+            settings.set(completed_file=options.completed)
+
+        # --------------------------------------------------------
+
+        self.setup()
+
+        # process non-option command line args
+        #self.process_args(args)
+
+        # run the app event loop
+        self.run()
+
+    def setup(self):
+        self.thread_pool = Task.ThreadPool(logger=self.logger,
+                                           ev_quit=self.ev_quit,
+                                           minthreads=self.settings.get('min_threads'),
+                                           numthreads=self.settings.get('num_threads'))
+
+        toolkit = self.settings.get('widgetSet', 'choose')
+        if toolkit != 'choose':
+            ginga_toolkit.use(toolkit)
+        else:
+            ginga_toolkit.choose()
+
+        tkname = ginga_toolkit.get_family()
+        self.logger.info("Chosen toolkit (%s) family is '%s'" % (
+            ginga_toolkit.toolkit, tkname))
+
+        from qplan.View import Viewer
+        # must import AFTER Viewer
+        from ginga.rv.Control import GuiLogHandler
+
+        class QueuePlanner(Controller, Viewer):
+
+            def __init__(self, logger, thread_pool, module_manager, preferences,
+                         ev_quit, model, ws_sock=None):
+
+                # Create general preferences
+                self.prefs = preferences
+                settings = self.prefs.create_category('general')
+                settings.set(appname='qplan')
+                Viewer.__init__(self, logger, thread_pool, settings, ev_quit,
+                                ws_sock=ws_sock)
+                Controller.__init__(self, logger, thread_pool, module_manager,
+                                    preferences, ev_quit, model)
+
+        mm = ModuleManager.ModuleManager(self.logger)
+
+        observer = site.get_site(self.settings.get('sitename'))
+
+        scheduler = Scheduler(self.logger, observer)
+
+        model = QueueModel(self.logger, scheduler)
+
+        completed_file = self.settings.get('completed_file', None)
+        if completed_file is not None:
             import json
-            logger.info("reading executed OBs from '{}' ...".format(options.completed))
+            self.logger.info("reading executed OBs from '{}' ...".format(completed_file))
             # user specified a set of completed OB keys
-            with open(options.completed, 'r') as in_f:
+            with open(completed_file, 'r') as in_f:
                 buf = in_f.read()
             d = json.loads(buf)
             model.completed_obs = {(propid, obcode): d[propid][obcode]
@@ -234,14 +302,16 @@ class QueuePlanner(object):
                                    for obcode in d[propid]}
 
         # Start up the control/display engine
-        qplanner = QueuePlanner(logger, thread_pool, mm,
-                                prefs, ev_quit, model)
-        qplanner.set_input_dir(options.input_dir)
-        qplanner.set_input_fmt(options.input_fmt)
+        qplanner = QueuePlanner(self.logger, self.thread_pool, mm,
+                                self.prefs, self.ev_quit, model)
+        qplanner.set_input_dir(self.settings.get('input_dir'))
+        qplanner.set_input_fmt(self.settings.get('input_format'))
+        self.qplanner = qplanner
 
         layout_file = None
-        if not options.norestore and settings.get('save_layout', False):
-            layout_file = os.path.join(basedir, 'layout.json')
+        norestore = self.settings.get('ignore_saved_layout', False)
+        if not norestore and self.settings.get('save_layout', False):
+            layout_file = os.path.join(self.basedir, 'layout.json')
 
         # Build desired layout
         qplanner.build_toplevel(default_layout, layout_file=layout_file)
@@ -249,7 +319,7 @@ class QueuePlanner(object):
             w.show()
 
         # load plugins
-        for spec in plugins:
+        for spec in self.plugins:
             qplanner.load_plugin(spec.name, spec)
 
         # start any plugins that have start=True
@@ -258,45 +328,52 @@ class QueuePlanner(object):
         qplanner.ds.raise_tab('Control Panel')
 
         guiHdlr = GuiLogHandler(qplanner)
-        #guiHdlr.setLevel(options.loglevel)
         guiHdlr.setLevel(logging.INFO)
         fmt = logging.Formatter(log.LOG_FORMAT)
         guiHdlr.setFormatter(fmt)
-        logger.addHandler(guiHdlr)
+        self.logger.addHandler(guiHdlr)
 
         qplanner.update_pending()
 
-        # Did user specify geometry
-        if options.geometry:
-            qplanner.set_geometry(options.geometry)
+        # Did user specify a particular geometry?
+        geometry = self.settings.get('geometry', None)
+        if geometry is not None:
+            qplanner.set_geometry(geometry)
 
         # Raise window
         w = qplanner.w.root
         w.set_title(f"QPlan v{__version__}")
         w.show()
 
+    def run(self):
         server_started = False
 
         # Create threadpool and start it
         try:
             # Startup monitor threadpool
-            thread_pool.startall(wait=True)
+            self.thread_pool.startall(wait=True)
 
             try:
                 # if there is a network component, start it
-                if hasattr(qplanner, 'start'):
-                    task = Task.FuncTask2(qplanner.start)
-                    thread_pool.addTask(task)
+                if hasattr(self.qplanner, 'start'):
+                    self.qplanner.start()
+
+                if hasattr(self.qplanner, 'get_url'):
+                    base_url = self.qplanner.get_url()
+                    if base_url is not None:
+                        print(f"visit {base_url} to view the application")
+                        self.logger.info(f"visit {base_url} to view the application")
 
                 # Main loop to handle GUI events
-                qplanner.mainloop(timeout=0.001)
+                self.logger.info("entering mainloop...")
+                self.qplanner.mainloop(timeout=0.001)
 
             except KeyboardInterrupt:
-                logger.error("Received keyboard interrupt!")
+                self.logger.error("Received keyboard interrupt!")
 
         finally:
-            logger.info("Shutting down...")
-            thread_pool.stopall(wait=True)
+            self.logger.info("Shutting down...")
+            self.thread_pool.stopall(wait=True)
 
         sys.exit(0)
 

@@ -1,7 +1,7 @@
 #
 # SumChart.py -- Summary chart plugin
 #
-# Russell Kackley (rkackley@naoj.org)
+# R. Kackley
 #
 from ginga.gw import Plot
 

@@ -20,10 +20,11 @@ class ViewError(Exception):
 
 class Viewer(GwMain.GwMain, Widgets.Application):
 
-    def __init__(self, logger, ev_quit):
-        Widgets.Application.__init__(self, logger=logger)
+    def __init__(self, logger, thread_pool, settings, ev_quit, ws_sock=None):
         GwMain.GwMain.__init__(self, logger=logger, ev_quit=ev_quit,
-                               app=self)
+                               app=self, thread_pool=thread_pool)
+        Widgets.Application.__init__(self, logger=logger, settings=settings,
+                                     ws_sock=ws_sock)
         self.w = Bunch.Bunch()
         self.layout_file = None
 

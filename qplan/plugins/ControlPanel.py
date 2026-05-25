@@ -104,7 +104,7 @@ class ControlPanel(PlBase.Plugin):
         self.w = b
 
         sdlr = self.model.get_scheduler()
-        b.input_dir.set_length(128)
+        b.input_dir.set_length(40)
         b.input_dir.set_text(self.controller.input_dir)
         b.load_info.set_tooltip("Load data from phase 2 files")
         b.load_info.add_callback('activated', self.initialize_model_cb)

@@ -3,31 +3,33 @@
 #
 import yaml
 
-from qtpy import QtCore
-
 from ginga.misc.Bunch import Bunch
 from ginga.gw import Widgets
-from ginga.gw.GwHelp import FileSelection
 
 from qplan.plugins import QueueFileTab
+
 
 class ProgramsTab(QueueFileTab.QueueFileTab):
 
     def __init__(self, controller):
-        super(ProgramsTab, self).__init__(controller)
+        super().__init__(controller)
 
         # Register a callback function for when the QueueModel loads
-        # the programs file
+        # the programs file.
         self.model.add_callback('programs-file-loaded', self.populate_cb)
         # Register a callback function for when the user updates the
-        # Programs. The callback will enable the "Save" item so that
-        # the user can save the programs to the output file.
+        # Programs, so the "Save" item gets enabled.
         self.model.add_callback('programs-updated', self.enable_save_item_cb)
 
     def build_gui(self, container):
-        super(ProgramsTab, self).build_gui(container)
+        super().build_gui(container)
 
-        self.tableview.doubleClicked.connect(self.doubleClicked)
+        # Open the proposal detail tab on double-click of a row.
+        # qtw/gtk pass the clicked col_key as a 4th arg; pgw passes
+        # None (pgwidgets-js doesn't yet carry the column through),
+        # so treat None as "any column" — clicks on editable cells
+        # under pgw open the editor instead of firing 'activated'.
+        self.tableview.add_callback('activated', self._on_activated)
 
         load_plan = self.filemenu.add_name('Load Plan')
         load_plan.set_enabled(True)
@@ -37,40 +39,50 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
         save_plan.set_enabled(True)
         save_plan.add_callback('activated', self.save_plan_cb)
 
-        self.file_sel = FileSelection(container.get_widget())
+        # Built lazily on first invocation.  Both are non-modal —
+        # the chosen path comes back through their 'activated'
+        # callback.
+        self._container = container
+        self._save_dlg = None
+        self._load_dlg = None
 
-    def build_table(self):
-        super(ProgramsTab, self).build_table('ProgramsTab', 'TableModel')
+    def build_table(self, module_name=None, class_name=None):
+        super().build_table()
+        # Pin the proposal column read-only — double-clicking it
+        # then triggers 'activated' rather than opening an editor,
+        # which is how we drill into the per-program detail tab.
+        if self.columnNames and 'proposal' in self.columnNames:
+            self.tableview.set_column_editable(
+                self.columnNames.index('proposal'), False)
 
-    def doubleClicked(self, index):
-        # When a user double-clicks on a program in the first column,
-        # send that information to the QueueModel so the observing
-        # blocks from that program can be displayed in the ObsBlock
-        # tab.
-        row, col = index.row(), index.column()
-        if self.columnNames[col].lower() == 'proposal':
-            proposal = self.dataForTableModel[row][col]
-            if proposal not in self.model.ob_qf_dict:
-                # We haven't read in this program file. Get the
-                # ControlPanel plugin so that we can call the
-                # load_program method to read in the program file.
-                control_panel_plugin = self.view.get_plugin('cp')
-                instruments = self.model.programs_qf.programs_info[proposal].instruments
-                if 'PFS' in instruments:
-                    control_panel_plugin.load_ppcfile(proposal)
-                else:
-                    control_panel_plugin.load_program(proposal)
+    def _on_activated(self, table, row_dict, path, col_key):
+        # Only act when the click landed on the proposal column
+        # (or when the backend can't report a column — pgw).
+        if col_key is not None and col_key.lower() != 'proposal':
+            return
+        proposal = row_dict.get('proposal')
+        if not proposal:
+            return
+        if proposal not in self.model.ob_qf_dict:
+            # We haven't read in this program file.  Get the
+            # ControlPanel plugin so it can load the program file.
+            control_panel_plugin = self.view.get_plugin('cp')
+            instruments = (self.model.programs_qf
+                           .programs_info[proposal].instruments)
+            if 'PFS' in instruments:
+                control_panel_plugin.load_ppcfile(proposal)
+            else:
+                control_panel_plugin.load_program(proposal)
 
-            # Set the QueueModel.proposalForPropTab attribute so
-            # that the ProposalTab object can get that value and
-            # know which proposal it should display.
-            self.model.setProposalForPropTab(proposal)
-            self.view.gui_do(self.createTab)
+        # Set the QueueModel.proposalForPropTab attribute so the
+        # ProposalTab object knows which proposal to display.
+        self.model.setProposalForPropTab(proposal)
+        self.view.gui_do(self.createTab)
 
     def createTab(self):
         # If we have already created (and possibly closed) this
-        # proposal tab before, just reload it. Otherwise, we have to
-        # create it from scratch.
+        # proposal tab before, just reload it.  Otherwise create
+        # it from scratch.
         proposal = self.model.proposalForPropTab
         self.logger.info('Creating tab for proposal %s' % proposal)
         if self.view.gpmon.has_plugin(proposal):
@@ -84,24 +96,29 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
 
         self.view.start_plugin(proposal)
 
-        # Raise the tab we just created
+        # Raise the tab we just created.
         self.view.ds.raise_tab(proposal)
 
     def save_plan_cb(self, w):
+        if self.inputData is None:
+            self.logger.error("No table data defined yet")
+            return
+        if self._save_dlg is None:
+            self._save_dlg = Widgets.FileDialog(title='Save Plan As',
+                                                parent=self._container)
+            self._save_dlg.set_mode('save')
+            self._save_dlg.add_ext_filter('YAML files', '.yml')
+            self._save_dlg.add_callback('activated', self._save_plan_chosen)
+        self._save_dlg.popup()
+
+    def _save_plan_chosen(self, dlg, paths):
+        if not paths:
+            return
+        plan_file = paths[0]
         try:
-            if self.inputData is None:
-                raise ValueError("No table data defined yet")
-
-            w = Widgets.SaveDialog(title="Save Plan As", selectedfilter="*.yml")
-            plan_file = w.get_path()
-            if plan_file is None:
-                # user cancelled dialog
-                return
-
-            # prepare a dict of the plan
-            plan_dct = { d['proposal']: dict(qc_priority=d['qcp'],
-                                             skip=d['skip'])
-                         for d in self.inputData.rows }
+            plan_dct = {d['proposal']: dict(qc_priority=d['qcp'],
+                                            skip=d['skip'])
+                        for d in self.inputData.rows}
             plan_dct = dict(programs=plan_dct)
 
             with open(plan_file, 'w') as out_f:
@@ -117,67 +134,44 @@ class ProgramsTab(QueueFileTab.QueueFileTab):
     def load_plan_cb(self, w):
         if self.inputData is None:
             self.logger.error("No table data defined yet")
+            return
+        if self._load_dlg is None:
+            self._load_dlg = Widgets.FileDialog(title='Load Plan',
+                                                parent=self._container)
+            self._load_dlg.set_mode('file')
+            self._load_dlg.add_ext_filter('YAML files', '.yml')
+            self._load_dlg.add_callback('activated', self._load_plan_chosen)
+        self._load_dlg.popup()
 
-        self.file_sel.popup("Load Plan", self.load_plan, filename="*.yml")
-
-    def load_plan(self, plan_file):
+    def _load_plan_chosen(self, dlg, paths):
+        if not paths:
+            return
         try:
-            if self.inputData is None:
-                raise ValueError("No table data defined yet")
-
-            self.model.load_qc_plan(plan_file)
-
+            self.model.load_qc_plan(paths[0])
         except Exception as e:
             errmsg = f"error reading QC plan file: {e}"
             self.logger.error(errmsg, exc_info=True)
             self.view.gui_do(self.view.show_error, errmsg, raisetab=True)
 
-class TableModel(QueueFileTab.TableModel):
+    def validate_cell(self, row, col, col_key, new_value):
+        value2 = new_value
 
-    def __init__(self, inputData, columns, data, qmodel, logger):
-        super(TableModel, self).__init__(inputData, columns, data, qmodel, logger)
-        self.parse_flag = True
+        if col_key in ('rank', 'hours'):
+            try:
+                value2 = float(new_value)
+            except ValueError:
+                self.logger.error(
+                    'Error in column %s: cannot convert %s to float'
+                    % (col_key, new_value))
+                return False
+        elif col_key == 'band':
+            try:
+                value2 = int(new_value)
+            except ValueError:
+                self.logger.error(
+                    'Error in column %s: cannot convert %s to int'
+                    % (col_key, new_value))
+                return False
 
-    def setData(self, index, value, role = QtCore.Qt.EditRole):
-        # We implement the setData method so that the Programs table
-        # can be editable. If we are called with
-        # role=QtCore.Qt.EditRole, that means the user has changed a
-        # value in the table. Check to make sure the new value is
-        # acceptable. If not, reset the cell to the original value.
-        if role == QtCore.Qt.EditRole:
-            row, col = index.row(), index.column()
-            key = self.model_data[row][0]
-            colHeader = self.columns[col]
-            value2 = None
-            if colHeader in ('rank', 'hours'):
-                # Make sure we can parse the supplied Rank or Hours
-                # value as a float
-                try:
-                    value2 = float(value)
-                except ValueError:
-                    self.logger.error('Error in column %s: cannot convert %s to float' % (colHeader, value))
-                    return False
-            elif colHeader == 'band':
-                # Make sure we can parse the supplied band value as
-                # a float
-                try:
-                    value2 = int(value)
-                except ValueError:
-                    self.logger.error('Error in column %s: cannot convert %s to int' % (colHeader, value))
-                    return False
-            else:
-                value2 = value
-
-            # Update the value in the table
-            self.logger.debug('Setting model_data row %d col %d to %s' % (row,col,value2))
-            self.model_data[row][col] = value2
-
-            # Update the programs data structure in the QueueModel.
-            self.qmodel.update_programs(row, colHeader, value, self.parse_flag)
-
-            # Emit the dataChanged signal, as required by PyQt4 for
-            # implementations of the setData method.
-            self.dataChanged.emit(index, index)
-            return True
-        else:
-            return False
+        self.model.update_programs(row, col_key, new_value, self.parse_flag)
+        return value2 if value2 != new_value else True

@@ -33,8 +33,7 @@ class AirMassChart(PlBase.Plugin):
     def build_gui(self, container):
 
         self.plot = AltitudePlot(700, 500, logger=self.logger)
-
-        plot_w = Plot.PlotWidget(self.plot, width=700, height=500)
+        plot_w = Plot.PlotWidget(self.plot)
 
         container.set_margins(2, 2, 2, 2)
         container.set_spacing(4)
@@ -52,7 +51,6 @@ class AirMassChart(PlBase.Plugin):
                 self.logger.debug("no targets for plotting airmass")
                 self.view.gui_call(self.plot.clear)
             else:
-                self.logger.debug("plotting airmass")
                 self.view.gui_call(self.plot.clear)
                 site = info.site
                 target_data = info.target_data
@@ -62,9 +60,10 @@ class AirMassChart(PlBase.Plugin):
                 num_tgts = self.controller.num_tgt_plots
                 target_data = target_data[idx:idx+num_tgts]
 
+                self.logger.debug("plotting airmass")
                 self.view.error_wrap(self.plot.plot_altitude, site, target_data,
                                      self.tz)
-            self.view.error_wrap(self.plot.draw)
+            self.view.error_wrap(self.plot.redraw)
         ## except KeyError:
         ##     pass
         except Exception as e:
