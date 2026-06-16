@@ -34,7 +34,7 @@ class Logger(PlBase.Plugin):
         vbox.set_spacing(4)
 
         tw = Widgets.TextArea(editable=False, wrap=False)
-        self.font = self.view.get_font('Courier', 12)
+        self.font = self.view.get_font('monospace', 12)
         tw.set_limit(self.histlimit)
         tw.set_font(self.font)
         self.tw = tw
@@ -113,6 +113,8 @@ class Logger(PlBase.Plugin):
         self.autoscroll = val
 
     def log(self, text):
+        if not text.endswith('\n'):
+            text = text + '\n'
         if self.tw is not None:
             self.tw.append_text(text, autoscroll=self.autoscroll)
         else:
