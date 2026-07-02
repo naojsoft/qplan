@@ -10,11 +10,14 @@ from io import BytesIO, StringIO
 import datetime
 import re
 
+# 3rd-party
 import pandas as pd
 from pandas.plotting import register_matplotlib_converters
 
 from ginga.misc import Bunch
+from spot.util import calcpos
 
+# local
 from . import entity
 try:
     from .cfg import HSC_cfg
@@ -22,7 +25,6 @@ try:
 except (ImportError, FileNotFoundError) as e:
     have_HSC_cfg = False
 from qplan.util.site import site_subaru
-import qplan.util.calcpos
 from .common import hsc_extra_overhead_factor
 
 # In moon_states, the dict keys are the allowable the Phase 1 Moon
@@ -958,7 +960,7 @@ class EnvCfgFile(QueueFile):
         self.semester = None
         # Default airmass if armass column is not found - use airmass
         # at 30 deg elevation
-        self.default_airmass = qplan.util.calcpos.alt2airmass(30.0)
+        self.default_airmass = calcpos.alt2airmass(30.0)
         super(EnvCfgFile, self).__init__(input_dir, 'envcfg', logger, file_ext)
 
     def validate_data(self, progFile, propname):

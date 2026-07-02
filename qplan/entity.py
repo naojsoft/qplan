@@ -15,9 +15,7 @@ import numpy as np
 entity_version = 20250616.0
 
 from ginga.util.wcs import hmsStrToDeg, dmsStrToDeg
-
-# local imports
-from qplan.util.calcpos import Body
+from spot.util.calcpos import Body
 
 """
 NOTES

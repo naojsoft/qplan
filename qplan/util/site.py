@@ -3,7 +3,8 @@
 #
 
 from dateutil import tz
-from qplan.util.calcpos import Observer
+
+from spot.util.calcpos import Observer
 
 # Subaru Telescope
 wl_a =  {'observing': 3500., 'guiding': 6500.} # Angstrom

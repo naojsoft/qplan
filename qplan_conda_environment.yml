@@ -3,10 +3,9 @@
 #
 name: qplan
 dependencies:
-  - python=3.11
+  - python=3.13
   - pip
-  - astropy
-  - skyfield
+  - astropy>=7.2.0
   - scipy
   - matplotlib
   - pillow
@@ -19,4 +18,7 @@ dependencies:
   - python-dateutil
   - pymongo
   - pyyaml
-  - git
+  - pycairo
+  - cairosvg
+  - pip
+

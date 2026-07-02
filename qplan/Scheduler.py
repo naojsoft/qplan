@@ -10,12 +10,12 @@ from io import StringIO
 
 # 3rd party imports
 from ginga.misc import Callback, Bunch
+from spot.util.eph_cache import EphemerisCache
 
 # local imports
 from . import entity
 from . import qsim
 from .util import qsort, dates
-from .util.eph_cache import EphemerisCache
 
 # maximum rank for a program
 max_rank = 10.0
@@ -33,7 +33,14 @@ class Scheduler(Callback.Callbacks):
 
         self.site = observer
         self.timezone = observer.tz_local
+        # qsim.check_slot() reads moon_pct in addition to the default columns
+        # (see qsim.check_moon_cond); moon_pct is not in the cache defaults, so
+        # request it explicitly.  All of these are grid-supported columns.
         self.eph_cache = EphemerisCache(logger, precision_minutes=5,
+                                        columns=['ut', 'lt', 'alt_deg',
+                                                 'az_deg', 'airmass',
+                                                 'pang_deg', 'moon_alt',
+                                                 'moon_sep', 'moon_pct'],
                                         default_period_check=False)
 
         # these are the main data structures used to schedule
