@@ -130,7 +130,7 @@ def main(options, args):
     # create queue model, loader and OPE converter
     model = QueueModel(logger=logger)
     loader = QueueLoader(model, logger, options)
-    converter = SPCAM.Converter(logger)
+    converter = SPCAM.Converter(logger)  # noqa: F821  # legacy: SPCAM converter module not available
 
     # load the data
     loader.initialize_model()

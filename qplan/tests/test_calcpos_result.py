@@ -2,7 +2,8 @@ import pytest
 import numpy as np
 from dateutil.parser import parse as parse_date
 
-from qplan.util import calcpos, site
+from qplan.util import site
+from spot.util import calcpos
 
 
 test_data = [

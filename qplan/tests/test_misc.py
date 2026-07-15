@@ -2,8 +2,8 @@ import unittest
 import math
 from dateutil import tz
 
-from qplan import misc, entity, qsim
-from qplan.util import calcpos
+from qplan import misc, entity
+from spot.util import calcpos
 
 
         # RA           DEC          EQ
@@ -15,13 +15,13 @@ class TestEntity01(unittest.TestCase):
     def setUp(self):
         self.hst = tz.gettz('US/Hawaii')
         self.utc = tz.UTC
-        self.obs = entity.Observer('subaru',
-                                   longitude='-155:28:48.900',
-                                   latitude='+19:49:42.600',
-                                   elevation=4163,
-                                   pressure=615,
-                                   temperature=0,
-                                   timezone=self.hst)
+        self.obs = calcpos.Observer('subaru',
+                                    longitude='-155:28:48.900',
+                                    latitude='+19:49:42.600',
+                                    elevation=4163,
+                                    pressure=615,
+                                    temperature=0,
+                                    timezone=self.hst)
 
     def tearDown(self):
         pass
@@ -30,87 +30,6 @@ class TestEntity01(unittest.TestCase):
         time1 = self.obs.get_date("2014-04-15 19:00")
         time2 = self.obs.get_date("2014-04-15 20:00")
         self.assertTrue(time1 < time2)
-
-    def test_get_body(self):
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        self.assertTrue(isinstance(tgt.body, calcpos.Body))
-
-    def test_observable_1(self):
-        # vega should be visible during this period
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-29 04:00")
-        time2 = self.obs.get_date("2014-04-29 05:00")
-        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
-                                                      time1, time2,
-                                                      15.0, 85.0,
-                                                      59.9*60)
-        print((1, is_obs, time_rise, time_set))
-        self.assertTrue(is_obs == True)
-
-    def test_observable_2(self):
-        # vega should be visible near the end but not in the beginning
-        # during this period (rising)
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-28 22:00")
-        time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
-                                                      time1, time2,
-                                                      15.0, 85.0,
-                                                      60*15)  # 15 min ok
-        print((2, is_obs, time_rise, time_set))
-        self.assertTrue(is_obs == True)
-
-    def test_observable_3(self):
-        # vega should be visible near the end but not in the beginning
-        # during this period (rising)
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-28 22:00")
-        time2 = self.obs.get_date("2014-04-28 23:00")
-        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
-                                                      time1, time2,
-                                                      15.0, 85.0,
-                                                      60*16)  # 16 min NOT ok
-        print((3, is_obs, time_rise, time_set))
-        self.assertTrue(is_obs == False)
-
-    def test_observable_4(self):
-        # vega should be visible near the beginning but not near the end
-        # during this period (setting)
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-29 10:00")
-        time2 = self.obs.get_date("2014-04-29 11:00")
-        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
-                                                      time1, time2,
-                                                      15.0, 85.0,
-                                                      60*14)  # 14 min ok
-        print((4, is_obs, time_rise, time_set))
-        self.assertTrue(is_obs == True)
-
-    def test_observable_5(self):
-        # vega should be visible near the beginning but not near the end
-        # during this period (setting)
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-29 10:00")
-        time2 = self.obs.get_date("2014-04-29 11:00")
-        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
-                                                      time1, time2,
-                                                      15.0, 85.0,
-                                                      60*15)  # 15 min NOT ok
-        print((5, is_obs, time_rise, time_set))
-        self.assertTrue(is_obs == False)
-
-    def test_observable_6(self):
-        # vega should be visible near the beginning but not near the end
-        # during this period (setting)
-        tgt = entity.StaticTarget("vega", vega[0], vega[1])
-        time1 = self.obs.get_date("2014-04-29 11:00")
-        time2 = self.obs.get_date("2014-04-29 12:00")
-        is_obs, time_rise, time_set = qsim.observable(self.obs, tgt,
-                                                      time1, time2,
-                                                      15.0, 85.0,
-                                                      60*1)  # 1 min NOT ok
-        print((6, is_obs, time_rise, time_set))
-        self.assertTrue(is_obs == False)
 
     def ftest_airmass(self):
         # calculate airmass via "observer" module

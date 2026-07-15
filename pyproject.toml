@@ -4,6 +4,95 @@ requires = ["setuptools>=64",
             "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "qplan"
+description = "Queue Planner software for Subaru Telescope"
+readme = "README.md"
+authors = [{name = "Software Division, Subaru Telescope, NAOJ", email = "ocs@naoj.org"}]
+license = {text = "BSD"}
+requires-python = ">=3.11"
+keywords = ["astronomy", "queue", "planner", "subaru", "telescope"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dynamic = ["version"]
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.1.4",
+    "xlrd>=2.0.1",
+    "openpyxl>=3.1.2",
+    "python-dateutil>=2.8.2",
+    "ginga>=6.0.0",
+    "spot-nik>=1.1.0",
+    "qtpy>=2.4.1",
+    "matplotlib>=3.8.0",
+    "skyfield>=1.53",
+    "pyyaml>=6.0.1",
+    "pyerfa>=2.0.0",
+    "astropy>=7.2.0",
+    "pymongo>=4.0.0,<=4.13.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/naojsoft/qplan"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+license-files = ["LICENSE.md"]
+script-files = ["scripts/qplan", "scripts/qexec.py", "scripts/qfiles2db.py"]
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.setuptools.package-data]
+qplan = ["doc/manual/*.rst"]
+
 [tool.setuptools_scm]
 write_to = "qplan/version.py"
 version_scheme = "release-branch-semver"
+
+[tool.ruff]
+# match the historical flake8 line length used across the sibling projects
+line-length = 79
+
+[tool.ruff.lint]
+# pycodestyle (E/W) + pyflakes (F), matching the sibling projects
+select = ["E", "W", "F"]
+# Ignoring these (same base set carried across the sibling SPOT/qplan projects):
+# E265: block comment should start with '#'
+# E266: too many leading '#' for block comment
+# E402: module level import not at top of file
+# E501: line too long
+# E741: ambiguous variable name 'l'
+# F841: local variable is assigned to but never used
+#
+# Additional stylistic codes not historically enforced in this codebase.
+# These are cosmetic and are left off so the check stays focused on the
+# pyflakes (F) bug detectors; E711/E712 in particular are risky to
+# auto-rewrite here because pandas objects overload ==/!= against None.
+# E401: multiple imports on one line
+# E703: statement ends with an unnecessary semicolon
+# E711: comparison to None should use 'is'/'is not'
+# E712: comparison to True/False
+# E713: test for membership should be 'not in'
+# E722: do not use bare 'except'
+# E731: do not assign a lambda expression
+ignore = [
+    "E265", "E266", "E402", "E501", "E741", "F841",
+    "E401", "E703", "E711", "E712", "E713", "E722", "E731",
+]

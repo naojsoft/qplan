@@ -1827,10 +1827,10 @@ class OBListFile(QueueFile):
             try:
                 totalTime = float(totalTime_str)
             except ValueError as e:
-                msg = 'Error while checking sheet %s: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
-                progFile.logger.error(msg)
-                progFile.errors[self.name].append([None, [iname], msg])
-                progFile.error_count += 1
+                msg = 'Error while checking sheet {}: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
+                progfile.logger.error(msg)
+                progfile.errors[self.name].append([None, [iname], msg])
+                progfile.error_count += 1
 
         return totalTime
 
@@ -1870,7 +1870,7 @@ class OBListFile(QueueFile):
             try:
                 totalTime = float(totalTime_str)
             except ValueError as e:
-                msg = 'Error while checking sheet %s: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
+                msg = 'Error while checking sheet {}: Could not convert {} {} to a numerical value'.format(self.name, iname, totalTime_str)
                 progFile.logger.error(msg)
                 progFile.errors[self.name].append([None, [iname], msg])
                 progFile.error_count += 1
@@ -1879,7 +1879,7 @@ class OBListFile(QueueFile):
             try:
                 ph1_allocated_time = float(progFile.cfg['proposal'].proposal_info['allocated_time'])
             except ValueError as e:
-                msg = 'Error while checking sheet %s: Could not convert Phase 1 Allocated Time {} to a numerical value'.format(self.name, ph1_allocated_time_str)
+                msg = 'Error while checking sheet {}: Could not convert Phase 1 Allocated Time {} to a numerical value'.format(self.name, ph1_allocated_time_str)
                 progFile.logger.error(msg)
                 progFile.errors[self.name].append([None, [iname], msg])
                 progFile.error_count += 1

@@ -204,7 +204,7 @@ class SlewChart(PlBase.Plugin):
 
     def plot_ss(self, start_time=None):
         if start_time is None:
-            sdlr = model.get_scheduler()
+            sdlr = self.model.get_scheduler()
             start_time = datetime.now(tz=sdlr.timezone)
         ss_objs = [(tgt, start_time, tgt.name, color)
                    for tgt, color in self.ss]

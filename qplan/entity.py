@@ -17,6 +17,12 @@ entity_version = 20250616.0
 from ginga.util.wcs import hmsStrToDeg, dmsStrToDeg
 from spot.util.calcpos import Body
 
+try:
+    from oscript.util import ope
+    have_oscript = True
+except ImportError:
+    have_oscript = False
+
 """
 NOTES
 [1] MongoDB stores times in UTC (as epoch values actually).  Need to
@@ -1507,7 +1513,6 @@ class ProcessingStatusType(enum.IntEnum):
         return descriptions[self.value]
 
 def normalize_ra_dec_equinox(ra, dec, eq):
-    have_oscript = False
     if ra is None:
         ra_deg = None
     elif isinstance(ra, float):
