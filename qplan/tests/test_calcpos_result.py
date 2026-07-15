@@ -1,9 +1,16 @@
 import pytest
 import numpy as np
+from dateutil import tz
 from dateutil.parser import parse as parse_date
 
 from qplan.util import site
 from spot.util import calcpos
+
+# dateutil only resolves a tzname like "HST" if the *local* machine happens
+# to use it (via time.tzname), so parsing "... HST" yields an aware datetime
+# on an HST box but a naive one on a UTC CI runner.  Supply the mapping
+# explicitly so expected times parse consistently everywhere.
+_tzinfos = {"HST": tz.gettz("Pacific/Honolulu"), "UTC": tz.UTC}
 
 
 test_data = [
@@ -29,7 +36,7 @@ class TestCalcpos_Result:
         ("td"), test_data)
     def test_lt(self, td):
         cres = self.do_calc(td)
-        expected = parse_date(td['res_lt_str'])
+        expected = parse_date(td['res_lt_str'], tzinfos=_tzinfos)
         diff = abs((cres.lt - expected).total_seconds())
         # should be within 1 sec
         assert (diff < 1), \
@@ -40,7 +47,7 @@ class TestCalcpos_Result:
         ("td"), test_data)
     def test_ut(self, td):
         cres = self.do_calc(td)
-        expected = parse_date(td['res_ut_str'])
+        expected = parse_date(td['res_ut_str'], tzinfos=_tzinfos)
         diff = abs((cres.ut - expected).total_seconds())
         # should be within 1 sec
         assert (diff < 1), \
