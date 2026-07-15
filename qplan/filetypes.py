@@ -2090,6 +2090,13 @@ class ProgramFile(QueueFile):
                 error_incr += cfg.validate_column_names(self)
             else:
                 try:
+                    # If this sheet name isn't in the "warnings" and
+                    # "errors" Python dict variables, add it to those
+                    # variables here.
+                    if name not in self.warnings:
+                        self.warnings[name] = []
+                    if name not in self.errors:
+                        self.errors[name] = []
                     error_incr += cfg.validate_column_names(self)
                 except KeyError as e:
                     pass
