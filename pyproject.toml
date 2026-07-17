@@ -16,9 +16,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Operating System :: POSIX",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Astronomy",
@@ -31,15 +28,15 @@ dependencies = [
     "xlrd>=2.0.1",
     "openpyxl>=3.1.2",
     "python-dateutil>=2.8.2",
-    "ginga>=6.0.0",
-    "spot-nik>=1.1.0",
+    "ginga>=7.0.0",
+    "spot-nik>=1.2.0",
     "qtpy>=2.4.1",
     "matplotlib>=3.8.0",
     "skyfield>=1.53",
     "pyyaml>=6.0.1",
     "pyerfa>=2.0.0",
     "astropy>=7.2.0",
-    "pymongo>=4.0.0,<=4.13.2",
+    "pymongo>=4.0.0",
 ]
 
 [project.urls]
