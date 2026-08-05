@@ -12,6 +12,7 @@ import logging
 from ginga.misc import ModuleManager, Settings, Task
 from ginga.misc.Bunch import Bunch
 from ginga.misc import log
+from ginga.locale import localize
 import ginga.toolkit as ginga_toolkit
 
 # Local application imports
@@ -201,8 +202,17 @@ class QueuePlanner:
                               http_server=True,
                               geometry='1440x900',
                               confirm_shutdown=True,
+                              # UI language; 'en' forces English.  Set to None
+                              # to honor the environment (LANGUAGE/LC_ALL/
+                              # LC_MESSAGES/LANG), or a code like 'ja' to force
+                              # another language.
+                              language='en',
                               save_layout=True)
         self.settings = settings
+
+        # Apply the UI language before any UI is built, so widget captions
+        # and plugin strings render in the chosen language.
+        localize.set_language(settings.get('language', 'en'))
 
         # ------ command line overrides for various settings -----
         #
