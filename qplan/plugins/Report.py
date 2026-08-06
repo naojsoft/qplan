@@ -52,6 +52,7 @@ class Report(PlBase.Plugin):
         tw = Widgets.TextArea(wrap=False, editable=False)
         self.font = self.view.get_font('monospace', 12)
         tw.set_font(self.font)
+        tw.set_expanding(True, True)
         self.tw = tw
 
         vbox.add_widget(self.tw, stretch=4)

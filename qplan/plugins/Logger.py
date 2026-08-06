@@ -37,14 +37,12 @@ class Logger(PlBase.Plugin):
         self.font = self.view.get_font('monospace', 12)
         tw.set_limit(self.histlimit)
         tw.set_font(self.font)
+        tw.set_expanding(True, True)
         self.tw = tw
         tw.set_text('\n'.join(self._save_buf))
         self._save_buf = []
 
-        sw = Widgets.ScrollArea()
-        sw.set_widget(self.tw)
-
-        vbox.add_widget(sw, stretch=1)
+        vbox.add_widget(tw, stretch=1)
 
         captions = [('Level', 'combobox', 'History', 'spinbutton',
                      'Auto scroll', 'checkbutton', 'Clear', 'button'),
