@@ -200,6 +200,7 @@ class QueuePlanner:
                               # this only takes effect if we are using
                               # the pgwidgets backend
                               http_server=True,
+                              token='none',
                               geometry='1440x900',
                               confirm_shutdown=True,
                               # UI language; 'en' forces English.  Set to None
