@@ -133,6 +133,12 @@ class Viewer(GwMain.GwMain, Widgets.Application):
             w = self.ds.toplevels.pop()
             w.delete()
 
+        # Stop the GUI toolkit's main loop.  On gtk3 the loop already exits
+        # once ev_quit is set (by stop() above), but gtk4's loop does not poll
+        # ev_quit, so we must ask the application to end it explicitly.  This
+        # is a harmless no-op on backends that already exit on ev_quit.
+        self.process_end()
+
     def stop(self):
         self.ev_quit.set()
 
