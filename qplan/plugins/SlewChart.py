@@ -34,7 +34,7 @@ class SlewChart(PlBase.Plugin):
                    (common.saturn, 'gray'), (common.uranus, 'gray'),
                    (common.neptune, 'gray'), (common.pluto, 'gray'),
                    ]
-        # NOTE: these colors should match those in qplan.plots.airmass
+        # NOTE: these colors should match those in spot.plots.altitude
         ## self.colors = ['blue', 'red', 'magenta', 'turquoise',
         ##                'salmon', 'plum', 'pink']
         self.colors = ['red', 'blue', 'green', 'cyan', 'magenta', 'yellow']

@@ -23,11 +23,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    # Upper bound: numpy 2.5.0 triggers a NaN in skyfield's find_settings/
-    # find_risings refinement loop -> bogus EphemerisRangeError when plotting
-    # target altitude/twilight (still present in skyfield 1.55).  Drop the cap
-    # once skyfield is fixed.
-    "numpy>=2.0,<2.5",
+    "numpy>=2.0",
     "pandas>=2.1.4",
     "xlrd>=2.0.1",
     "openpyxl>=3.1.2",

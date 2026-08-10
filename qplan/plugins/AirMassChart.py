@@ -9,7 +9,7 @@ from ginga.gw import Plot
 from ginga.misc import Bunch
 
 from qplan.plugins import PlBase
-from qplan.plots.airmass import AltitudePlot
+from spot.plots.altitude import AltitudePlot
 
 
 class AirMassChart(PlBase.Plugin):
@@ -62,7 +62,7 @@ class AirMassChart(PlBase.Plugin):
 
                 self.logger.debug("plotting airmass")
                 self.view.error_wrap(self.plot.plot_altitude, site, target_data,
-                                     self.tz)
+                                     self.tz, center_time=info.center_time)
             self.view.error_wrap(self.plot.redraw)
         ## except KeyError:
         ##     pass
@@ -109,7 +109,13 @@ class AirMassChart(PlBase.Plugin):
         if num_tgts > 0:
             for tgt in targets:
                 calc_res = site.get_target_info(tgt)
-                target_data.append(Bunch.Bunch(calc_res=calc_res, target=tgt))
+                # spot.plots.altitude.AltitudePlot reads its time series from
+                # a dict-like `history` (column access) rather than the
+                # CalculationResult attributes, so adapt to that contract.
+                history = dict(ut=calc_res.ut, alt_deg=calc_res.alt_deg,
+                               moon_sep=calc_res.moon_sep,
+                               moon_alt=calc_res.moon_alt)
+                target_data.append(Bunch.Bunch(history=history, target=tgt))
                 lengths.append(len(calc_res))
 
         # clip all arrays to same length
@@ -119,8 +125,17 @@ class AirMassChart(PlBase.Plugin):
         # for il in target_data:
         #     il.history = il.history[:min_len]
 
+        # center of the plotted night (midpoint of the sunset..sunrise window);
+        # passed to the altitude plot as its "night center" reference line.
+        # Derived from the already-computed start/stop so it needs no extra
+        # ephemeris call.
+        center_time = start_time + timedelta(
+            seconds=(stop_time - start_time).total_seconds() * 0.5)
+
         self.schedules[schedule] = Bunch.Bunch(site=site, num_tgts=num_tgts,
-                                               target_data=target_data, length=min_len)
+                                               target_data=target_data,
+                                               center_time=center_time,
+                                               length=min_len)
 
     def new_schedule_cb(self, qscheduler, schedule):
         self.add_schedule(schedule)
