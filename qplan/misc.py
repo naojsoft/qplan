@@ -3,6 +3,7 @@
 #
 #  E. Jeschke
 #
+import math
 from datetime import timedelta
 
 # 3rd party
@@ -102,6 +103,20 @@ def normalize_angle(ang_deg, limit=None, ang_offset=0.0):
     To normalize to Subaru azimuth (AZ 0 == S), do
         normalize_angle(ang_deg, limit='half', ang_offset=-180.0)
     """
+    # scalar fast path: the scheduler geometry calls this a huge number of
+    # times with plain floats; avoid the per-call numpy array allocation.
+    # Produces the same result as the array path below.
+    if not isinstance(ang_deg, np.ndarray):
+        a = float(ang_deg) + ang_offset
+        if abs(a) >= 360.0:
+            a = math.fmod(a, math.copysign(360.0, a))
+        if limit is not None:
+            if a < 0.0:
+                a += 360.0
+            if limit == 'half' and a > 180.0:
+                a -= 360.0
+        return a
+
     # convert to array if just a scalar
     is_array = isinstance(ang_deg, np.ndarray)
     if not is_array:

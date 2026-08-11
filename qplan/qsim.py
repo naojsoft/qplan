@@ -350,12 +350,15 @@ def check_slot(site, schedule, slot, oblist, eph_cache,
         ## if ob.total_time > delta:
         ##     return False
 
-        # find the time that this object begins to be visible
+        # find the time that this object begins to be visible.
+        # period_check=False: the night grid is already populated (by
+        # obs_to_slots before scheduling), so skip the per-call re-populate.
         # TODO: figure out the best place to split the slot
         (obs_ok, t_start, t_stop) = eph_cache.observable(ob.target, ob.target, site,
                                                          start_time, slot.stop_time,
                                                          min_el_deg, max_el_deg,
-                                                         ob.total_time)
+                                                         ob.total_time,
+                                                         period_check=False)
 
         if not obs_ok:
             res.setvals(obs_ok=False,
