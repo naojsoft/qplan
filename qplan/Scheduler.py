@@ -133,68 +133,52 @@ class Scheduler(Callback.Callbacks):
     def _ob_code(self, ob):
         return "%s/%s" % (ob.program, ob.name)
 
-    def cmp_res(self, res1, res2):
-        """
-        Compare two results from check_slot.
+    def _score_base(self, res):
+        """Weighted cost of a candidate result, EXCLUDING the same-program
+        PI-priority term (which is only meaningful between two OBs of the same
+        program, so it is applied in cmp_res).  LOWER IS BETTER.
 
         Calculate a number based on the
         - slew time to target (weight: w_slew)
         - delay until target visible (weight: w_delay)
-        - time lost (if any) having to change
-             filters (weight: self.w_filterchange)
+        - time lost (if any) changing filters (weight: w_filterchange)
         - rank of the program (weight: w_rank)
         - queue coordinators priority for program (weight: w_qcp)
 
+        This is computed once per candidate per slot (see eval_slot) instead of
+        recomputed inside every pairwise comparison, which used to dominate the
+        scheduling time.
+        """
+        wts = self.weights
+        pgm = res.ob.program
+        t = 0.0
+        # slew time factor
+        t += wts.w_slew * (min(res.slew_sec, self.max_slew) / self.max_slew)
+        # delay time factor
+        t += wts.w_delay * (min(res.delay_sec, self.max_delay) / self.max_delay)
+        # filter exchange time factor
+        t += wts.w_filterchange * (min(res.filterchange_sec,
+                                       self.max_filterchange) /
+                                   self.max_filterchange)
+        # program rank factor (invert: higher rank -> lower number)
+        t += wts.w_rank * (1.0 - min(pgm.rank, self.max_rank) / self.max_rank)
+        # queue coordinator priority
+        t += wts.w_qcp * pgm.qc_priority
+        return t
+
+    def cmp_res(self, res1, res2):
+        """Compare two candidate results using their precomputed base score
+        (`res.score`, from `_score_base`) plus, for two OBs of the *same*
+        program, the PI's per-OB priority term (`res._prio_term`).
+
         LOWER NUMBERS ARE BETTER!
         """
-        # TODO: turn this into a table-based iterative calculation,
-        # where all factors and weights are parameterized.  Can this
-        # be done without slowing it down significantly?
-        wts = self.weights
-        t1 = t2 = 0.0
-
-        # slew time factor
-        r1_slew = min(res1.slew_sec, self.max_slew) / self.max_slew
-        t1 += wts.w_slew * r1_slew
-        r2_slew = min(res2.slew_sec, self.max_slew) / self.max_slew
-        t2 += wts.w_slew * r2_slew
-
-        # delay time factor
-        r1_delay = min(res1.delay_sec, self.max_delay) / self.max_delay
-        t1 += wts.w_delay * r1_delay
-        r2_delay = min(res2.delay_sec, self.max_delay) / self.max_delay
-        t2 += wts.w_delay * r2_delay
-
-        # filter exchange time factor
-        r1_filter = (min(res1.filterchange_sec, self.max_filterchange) /
-                     self.max_filterchange)
-        t1 += wts.w_filterchange * r1_filter
-        r2_filter = (min(res2.filterchange_sec, self.max_filterchange) /
-                    self.max_filterchange)
-        t2 += wts.w_filterchange * r2_filter
-
-        # program rank factor
-        r1_rank = min(res1.ob.program.rank, self.max_rank) / self.max_rank
-        # invert because higher rank should make a lower number
-        r1_rank = 1.0 - r1_rank
-        t1 += wts.w_rank * r1_rank
-        r2_rank = min(res2.ob.program.rank, self.max_rank) / self.max_rank
-        r2_rank = 1.0 - r2_rank
-        t2 += wts.w_rank * r2_rank
-
-        # queue coordinator priority
-        t1 += wts.w_qcp * res1.ob.program.qc_priority
-        t2 += wts.w_qcp * res2.ob.program.qc_priority
-
-        if res1.ob.program == res2.ob.program:
-            # for OBs in the same program, factor in PI's OB priority
-            t1 += wts.w_priority * res1.ob.priority
-            t2 += wts.w_priority * res2.ob.priority
-
-        res = int(numpy.sign(t1 - t2))
-        ## self.logger.debug("%s : %f   %s : %f" % (
-        ##     self._ob_code(res1.ob), t1, self._ob_code(res2.ob), t2))
-        return res
+        t1, t2 = res1.score, res2.score
+        # for OBs in the same program, factor in the PI's OB priority
+        if res1._pgmkey == res2._pgmkey:
+            t1 += res1._prio_term
+            t2 += res2._prio_term
+        return int(numpy.sign(t1 - t2))
 
     def eval_slot(self, schedule, slot, site, oblist):
 
@@ -206,6 +190,16 @@ class Scheduler(Callback.Callbacks):
         # filter out unobservable OBs
         good = list(filter(lambda res: res.obs_ok, results))
         bad = list(filter(lambda res: not res.obs_ok, results))
+
+        # precompute each candidate's sort key ONCE (base weighted score, the
+        # program key, and the PI-priority term), so the comparison used by the
+        # sort is a couple of float reads instead of recomputing the full
+        # weighting -- this was the dominant scheduling cost.
+        wp = self.weights.w_priority
+        for res in good:
+            res.score = self._score_base(res)
+            res._pgmkey = str(res.ob.program)
+            res._prio_term = wp * res.ob.priority
 
         # sort according to desired criteria
         # NOTE: we cannot use python's built in sort with this comparison

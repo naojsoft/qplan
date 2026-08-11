@@ -113,6 +113,22 @@ def summarize(sdlr):
                        pct=(100.0 * n_scheduled / n_obs) if n_obs else 0.0)
 
 
+def schedule_signature(sdlr):
+    """A deterministic fingerprint of the scheduling *result*: per night, the
+    ordered list of scheduled (non-derived) OB codes.  Used to confirm an
+    optimization did not change the schedule."""
+    import hashlib
+    lines = []
+    for schedule in sdlr.schedules:
+        night = schedule.start_time.strftime('%Y-%m-%d')
+        codes = ["%s/%s" % (slot.ob.program, slot.ob.name)
+                 for slot in schedule.slots
+                 if slot.ob is not None and not slot.ob.derived]
+        lines.append("%s: %s" % (night, ",".join(codes)))
+    blob = "\n".join(lines)
+    return hashlib.sha1(blob.encode()).hexdigest()[:12], lines
+
+
 def main(args):
     logger = get_logger('bench', level=args.loglevel, log_stderr=True)
 
@@ -125,11 +141,13 @@ def main(args):
     sdlr, enabled = configure_scheduler(logger, data, args.nights)
     print("scheduling %d night(s), %d OBs..." % (enabled, len(data.oblist)))
 
-    prof = cProfile.Profile()
+    prof = None if args.no_profile else cProfile.Profile()
     t0 = time.time()
-    prof.enable()
+    if prof is not None:
+        prof.enable()
     sdlr.schedule_all()
-    prof.disable()
+    if prof is not None:
+        prof.disable()
     wall = time.time() - t0
 
     res = summarize(sdlr)
@@ -139,8 +157,16 @@ def main(args):
     print("OBs available           : %8d" % (res.n_obs,))
     print("OBs scheduled           : %8d  (%.1f%%)" % (res.n_scheduled, res.pct))
     print("unique targets          : %8d" % (res.n_targets,))
+    sig, sig_lines = schedule_signature(sdlr)
+    print("schedule signature      : %8s" % (sig,))
     print("==================================================\n")
+    if args.signature:
+        for line in sig_lines:
+            print("  " + line)
+        print()
 
+    if prof is None:
+        return
     for sort_key in ('tottime', 'cumtime'):
         s = io.StringIO()
         ps = pstats.Stats(prof, stream=s).sort_stats(sort_key)
@@ -170,6 +196,10 @@ if __name__ == '__main__':
                     help="number of hottest functions to show")
     ap.add_argument("--dump", default=None,
                     help="write raw cProfile stats to this path")
+    ap.add_argument("--signature", action='store_true',
+                    help="print the per-night scheduled OB list (result check)")
+    ap.add_argument("--no-profile", action='store_true',
+                    help="skip cProfile (clean wall-time measurement)")
     ap.add_argument("--loglevel", type=int, default=logging.ERROR,
                     help="logging level (default: ERROR=40)")
     main(ap.parse_args(sys.argv[1:]))
