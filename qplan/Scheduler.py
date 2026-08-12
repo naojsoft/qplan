@@ -431,12 +431,17 @@ class Scheduler(Callback.Callbacks):
             if night_stop < night_start:
                 night_stop += timedelta(days=1)
 
-            # associate available filters and other items with this schedule
+            # associate available filters and other items with this schedule.
+            # Copy the record's data: scheduling writes the running telescope
+            # state (cur_az/cur_el/cur_rot/cur_filter) back into schedule.data
+            # (see ob_slot_into_schedule), and we must not mutate the shared
+            # schedule_recs -- otherwise a second schedule_all() in the same
+            # process would start from the previous run's ending state.
             schedules.append(entity.Schedule(night_start, night_stop,
-                                             data=rec.data))
+                                             data=rec.data.copy()))
             delta = (night_stop - night_start).total_seconds()
             night_slots.append(entity.Slot(night_start, delta,
-                                           data=rec.data))
+                                           data=rec.data.copy()))
 
         t_t1_1 = time.time()
         unique_targets = set([ob.target for ob in self.oblist])
