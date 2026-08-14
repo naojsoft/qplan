@@ -77,8 +77,10 @@ class Report(PlBase.Plugin):
         self.w.btn_save_report = btn
         hbox.add_widget(btn)
 
+        # NOTE: the spacer pushes the buttons to the left; a second one
+        # in the vbox would compete with the text area for the leftover
+        # height, so the report would not fill the panel
         hbox.add_widget(Widgets.Label(''), stretch=1)
-        vbox.add_widget(Widgets.Label(''), stretch=1)
         vbox.add_widget(hbox, stretch=0)
 
         container.add_widget(vbox, stretch=1)
