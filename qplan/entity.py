@@ -42,6 +42,16 @@ class PersistentEntity(object):
     def __init__(self, tblname):
         super().__init__()
         self._tblname = tblname
+        # The MongoDB _id of this entity, once it exists in the database.
+        # None means "not stored yet", which is what tells q_db whether a
+        # write can target the document directly or has to upsert on the
+        # entity's key. from_rec() fills it in for anything read back out
+        # of the database.
+        #
+        # Note explode() drops every underscore-prefixed attribute, so
+        # this never reaches the stored document and an update can never
+        # try to modify the immutable _id field.
+        self._id = None
 
     def to_rec(self):
         return explode(self)
@@ -1715,7 +1725,7 @@ def make_ob(dct, program):
     else:
         raise ValueError(f"instrument not recognized: '{insname}'")
 
-    ob._id = dct['_id']
+    ob._id = dct.get('_id')
     ob._save_tstamp = dct.get('_save_tstamp', None)
 
     return ob

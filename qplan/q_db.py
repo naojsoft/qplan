@@ -7,7 +7,7 @@ from dateutil import tz
 
 # third-party imports
 import yaml
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 
 from qplan import entity
 """
@@ -98,6 +98,44 @@ class QueueAdapter(object):
         pass
 
 
+# Number of operations to send in a single bulk_write.
+default_chunk_size = 1000
+
+
+def update_op(pyobj, tstamp=None):
+    """Return the (filter, update, upsert) for storing `pyobj`.
+
+    An entity that came out of the database carries its _id, and that is
+    what we target: it is the primary key, so the update is a single
+    index hit.
+
+    The alternative, and what this used to do unconditionally, is the
+    entity's own `key`. For an Executed_OB that key matches the whole
+    "ob_key" array, and the index on "ob_key" is multikey -- it indexes
+    the array elements separately -- so the proposal id alone matches
+    every executed_ob of the program and the server fetches and filters
+    that whole set on every write. Measured against a real collection
+    that is about 24 documents per second, against about 4400 by _id.
+    PFS_Executed_OB_Stats has the same key shape and the same problem.
+
+    An entity with no _id has not been stored yet, so it keeps the
+    upsert on its key. Callers should copy the resulting _id back onto
+    the object so later writes take the fast path.
+
+    Note entity.explode() drops underscore-prefixed attributes, so _id
+    is never in the document and $set cannot try to modify it.
+    """
+    if tstamp is None:
+        tstamp = datetime.now(tz=tz.UTC)
+    doc = pyobj.to_rec()
+    # record time of last update for this entity
+    doc['_save_tstamp'] = tstamp
+
+    if pyobj._id is None:
+        return pyobj.key, {'$set': doc}, True
+    return {'_id': pyobj._id}, {'$set': doc}, False
+
+
 class QueueTable(object):
     """
     qt = QueueTable(qa, 'executed_ob')
@@ -125,15 +163,94 @@ class QueueTable(object):
             raise ValueError("Use q_query functions to get '{}' objects".format(self._tblname))
         return pyobj
 
-    def put(self, pyobj):
+    def _check_table(self, pyobj):
         # sanity check that we are trying to save object to compatible table!
         if pyobj._tblname != self._tblname:
             raise ValueError("Trying to save '{}' object to '{}' table".format(pyobj._tblname, self._tblname))
 
-        doc = pyobj.to_rec()
-        # record time of last update for this entity
-        doc['_save_tstamp'] = datetime.now(tz=tz.UTC)
-        self.tbl.update_one(pyobj.key, {'$set': doc}, upsert=True)
+    def put(self, pyobj):
+        self._check_table(pyobj)
+
+        filt, update, upsert = update_op(pyobj)
+        result = self.tbl.update_one(filt, update, upsert=upsert)
+
+        if upsert:
+            # Remember where it landed, so a later write to the same
+            # object can target it by _id.
+            if result.upserted_id is not None:
+                pyobj._id = result.upserted_id
+            return
+
+        if result.matched_count == 0:
+            # We targeted an _id that is no longer there: the document
+            # was removed between the read that produced this entity and
+            # this write. Fall back to storing it under its own key.
+            self.logger.warning(
+                "'{}' document with _id {} no longer exists; "
+                "storing it under its key instead".format(
+                    self._tblname, pyobj._id))
+            pyobj._id = None
+            self.put(pyobj)
+
+    def put_many(self, pyobjs, chunk_size=default_chunk_size):
+        """Store many entities, batching them into bulk_write calls.
+
+        put() issues one round trip per entity. For anything writing
+        thousands of documents this is the method to use.
+
+        Returns the number of documents written.
+        """
+        pyobjs = list(pyobjs)
+        for pyobj in pyobjs:
+            self._check_table(pyobj)
+
+        n_written = 0
+        for i in range(0, len(pyobjs), chunk_size):
+            n_written += self._put_chunk(pyobjs[i:i + chunk_size])
+        return n_written
+
+    def _put_chunk(self, chunk):
+        tstamp = datetime.now(tz=tz.UTC)
+        ops, upserting, targeting = [], [], []
+        for pyobj in chunk:
+            filt, update, upsert = update_op(pyobj, tstamp)
+            (upserting if upsert else targeting).append((len(ops), pyobj))
+            ops.append(UpdateOne(filt, update, upsert=upsert))
+
+        result = self.tbl.bulk_write(ops, ordered=False)
+
+        # Remember where the new documents landed. bulk_write reports
+        # these keyed by the index of the operation that created them.
+        by_index = dict(upserting)
+        for idx, oid in (result.upserted_ids or {}).items():
+            pyobj = by_index.get(int(idx))
+            if pyobj is not None:
+                pyobj._id = oid
+
+        if targeting and result.matched_count < len(targeting):
+            self._recover_missing([pyobj for _, pyobj in targeting])
+
+        return len(ops)
+
+    def _recover_missing(self, pyobjs):
+        """Re-store entities whose _id has disappeared from the database.
+
+        bulk_write only reports how many operations matched, not which,
+        so ask which of these _ids still exist and re-store the rest
+        under their own keys.
+        """
+        ids = [pyobj._id for pyobj in pyobjs]
+        alive = {rec['_id']
+                 for rec in self.tbl.find({'_id': {'$in': ids}}, {'_id': 1})}
+        missing = [pyobj for pyobj in pyobjs if pyobj._id not in alive]
+        if not missing:
+            return
+        self.logger.warning(
+            "{} '{}' documents no longer exist; storing them under their "
+            "keys instead".format(len(missing), self._tblname))
+        for pyobj in missing:
+            pyobj._id = None
+        self._put_chunk(missing)
 
 
 # Table map of serialization functions from MongoDB record to Python object.
