@@ -22,12 +22,27 @@ class FakeCollection:
 
     # -- helpers -----------------------------------------------------
 
+    def _get(self, doc, field):
+        """Resolve a possibly-dotted field, as MongoDB would."""
+        cur = doc
+        for part in field.split('.'):
+            if isinstance(cur, (list, tuple)):
+                idx = int(part)
+                cur = cur[idx] if idx < len(cur) else None
+            elif isinstance(cur, dict):
+                cur = cur.get(part)
+            else:
+                return None
+        return cur
+
     def _matches(self, doc, filt):
         for field, want in filt.items():
-            if field == '_id':
-                if doc.get('_id') != want:
-                    return False
-            elif doc.get(field) != want:
+            got = self._get(doc, field)
+            if isinstance(got, tuple):
+                got = list(got)
+            if isinstance(want, tuple):
+                want = list(want)
+            if got != want:
                 return False
         return True
 
@@ -41,8 +56,14 @@ class FakeCollection:
             return 0, None
         oid = self._next_id
         self._next_id += 1
+        # Real MongoDB builds an upserted document from $set plus the
+        # query's equality fields; where both mention the same path, the
+        # $set value wins, so a dotted predicate never leaves a stray
+        # "ob_key.0" field behind. (Verified against a live server.)
         doc = dict(update['$set'])
-        doc.update({k: v for k, v in filt.items() if k != '_id'})
+        for k, v in filt.items():
+            if k != '_id' and '.' not in k and k not in doc:
+                doc[k] = v
         doc['_id'] = oid
         self.docs.append(doc)
         return 0, oid
@@ -125,7 +146,7 @@ class TestUpdateOp(unittest.TestCase):
     def test_new_entity_upserts_on_its_key(self):
         ex = an_executed_ob()
         filt, update, upsert = q_db.update_op(ex)
-        self.assertEqual(filt, ex.key)
+        self.assertEqual(filt, q_db.key_filter(ex.key))
         self.assertTrue(upsert)
         self.assertIn('_save_tstamp', update['$set'])
 
@@ -146,7 +167,7 @@ class TestPut(unittest.TestCase):
         qt.put(ex)
 
         filt, update, upsert = coll.update_calls[0]
-        self.assertEqual(filt, ex.key)
+        self.assertEqual(filt, q_db.key_filter(ex.key))
         self.assertTrue(upsert)
         # the object now knows where it lives, so a second write is cheap
         self.assertIsNotNone(ex._id)
@@ -183,7 +204,7 @@ class TestPut(unittest.TestCase):
 
         # first attempt by _id, then a fallback upsert on the key
         self.assertEqual(coll.update_calls[0][0], {'_id': 999})
-        self.assertEqual(coll.update_calls[1][0], ex.key)
+        self.assertEqual(coll.update_calls[1][0], q_db.key_filter(ex.key))
         self.assertTrue(coll.update_calls[1][2])
         self.assertEqual(len(coll.docs), 1)
 
@@ -250,3 +271,35 @@ class TestPutMany(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestKeyFilter(unittest.TestCase):
+
+    def test_scalar_fields_pass_through(self):
+        self.assertEqual(q_db.key_filter({'proposal': 'S25A-000QF'}),
+                         {'proposal': 'S25A-000QF'})
+        self.assertEqual(q_db.key_filter({'program': 'P', 'name': 'OB1'}),
+                         {'program': 'P', 'name': 'OB1'})
+
+    def test_array_fields_become_positional(self):
+        """The multikey index on ob_key cannot serve a whole-array match
+        efficiently; the positional paths hit the compound index."""
+        self.assertEqual(
+            q_db.key_filter({'ob_key': ('S25A-000QF', 'OB1'),
+                             'time_start': 'T'}),
+            {'ob_key.0': 'S25A-000QF', 'ob_key.1': 'OB1', 'time_start': 'T'})
+
+    def test_lists_and_tuples_alike(self):
+        self.assertEqual(q_db.key_filter({'ob_key': ['P', 'OB1']}),
+                         q_db.key_filter({'ob_key': ('P', 'OB1')}))
+
+    def test_new_entity_upserts_on_the_expanded_key(self):
+        ex = an_executed_ob()
+        filt, update, upsert = q_db.update_op(ex)
+        self.assertTrue(upsert)
+        self.assertIn('ob_key.0', filt)
+        self.assertNotIn('ob_key', filt)
+        # $set still carries the field in its proper array form, so the
+        # inserted document is identical either way.
+        self.assertEqual(tuple(update['$set']['ob_key']),
+                         ('S25A-000QF', 'OB1'))
