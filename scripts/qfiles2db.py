@@ -33,7 +33,7 @@ def main(options, args):
         ob_qf_dict[pgmName] = pf
 
     if options.dry_run:
-        logger.info(f'dry run - not updating database')
+        logger.info('dry run - not updating database')
     else:
         config_filepath = Path(options.config_file)
         if not config_filepath.exists():

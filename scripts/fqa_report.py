@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from dateutil import parser, tz
 from datetime import timedelta, datetime
 
-from qplan import q_db, q_query, entity
+from qplan import q_db, q_query
 
 from ginga.misc.log import get_logger
 

@@ -1,5 +1,5 @@
 from __future__ import print_function
-import os, sys
+import sys
 import logging
 
 from ginga.misc import log
