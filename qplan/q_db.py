@@ -26,7 +26,7 @@ class QueueDatabase(object):
     """
 
     def __init__(self, logger, addr=None, username=None, password=None,
-                 auth_mech='SCRAM-SHA-256', auth_src='auth_db'):
+                 auth_mech='SCRAM-SHA-256', auth_src='auth_db', **kwargs):
         self.logger = logger
         if addr is None:
             addr = ('localhost', 9800)
@@ -35,6 +35,7 @@ class QueueDatabase(object):
         self.db_pswd = password
         self.db_auth = auth_mech
         self.db_auth_src = auth_src
+        self.db_conn_options = kwargs
 
         self.mdb_client = None
         self.mdb_db = None
@@ -50,6 +51,7 @@ class QueueDatabase(object):
         self.db_pswd = cf.get('db_pass', None)
         self.db_auth = cf.get('db_auth', 'SCRAM-SHA-256')
         self.db_auth_src = cf.get('auth_src', 'auth_db')
+        self.db_conn_options = cf.get('db_conn_options', {})
 
     def close(self):
         self.mdb_client.close()
@@ -61,6 +63,7 @@ class QueueDatabase(object):
             kwargs = dict(username=self.db_user, password=self.db_pswd,
                           authSource=self.db_auth_src,
                           authMechanism=self.db_auth)
+            kwargs.update(self.db_conn_options)
         self.mdb_client = MongoClient(self.db_host, self.db_port,
                                       **kwargs)
         self.mdb_db = self.mdb_client['queue_db']
